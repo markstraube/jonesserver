@@ -1,0 +1,34 @@
+package com.straube.jones.cmd;
+
+
+import java.io.File;
+
+import com.straube.jones.cmd.onVista.OnVistaCollector;
+import com.straube.jones.cmd.onVista.OnVistaIndexer;
+
+/**
+ * Hello world!
+ */
+public class StocksGrabber
+{
+	public static void main(final String[] args)
+	{
+		final String dataRoot;
+		if (args.length > 0 && args[0].length() > 0)
+		{
+			dataRoot = args[0];
+		}
+		else
+		{
+			dataRoot = "./data";
+		}
+		/** OnVista */
+		OnVistaCollector onVista = new OnVistaCollector(dataRoot);
+		//File targetFolder = new File("C:/Dev/__GIT/jonesserver/data/onVista/finder/2021-12-22");
+		File targetFolder = onVista.getJsonFromFinder();
+		onVista.updateFinderJsonToDB(targetFolder);
+		OnVistaIndexer.index(targetFolder, dataRoot);
+
+		System.out.println("Done - leaving program");
+	}
+}
