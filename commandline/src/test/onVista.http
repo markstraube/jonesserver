@@ -1,0 +1,8 @@
+
+GET https://www.onvista.de/aktien/finder?cols=instrument,instrument.wkn,company.branch.name,company.nameCountry,quote.last,quote.performancePct,doubleValues.perfW52,doubleValues.cnDivYieldM1,doubleValues.cnMarketCapM1&idContinentCompany=258&cnMarketCapM1Range=10264462758.333334;104812662750
+Accept: application/json
+
+###
+
+GET https://www.onvista.de/aktien/finder?idBranch=1
+Accept: application/json

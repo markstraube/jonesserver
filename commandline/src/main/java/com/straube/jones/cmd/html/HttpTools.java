@@ -3,6 +3,7 @@ package com.straube.jones.cmd.html;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -84,9 +85,9 @@ public class HttpTools
 	public static String downloadFromWebToString(String url)
 		throws Exception
 	{
-
 		try (final CloseableHttpClient httpclient = HttpClients.createDefault())
 		{
+			URLEncoder.encode(url, Charset.forName("UTF-8"));
 			final HttpGet httpget = new HttpGet(url);
 
 			final ResponseHandler<String> responseHandler = response -> {

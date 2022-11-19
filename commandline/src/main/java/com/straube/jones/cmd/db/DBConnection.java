@@ -45,6 +45,7 @@ public class DBConnection
 				prop.put("charSet", "UTF-8");
 				prop.put("user", user);
 				prop.put("password", password);
+				prop.put("allowPublicKeyRetrieval","true");
 
 				connection = DriverManager.getConnection(connectUrl, prop);
 				connection.setAutoCommit(false);
