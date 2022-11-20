@@ -25,6 +25,18 @@ public class StocksGrabber
 			dataRoot = "./data";
 		}
 		/** OnVista */
+		//createDB();
+		OnVistaCollector onVista = new OnVistaCollector(dataRoot);
+		//File targetFolder = new File("C:/Dev/__GIT/jonesserver/data/onVista/finder/2021-12-22");
+		File targetFolder = onVista.getJsonFromFinder();
+  		onVista.updateFinderJsonToDB(targetFolder);
+		//OnVistaIndexer.index(targetFolder, dataRoot);
+
+		System.out.println("Done - leaving program");
+	}
+
+	private static void createDB()
+	{
 		try
 		{
 			OnVistaDB.create();
@@ -34,12 +46,5 @@ public class StocksGrabber
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		OnVistaCollector onVista = new OnVistaCollector(dataRoot);
-		//File targetFolder = new File("C:/Dev/__GIT/jonesserver/data/onVista/finder/2021-12-22");
-		File targetFolder = onVista.getJsonFromFinder();
-  		onVista.updateFinderJsonToDB(targetFolder);
-		//OnVistaIndexer.index(targetFolder, dataRoot);
-
-		System.out.println("Done - leaving program");
 	}
 }

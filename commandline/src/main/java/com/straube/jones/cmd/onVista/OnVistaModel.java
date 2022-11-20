@@ -9,7 +9,7 @@ import java.util.Map;
 public class OnVistaModel
 {
     public enum UNITS {
-        EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY
+        EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY, AUTO, LONG, CURRENCY
     }
 
     Columns columns = new Columns();
@@ -19,20 +19,14 @@ public class OnVistaModel
         String id;
         String label;
         UNITS unit;
-        Map<String, String> queries;
+        String colName;
 
-        Column(String id, String label, UNITS unit)
+        Column(String id, String label, UNITS unit, String colName)
         {
             this.id = id;
             this.label = label;
             this.unit = unit;
-            queries = new HashMap<>();
-        }
-
-
-        void addQuery(String name, String query)
-        {
-            queries.put(name, query);
+            this.colName = colName;
         }
     }
 
@@ -44,55 +38,64 @@ public class OnVistaModel
          */
         Columns()
         {
-            Column col = new Column("isin", "ISIN", UNITS.PRIMARY);
+            Column col = new Column("isin", "ISIN", UNITS.PRIMARY, "cIsin");
             columns.add(col);
 
-            col = new Column("instrument", "Name", UNITS.TEXT);
+            col = new Column("instrument", "Name", UNITS.TEXT, "cName");
             columns.add(col);
 
-            col = new Column("instrument.wkn", "WKN", UNITS.TEXT);
+            col = new Column("instrument.wkn", "WKN", UNITS.TEXT, "cNsin");
             columns.add(col);
 
-            col = new Column("company.branch.name", "Branche", UNITS.TEXT);
+            col = new Column("company.branch.name", "Branche", UNITS.TEXT, "cBranch");
             columns.add(col);
 
-            col = new Column("company.branch.sector.name", "Sektor", UNITS.TEXT);
+            col = new Column("company.branch.sector.name", "Sektor", UNITS.TEXT, "cSector");
             columns.add(col);
 
-            col = new Column("company.nameCountry", "Land", UNITS.TEXT);
+            col = new Column("company.nameCountry", "Land", UNITS.TEXT, "cCountryCode");
             columns.add(col);
 
-            col = new Column("quote.last", "Kurs", UNITS.NUMBER);
+            col = new Column("quote.last", "Kurs", UNITS.NUMBER, "cLast");
             columns.add(col);
 
-            col = new Column("quote.performancePct", "akt. Performance", UNITS.PERCENT);
+            col = new Column("dateLong", "Date long",UNITS.LONG, "cDateLong");
             columns.add(col);
 
-            col = new Column("doubleValues.perfW52", "Performance 1J", UNITS.PERCENT);
+            col = new Column("currency", "Currency",UNITS.CURRENCY, "cCurrency");
             columns.add(col);
 
-            col = new Column("doubleValues.perfM6", "Performance 6M", UNITS.PERCENT);
+            col = new Column("quote.performancePct", "akt. Performance", UNITS.PERCENT, "cPerformance");
             columns.add(col);
 
-            col = new Column("doubleValues.perfW4", "Performance 4W", UNITS.PERCENT);
+            col = new Column("doubleValues.perfW52", "Performance 1J", UNITS.PERCENT, "cPerf1Year");
             columns.add(col);
 
-            col = new Column("doubleValues.cnDivYieldM1", "Dividendenrendite 2021", UNITS.PERCENT);
+            col = new Column("doubleValues.perfM6", "Performance 6M", UNITS.PERCENT, "cPerf6Months");
             columns.add(col);
 
-            col = new Column("doubleValues.cnDpsM1", "Dividende 2021", UNITS.NUMBER);
+            col = new Column("doubleValues.perfW4", "Performance 4W", UNITS.PERCENT, "cPerf4Weeks");
             columns.add(col);
 
-            col = new Column("doubleValues.cnMarketCapM1", "Marktkapitalisierung 2021", UNITS.EURO);
+            col = new Column("doubleValues.cnDivYieldM1", "Dividendenrendite 2021", UNITS.PERCENT, "cDividentPerf1Y");
             columns.add(col);
 
-            col = new Column("stocksDetails.theScreenerRisk", "Risiko-Rating",UNITS.RISK);
+            col = new Column("doubleValues.cnDpsM1", "Dividende 2021", UNITS.NUMBER, "cDividend");
             columns.add(col);
 
-            col = new Column("doubleValues.employeesM1", "Beschäftigte 2021", UNITS.NUMBER);
+            col = new Column("doubleValues.cnMarketCapM1", "Marktkapitalisierung 2021", UNITS.EURO, "cMarketCapitalization");
             columns.add(col);
 
-            col = new Column("doubleValues.turnoverM1", "Umsatz 2021",UNITS.EURO);
+            col = new Column("stocksDetails.theScreenerRisk", "Risiko-Rating",UNITS.LONG, "cRiskRating");
+            columns.add(col);
+
+            col = new Column("doubleValues.employeesM1", "Beschäftigte 2021", UNITS.LONG, "cEmployees");
+            columns.add(col);
+
+            col = new Column("doubleValues.turnoverM1", "Umsatz 2021",UNITS.EURO, "cTurnover");
+            columns.add(col);
+
+            col = new Column("updated", "updated",UNITS.AUTO, "cUpdated");
             columns.add(col);
         }
     }

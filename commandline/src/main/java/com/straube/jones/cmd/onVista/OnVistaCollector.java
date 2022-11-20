@@ -10,11 +10,14 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +27,6 @@ import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Attributes;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -58,7 +60,7 @@ public class OnVistaCollector
 
 	private static final String[] QUERIES = {QUERY_NORTHAMERICA, QUERY_EURO, QUERY_ASIA};
 
-	final SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss");
+	final SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSX");
 
 	public OnVistaCollector(String dataRoot)
 	{
@@ -102,8 +104,6 @@ public class OnVistaCollector
 		final String onVistaUrl = onVistaQueryUrl.toString();
 		try
 		{
-			int numRows = 0;
-			AtomicInteger rowCounter = new AtomicInteger(0);
 			for (int page = 0; page < 10; page++ )
 			{
 				File jsonFile = new File(folder, String.format("%s-%02d.json", prefix, page));
@@ -114,85 +114,14 @@ public class OnVistaCollector
 					{
 						break;
 					}
-					Document doc = Jsoup.parse(htmlString);
-					if (numRows == 0)
-					{
-						Elements eNumber = doc.select("#filter-chips > div.flex-layout.flex-layout__justify-content--space-between.flex-layout__align-items--center.hidden-sm.hidden-md > div.outer-spacing--large-left.text-nowrap > data");
-						if (eNumber != null && !eNumber.isEmpty())
-						{
-							Attributes attr = eNumber.get(0).attributes();
-							numRows = Integer.parseInt(attr.get("value"));
-						}
-					}
-					// get Header
-					List<String> lHeaders = new ArrayList<>();
-					Elements elHeaders = doc.select("#finderResults > thead > tr > th");
-					if (elHeaders.isEmpty())
+					JSONObject jo = parseHtml(htmlString);
+					if (jo == null)
 					{
 						break;
 					}
-					elHeaders.forEach(header -> {
-						Elements e = header.select("span:nth-child(1)");
-						if (e.text() == null || e.text().length() == 0)
-						{
-							e = header.select("span:nth-child(2)");
-						}
-						lHeaders.add(e.text());
-					});
-
-					// get Values
-					List<List<String>> lValues = new ArrayList<>();
-					Elements elRows = doc.select("#finderResults > tbody > tr");
-
-					elRows.forEach(row -> {
-						List<String> lRow = new ArrayList<>();
-						Elements entries = row.select("td");
-						entries.forEach((entry -> {
-							Element e = null;
-							Elements es = entry.select("data");
-							if (es != null && !es.isEmpty())
-							{
-								String val = es.get(0).attributes().get("value");
-								lRow.add(val);
-							}
-							else
-							{
-								es = entry.select("div > div > div > a");
-								if (es != null && !es.isEmpty())
-								{
-									e = es.get(0);
-									String title = e.attr("title");
-									if (title != null)
-									{
-										String[] segs = title.split(":");
-										if (segs.length == 3)
-										{
-											String isin = segs[2].trim();
-											lRow.add(isin);
-										}
-									}
-								}
-								else
-								{
-									e = entry;
-								}
-								lRow.add(e.text());
-							}
-						}));
-						lValues.add(lRow);
-						rowCounter.incrementAndGet();
-					});
-					Map<String, Object> m = new HashMap<>();
-					m.put("cols", lHeaders);
-					m.put("values", lValues);
-					JSONObject jo = new JSONObject(m);
 					try (FileWriter writer = new FileWriter(jsonFile, Charset.forName("UTF-8")))
 					{
 						jo.write(writer, 4, 4);
-					}
-					if (rowCounter.get() >= numRows || lValues.size() >= 1000)
-					{
-						break;
 					}
 				}
 			}
@@ -201,6 +130,104 @@ public class OnVistaCollector
 		{
 			e.printStackTrace();
 		}
+	}
+
+
+	private JSONObject parseHtml(String htmlString)
+	{
+		Document doc = Jsoup.parse(htmlString);
+		// get Header
+		List<String> lHeaders = new ArrayList<>();
+		Elements elHeaders = doc.select("#finderResults > thead > tr > th");
+		if (elHeaders.isEmpty())
+		{ return null; }
+		elHeaders.forEach(header -> {
+			Elements e = header.select("span:nth-child(1)");
+			if (e.text() == null || e.text().length() == 0)
+			{
+				e = header.select("span:nth-child(2)");
+			}
+			lHeaders.add(e.text());
+		});
+
+		// get Values
+		List<List<String>> lValues = new ArrayList<>();
+		Elements elRows = doc.select("#finderResults > tbody > tr");
+
+		elRows.forEach(row -> {
+			List<String> lRow = new ArrayList<>();
+			Elements entries = row.select("td");
+			entries.forEach((entry -> {
+				Elements es = entry.select("data");
+				if (es != null && !es.isEmpty())
+				{
+					String val = es.get(0).attributes().get("value");
+					lRow.add(val);
+
+					Elements es2 = entry.select("span > time"); // time
+					if (es2 != null && !es2.isEmpty())
+					{
+						String time = es2.get(0).attributes().get("datetime");
+						try
+						{
+							Date date = df.parse(time);
+							long longDate = date.getTime();
+							lRow.add(String.valueOf(longDate));
+
+							Elements es3 = es.get(0).select("span");
+							if (es3 != null && !es3.isEmpty())
+							{
+								lRow.add(es3.get(0).text()); // currency
+							}
+						}
+						catch (ParseException e)
+						{
+							lRow.add(String.valueOf(System.currentTimeMillis()));
+							lRow.add("EURO"); // currency
+							e.printStackTrace();
+						}
+					}
+				}
+				else
+				{
+					es = entry.select("div > div > div > a");
+					if (es != null && !es.isEmpty())
+					{
+						Element e = es.get(0);
+						String title = e.attr("title");
+						if (title != null)
+						{
+							String[] segs = title.split(":");
+							if (segs.length == 3)
+							{
+								String isin = segs[2].trim();
+								lRow.add(isin);
+							}
+						}
+						lRow.add(e.text());
+					}
+					else
+					{
+						lRow.add(entry.text());
+					}
+				}
+			}));
+			if (lRow.size() == 19)
+			{
+				lValues.add(lRow);
+			}
+			else
+			{
+				System.out.println("Invalid record: --------------------------------");
+				System.out.println(lRow.toString());
+			}
+		});
+
+		Map<String, Object> m = new HashMap<>();
+		m.put("cols", lHeaders);
+		m.put("values", lValues);
+
+		return new JSONObject(m);
 	}
 
 
@@ -219,11 +246,12 @@ public class OnVistaCollector
 		OnVistaModel model = new OnVistaModel();
 		Columns columns = model.columns;
 		columns.columns.forEach(col -> {
-			onVistaColumns.append(col.id.replace('.', '_')).append(",");
+			onVistaColumns.append(col.colName).append(",");
 			onVistaValues.append("?,");
 		});
 		onVistaColumns.trimToSize();
 		onVistaColumns.deleteCharAt(onVistaColumns.length() - 1).trimToSize();
+		System.out.println(onVistaColumns.toString());
 		onVistaValues.trimToSize();
 		onVistaValues.deleteCharAt(onVistaValues.length() - 1).trimToSize();
 
@@ -249,10 +277,12 @@ public class OnVistaCollector
 							{
 								List<Object> list = ((JSONArray)e).toList();
 								AtomicInteger cnt = new AtomicInteger();
+								//System.out.println("--------------------------------------");
 								list.forEach(v -> {
 									try
 									{
 										Column col = columns.columns.get(cnt.get());
+										//System.out.println(col.colName + " : " + String.valueOf(v));
 										if (col.unit == UNITS.NUMBER || col.unit == UNITS.EURO || col.unit == UNITS.PERCENT)
 										{
 											String s = String.valueOf(v);
@@ -266,6 +296,19 @@ public class OnVistaCollector
 												psInsert.setDouble(cnt.incrementAndGet(), d);
 											}
 										}
+										else if (col.unit == UNITS.LONG)
+										{
+											String s = String.valueOf(v);
+											if (s == null || s.isEmpty())
+											{
+												psInsert.setLong(cnt.incrementAndGet(), 0L);
+											}
+											else
+											{
+												Long l = Long.parseLong(String.valueOf(v));
+												psInsert.setLong(cnt.incrementAndGet(), l);
+											}
+										}
 										else
 										{
 											psInsert.setString(cnt.incrementAndGet(), String.valueOf(v));
@@ -277,6 +320,7 @@ public class OnVistaCollector
 										e1.printStackTrace();
 									}
 								});
+								psInsert.setTimestamp(cnt.incrementAndGet(), new Timestamp(System.currentTimeMillis()));
 								psInsert.addBatch();
 							}
 						}
