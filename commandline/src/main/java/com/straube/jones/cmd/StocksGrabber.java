@@ -6,7 +6,6 @@ import java.sql.SQLException;
 
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.OnVistaDB;
-import com.straube.jones.cmd.onVista.OnVistaIndexer;
 
 /**
  * Hello world!

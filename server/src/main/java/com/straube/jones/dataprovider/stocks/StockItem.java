@@ -58,7 +58,7 @@ public class StockItem
         this.id = id;
         ISIN = rs.getString("cIsin");
         name = rs.getString("cName");
-        shortUrl = rs.getString("cUrl");
+        shortUrl = rs.getString("cRef");
         countryCode = rs.getString("cCountryCode");
         capitalization = Math.floor(rs.getDouble("cMarketCapitalization"));
         industry = rs.getString("cBranch");

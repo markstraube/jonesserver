@@ -35,7 +35,7 @@ public class DataUtil
 
 	public static String getChartImageWithOnVistaLink(String shortUrl, String isin, TIMESPAN timeSpan)
 	{
-		return String.format(	"<a class=\"onvista\" href=\"https://www.onvista.de/%s\" target=\"_blank\"><img src=\"https://charts.onvista.de/images/onvista/plain/rw-mini-area.png?&chart.colorPlot=009900&chart.colorFill=dfeacc&key.isin=%s&timeSpan=%s&expires=3600\" class=\"table-chart-image\"/ style=></a>",
+		return String.format(	"<a class=\"onvista\" href=\"https://www.onvista.de/aktien/%s\" target=\"_blank\"><img src=\"https://charts.onvista.de/images/onvista/plain/rw-mini-area.png?&chart.colorPlot=009900&chart.colorFill=dfeacc&key.isin=%s&timeSpan=%s&expires=3600\" class=\"table-chart-image\"/ style=></a>",
 								shortUrl,
 								isin,
 								timeSpan.label);
@@ -49,7 +49,7 @@ public class DataUtil
 		{
 			s = shortUrl;
 		}
-		return String.format("<a class=\"onvista\" href=\"https://www.onvista.de/%s\" target=\"_blank\">%s</a>", s, isin);
+		return String.format("<a class=\"onvista\" href=\"https://www.onvista.de/aktien/%s\" target=\"_blank\">%s</a>", s, isin);
 	}
 
 

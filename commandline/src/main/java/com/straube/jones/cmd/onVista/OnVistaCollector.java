@@ -33,9 +33,7 @@ import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.db.DBConnection;
 import com.straube.jones.cmd.html.HttpTools;
-import com.straube.jones.cmd.onVista.OnVistaModel.Column;
-import com.straube.jones.cmd.onVista.OnVistaModel.Columns;
-import com.straube.jones.cmd.onVista.OnVistaModel.UNITS;
+import com.straube.jones.cmd.onVista.Column.UNITS;
 
 public class OnVistaCollector
 {
@@ -93,9 +91,7 @@ public class OnVistaCollector
 		final StringBuilder onVistaQueryUrl = new StringBuilder();
 		onVistaQueryUrl.append(query);
 		onVistaQueryUrl.append("&page=${PAGE}&cols=");
-		OnVistaModel model = new OnVistaModel();
-		Columns columns = model.columns;
-		columns.columns.forEach(col -> {
+		OnVistaModel.columns.forEach(col -> {
 			if (col.unit != UNITS.PRIMARY)
 			{
 				onVistaQueryUrl.append(col.id).append(",");
@@ -202,6 +198,8 @@ public class OnVistaCollector
 							{
 								String isin = segs[2].trim();
 								lRow.add(isin);
+								String[] ref = e.attr("href").split("/");
+								lRow.add(ref[ref.length - 1]);
 							}
 						}
 						lRow.add(e.text());
@@ -212,7 +210,7 @@ public class OnVistaCollector
 					}
 				}
 			}));
-			if (lRow.size() == 19)
+			if (lRow.size() == OnVistaModel.columns.size() - 1)
 			{
 				lValues.add(lRow);
 			}
@@ -243,9 +241,7 @@ public class OnVistaCollector
 
 		StringBuilder onVistaColumns = new StringBuilder();
 		StringBuilder onVistaValues = new StringBuilder();
-		OnVistaModel model = new OnVistaModel();
-		Columns columns = model.columns;
-		columns.columns.forEach(col -> {
+		OnVistaModel.columns.forEach(col -> {
 			onVistaColumns.append(col.colName).append(",");
 			onVistaValues.append("?,");
 		});
@@ -277,12 +273,12 @@ public class OnVistaCollector
 							{
 								List<Object> list = ((JSONArray)e).toList();
 								AtomicInteger cnt = new AtomicInteger();
-								//System.out.println("--------------------------------------");
+								// System.out.println("--------------------------------------");
 								list.forEach(v -> {
 									try
 									{
-										Column col = columns.columns.get(cnt.get());
-										//System.out.println(col.colName + " : " + String.valueOf(v));
+										Column col = OnVistaModel.columns.get(cnt.get());
+										// System.out.println(col.colName + " : " + String.valueOf(v));
 										if (col.unit == UNITS.NUMBER || col.unit == UNITS.EURO || col.unit == UNITS.PERCENT)
 										{
 											String s = String.valueOf(v);

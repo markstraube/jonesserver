@@ -43,11 +43,11 @@ public class StocksController
 	}
 
 
-	@RequestMapping(path = "/onvista/aktien/{shortUrl}")
+	@RequestMapping(path = "/onvista/aktien/kennzahlen/{shortUrl}")
 	public String getOnVistaReport(@PathVariable
 	String shortUrl)
 	{
-		final String url = "https://www.onvista.de/aktien/" + shortUrl;
+		final String url = "https://www.onvista.de/aktien/kennzahlen/" + shortUrl;
 		File htmlFile = new File(HTML_ROOT_FOLDER, shortUrl + ".html");
 		if (htmlFile.exists())
 		{
@@ -64,9 +64,10 @@ public class StocksController
 		try
 		{
 			// final String html = HttpTools.downloadFromWebToFile(url, htmlFile, false);
-			final String html = HttpTools.downloadFromWebToString(url);
+			String html = HttpTools.downloadFromWebToString(url);
 			final Document doc0 = Jsoup.parse(html, "UTF-8");
-			final Element e0 = doc0.select("#ONVISTA > div > div.CONTAINER1 > div.INHALT > article > div.SPALTE_1 > section.kennzahlen-container > article").first();
+			final Element e0 = doc0.select("#__next > div.ov-content.grid-container.grid-container--limited-lg > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9").first();
+
 			final Document doc2 = Jsoup.parse(e0.outerHtml());
 			doc2.select("article > div > table.TECHNISCH").remove();
 			doc2.select("span").remove();

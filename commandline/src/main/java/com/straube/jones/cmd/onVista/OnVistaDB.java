@@ -6,7 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import com.straube.jones.cmd.db.DBConnection;
-import com.straube.jones.cmd.onVista.OnVistaModel.UNITS;
+import com.straube.jones.cmd.onVista.Column.UNITS;
 
 public class OnVistaDB
 {
@@ -14,11 +14,9 @@ public class OnVistaDB
     public static void create()
         throws SQLException
     {
-        OnVistaModel model = new OnVistaModel();
-
         StringBuilder ddl = new StringBuilder();
         ddl.append("CREATE TABLE `tOnVista2` (");
-        model.columns.columns.forEach(col -> {
+        OnVistaModel.columns.forEach(col -> {
             if (col.unit == UNITS.NUMBER || col.unit == UNITS.EURO || col.unit == UNITS.PERCENT)
             {
                 ddl.append("`").append(col.colName).append("` double DEFAULT NULL,");
