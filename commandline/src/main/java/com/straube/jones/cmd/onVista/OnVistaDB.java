@@ -15,7 +15,7 @@ public class OnVistaDB
         throws SQLException
     {
         StringBuilder ddl = new StringBuilder();
-        ddl.append("CREATE TABLE `tOnVista2` (");
+        ddl.append("CREATE TABLE `tOnVista` (");
         OnVistaModel.columns.forEach(col -> {
             if (col.unit == UNITS.NUMBER || col.unit == UNITS.EURO || col.unit == UNITS.PERCENT)
             {

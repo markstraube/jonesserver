@@ -192,7 +192,7 @@ public class OnVistaCollector
 		onVistaValues.deleteCharAt(onVistaValues.length() - 1).trimToSize();
 
 		final Connection connection = DBConnection.getStocksConnection();
-		final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista2;");
+		final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista;");
 		psTruncate.executeQuery();
 		connection.commit();
 
@@ -201,7 +201,7 @@ public class OnVistaCollector
 			paths.forEach((path) -> {
 				try
 				{
-					final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista2 (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")");
+					final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")");
 
 					String jsonString = FileUtils.readFileToString(path.toFile(), "UTF-8");
 					JSONObject jo = new JSONObject(jsonString);

@@ -28,7 +28,7 @@ public class StocksLoader
         { return stockItems; }
         nextRefresh++ ;
 
-        String query = "SELECT * FROM tOnVista2 ORDER BY cName asc";
+        String query = "SELECT * FROM tOnVista ORDER BY cName asc";
 
         try
         {

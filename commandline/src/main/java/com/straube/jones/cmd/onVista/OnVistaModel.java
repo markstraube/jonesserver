@@ -2,7 +2,6 @@ package com.straube.jones.cmd.onVista;
 
 
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -45,6 +44,9 @@ public class OnVistaModel
         columns.add(col);
 
         col = new Column("quote.last", "Kurs", UNITS.NUMBER, "cLast");
+        columns.add(col);
+
+        col = new Column("exchange", "Börse", UNITS.TEXT, "cExchange");
         columns.add(col);
 
         col = new Column("dateLong", "Date long", UNITS.LONG, "cDateLong");
@@ -101,6 +103,7 @@ public class OnVistaModel
             lRow.add(Column.parseSector(entries.get(3)));
             lRow.add(Column.parseCountry(entries.get(4)));
             lRow.add(Column.parseQuote(entries.get(5)));
+            lRow.add(Column.parseExchange(entries.get(5)));
             lRow.add(Column.parseDateLong(entries.get(5)));
             lRow.add(Column.parseCurrency(entries.get(5)));
             lRow.add(Column.parsePerformance(entries.get(6)));
@@ -136,19 +139,20 @@ public class OnVistaModel
             stmnt.setString(6, String.valueOf(params.get(5)));
             stmnt.setString(7, String.valueOf(params.get(6)));
             stmnt.setDouble(8, makeDouble((params.get(7))));
-            stmnt.setLong(9, makeLong(params.get(8)));
-            stmnt.setString(10, String.valueOf(params.get(9)));
-            stmnt.setDouble(11, makeDouble((params.get(10))));
+            stmnt.setString(9, String.valueOf(params.get(8)));
+            stmnt.setLong(10, makeLong(params.get(9)));
+            stmnt.setString(11, String.valueOf(params.get(10)));
             stmnt.setDouble(12, makeDouble((params.get(11))));
             stmnt.setDouble(13, makeDouble((params.get(12))));
             stmnt.setDouble(14, makeDouble((params.get(13))));
             stmnt.setDouble(15, makeDouble((params.get(14))));
             stmnt.setDouble(16, makeDouble((params.get(15))));
             stmnt.setDouble(17, makeDouble((params.get(16))));
-            stmnt.setLong(18, makeLong(params.get(17)));
+            stmnt.setDouble(18, makeDouble((params.get(17))));
             stmnt.setLong(19, makeLong(params.get(18)));
-            stmnt.setDouble(20, makeDouble((params.get(19))));
-            stmnt.setTimestamp(21, new Timestamp(System.currentTimeMillis()));
+            stmnt.setLong(20, makeLong(params.get(19)));
+            stmnt.setDouble(21, makeDouble((params.get(20))));
+            stmnt.setTimestamp(22, new Timestamp(System.currentTimeMillis()));
         }
         catch (Exception e)
         {
@@ -282,6 +286,15 @@ class Column
         Element e = element.select("data").first();
         String val = e.attributes().get("value");
         return Double.parseDouble(val);
+    }
+
+
+    public static String parseExchange(Element element)
+        throws ParseException
+    {
+        Element e = element.select("span > span").first();
+        String title = e.attributes().get("title");
+        return title;
     }
 
 

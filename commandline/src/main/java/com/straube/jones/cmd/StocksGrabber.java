@@ -4,7 +4,6 @@ package com.straube.jones.cmd;
 import java.io.File;
 import java.sql.SQLException;
 
-import com.straube.jones.cmd.ariva.ArivaHistoricData;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.OnVistaDB;
 
