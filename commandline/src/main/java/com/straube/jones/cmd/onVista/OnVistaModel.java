@@ -1,6 +1,9 @@
 package com.straube.jones.cmd.onVista;
 
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.text.ParseException;
@@ -8,7 +11,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
+import org.json.JSONObject;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
@@ -17,6 +22,8 @@ import com.straube.jones.cmd.onVista.Column.UNITS;
 public class OnVistaModel
 {
     public final static List<Column> columns = new ArrayList<>();
+    public static Map<String, Object> mStocksCounter;
+    public static final long OneWeekMillis = 7 * 24 * 3600 * 1000L;
 
     /**
      */
@@ -89,11 +96,28 @@ public class OnVistaModel
         columns.add(col);
     }
 
+    public static void init(String rootFolder)
+    {
+        try
+        {
+            byte[] buf = Files.readAllBytes(Paths.get(rootFolder, "fundamentals", "StocksCounter.json"));
+            JSONObject jo = new JSONObject(new String(buf, "UTF-8"));
+            mStocksCounter = jo.toMap();
+        }
+        catch (IOException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+
     public static List<Object> parseRow(Element row)
     {
         List<Object> lRow = new ArrayList<>();
         Elements entries = row.select("td");
-        lRow.add(Column.parseIsin(entries.get(0)));
+        String isin = Column.parseIsin(entries.get(0));
+        lRow.add(isin);
         lRow.add(Column.parseShortUrl(entries.get(0)));
         lRow.add(Column.parseName(entries.get(0)));
         try
@@ -102,9 +126,15 @@ public class OnVistaModel
             lRow.add(Column.parseBranch(entries.get(2)));
             lRow.add(Column.parseSector(entries.get(3)));
             lRow.add(Column.parseCountry(entries.get(4)));
-            lRow.add(Column.parseQuote(entries.get(5)));
+            Double quote = Column.parseQuote(entries.get(5));
+            lRow.add(quote);
             lRow.add(Column.parseExchange(entries.get(5)));
-            lRow.add(Column.parseDateLong(entries.get(5)));
+            Long quoteDate = Column.parseDateLong(entries.get(5));
+            if (quoteDate < System.currentTimeMillis()- OneWeekMillis)
+            {
+                return null;
+            }
+            lRow.add(quoteDate);
             lRow.add(Column.parseCurrency(entries.get(5)));
             lRow.add(Column.parsePerformance(entries.get(6)));
             lRow.add(Column.parsePef52(entries.get(7)));
@@ -124,6 +154,26 @@ public class OnVistaModel
             System.out.println(String.format("ERR: NOT adding name: %s, ISIN: %s", lRow.get(2), lRow.get(0)));
         }
         return null;
+    }
+
+
+    private static Double calcCaptitalization(String isin, Double quote, Double fallBack)
+    {
+        if (mStocksCounter != null)
+        {
+            Object o = mStocksCounter.get(isin);
+            if (o instanceof Double)
+            {
+                return (Double)o * quote;
+            }
+            else if (o instanceof Integer)
+            {
+                return (Integer)o * quote;
+            }
+            else if (o instanceof Long)
+            { return (Long)o * quote; }
+        }
+        return fallBack;
     }
 
 

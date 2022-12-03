@@ -23,7 +23,6 @@ import com.straube.jones.cmd.html.HttpTools;
 
 public class OnVistaFundamentals
 {
-
     public static void main(String[] args)
         throws IOException
     {

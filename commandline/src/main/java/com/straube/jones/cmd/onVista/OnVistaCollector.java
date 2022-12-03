@@ -38,7 +38,7 @@ public class OnVistaCollector
 
 	private final static String ONVISTA_FINDER_BASE_URL = "https://www.onvista.de/aktien/finder";
 
-	private final static String[] COLS = {	"instrument", ",instrument.wkn", ",company.branch.name", ",company.nameCountry", ",quote.last,quote.performancePct", ",doubleValues.perfW52", ",doubleValues.cnDivYieldM1", ",doubleValues.cnMarketCapM1",
+	private final static String[] COLS = {	"instrument", ",instrument.wkn", ",company.branch.name", ",company.nameCountry", ",quote.last,quote.performancePct", ",doubleValues.perfW52", ",doubleValues.cnDivYieldM1", ",doubleValues.cnMarketCapM0",
 											",doubleValues.cnDpsM1", ",company.branch.sector.name", ",doubleValues.perfM6,doubleValues.perfW4", ",stocksDetails.theScreenerRisk", ",doubleValues.employeesM1", ",doubleValues.turnoverM1"};
 
 	private static final String CONTINENT_NORDAMERIKA = "289";
@@ -72,6 +72,8 @@ public class OnVistaCollector
 		final String baseName = date.format(dtf);
 		final File targetFolder = new File(ONVISTA_FINDER, baseName);
 		targetFolder.mkdirs();
+
+		OnVistaModel.init(ONVISTA_ROOT.getAbsolutePath());
 
 		AtomicInteger cnt = new AtomicInteger();
 		Arrays.asList(QUERIES).forEach(query -> {
