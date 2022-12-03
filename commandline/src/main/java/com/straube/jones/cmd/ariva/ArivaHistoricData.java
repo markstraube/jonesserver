@@ -4,16 +4,22 @@ package com.straube.jones.cmd.ariva;
 import java.io.File;
 import java.io.FileWriter;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
-import com.straube.jones.cmd.html.HttpTools;
-
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+
+import com.straube.jones.cmd.html.HttpTools;
 
 public class ArivaHistoricData
 {
@@ -21,16 +27,45 @@ public class ArivaHistoricData
     public static void main(String[] args)
         throws Exception
     {
-        ArivaHistoricData ariva = new ArivaHistoricData("C:/Dev/__GIT/jonesserver/data/ariva/");
-        String sStart = "2020-12-28";
-        String sEnd = "2021-12-27";
-        long startDate = dfAriva.parse(sStart).getTime();
-        long endDate = dfAriva.parse(sEnd).getTime();
-        String isin = "US0378331005"; // VW
-        ariva.load(startDate, endDate, isin, "Apple");
+        ArivaHistoricData ariva = new ArivaHistoricData("C:\\Dev\\__GIT\\jonesserver\\data\\ariva\\historic");
+        String startDate = "01.01.2022";
+        String endDate = "27.11.2022";
+
+        DirectoryStream.Filter<Path> filter = file -> {
+            final String fileName = file.toFile().getName();
+            return (fileName.endsWith(".json"));
+        };
+
+        Path dirName = Path.of("C:\\Dev\\__GIT\\jonesserver\\data\\onVista\\finder2\\2022-11-25");
+
+        try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
+        {
+            paths.forEach((path) -> {
+                try
+                {
+                    String buf = new String(Files.readAllBytes(path));
+                    JSONObject jo = new JSONObject(buf);
+                    JSONArray ja = jo.getJSONArray("values");
+                    ja.forEach(e -> {
+                        if (e instanceof JSONArray)
+                        {
+                            List<Object> list = ((JSONArray)e).toList();
+                            String isin = String.valueOf(list.get(0));
+                            String name = String.valueOf(list.get(1));
+
+                            ariva.load(startDate, endDate, isin, name);
+                        }
+                    });
+                }
+                catch (Exception ignore)
+                {
+                    ignore.printStackTrace();
+                }
+            });
+        }
     }
 
-    private final File rootFolder;
+    public final File rootFolder;
     private static final DateFormat dfAriva = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMAN);
     private static final DateFormat dfISO = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.GERMAN);
 
@@ -41,9 +76,8 @@ public class ArivaHistoricData
     }
 
 
-    public boolean load(Long startDate, Long endDate, String isin, String name)
+    public boolean load(String startDate, String endDate, String isin, String name)
     {
-        File dataFile = new File(rootFolder, isin + ".json");
         String baseURL = String.format("https://www.ariva.de/%s/historische_kurse", isin);
         try
         {
@@ -55,15 +89,18 @@ public class ArivaHistoricData
             String boerseId = elBoerseId.attr("value");
             String trenner = ";";
             String trennerEncoded = "%3b";
-            String downloadUrl = String.format("https://www.ariva.de/quote/historic/historic.csv?secu=%s&boerse_id=%s&clean_split=1&clean_payout=0&clean_bezug=1&min_time=28.12.2020&max_time=27.12.2021&trenner=%s&go=Download",
+            String downloadUrl = String.format("https://www.ariva.de/quote/historic/historic.csv?secu=%s&boerse_id=%s&clean_split=1&clean_payout=0&clean_bezug=1&min_time=%s&max_time=%s&trenner=%s&go=Download",
                                                secu,
                                                boerseId,
+                                               startDate,
+                                               endDate,
                                                trennerEncoded);
             String historic = HttpTools.downloadFromWebToString(downloadUrl);
             // from: Datum; Erster; Hoch; Tief; Schlusskurs; Stuecke; Volumen
             // 2021-12-27; 264,20; 266,80; 263,00; 264,00; 22.025; 5.829.269
             // to: ["DE0006916604","Pfeiffer Vacuum Technology","2020-06-15T17:35:00",1592235300000,150.6]
             String[] lines = historic.split("\n");
+            File dataFile = new File(rootFolder, isin + ".json");
             try (FileWriter w = new FileWriter(dataFile, Charset.forName("UTF-8")))
             {
                 for (int i = lines.length - 1; i > 0; i-- )

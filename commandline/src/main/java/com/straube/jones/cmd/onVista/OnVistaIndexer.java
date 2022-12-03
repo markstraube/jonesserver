@@ -81,7 +81,7 @@ public class OnVistaIndexer
         try
         {
             JSONObject jo = new JSONObject(Files.readString(path));
-            JSONArray stocks = jo.getJSONArray("stocks");
+            JSONArray stocks = jo.getJSONArray("values");
             AtomicBoolean bContinue = new AtomicBoolean(true);
             stocks.forEach(stock -> {
                 try
@@ -110,24 +110,24 @@ public class OnVistaIndexer
     private boolean registerToJson(Object stock, File stocksFile)
         throws Exception
     {
-        if (stock instanceof JSONObject)
+        if (stock instanceof JSONArray)
         {
-            Map<String, Object> m = ((JSONObject)stock).toMap();
+            List<Object> m = ((JSONArray)stock).toList();
 
-            String date = String.valueOf(m.get("date"));
+            String date = String.valueOf(m.get(0));
             if ("null".equals(date) || "n.a.".equals(date))
             { return true; }
 
-            Map<String, Object> mFigures = (Map<String, Object>)(m.get("figures"));
+            Map<String, Object> mFigures = (Map<String, Object>)(m.get(0));
             String testPerf4 = (String)(mFigures.get("PERFORMANCE_4_WEEKS"));
             if (testPerf4 == null || testPerf4.length() == 0)
             { return true; }
 
-            String url = String.valueOf(m.get("url"));
+            String url = String.valueOf(m.get(0));
             String[] s = url.split("-");
             final String isin = s[s.length - 1];
 
-            String last = String.valueOf(m.get("last"));
+            String last = String.valueOf(m.get(0));
             s = last.split(" ");
             String sValue = s[0].replace(".", "").replace(",", ".");
             if (!sValue.contains(".") || sValue.contains("%"))
@@ -146,7 +146,7 @@ public class OnVistaIndexer
 
             final long stockDateLong = df.parse(stocksDateTime).getTime();
 
-            String name = (String)m.get("name");// : "Microsoft",
+            String name = (String)m.get(0);// : "Microsoft",
             File jsonFile = new File(indexFolder, isin + ".json");
             FileWriter w = writers.get(isin);
             if (w == null)
@@ -171,10 +171,10 @@ public class OnVistaIndexer
             }
             try (FileWriter mw = new FileWriter(new File(indexFolder, isin + ".meta.json"), Charset.forName("UTF-8")))
             {
-                String country = (String)m.get("country");
-                String nsin = (String)m.get("nsin");// : "870747",
-                String countryCode = (String)m.get("countryCode");// : "us",
-                String branch = (String)m.get("branch");// : "Standardsoftware",
+                String country = (String)m.get(0);
+                String nsin = (String)m.get(0);// : "870747",
+                String countryCode = (String)m.get(0);// : "us",
+                String branch = (String)m.get(0);// : "Standardsoftware",
 
                 JSONObject meta = new JSONObject();
                 meta.put("name", name);

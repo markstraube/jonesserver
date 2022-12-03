@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
@@ -60,17 +59,10 @@ public class StockPointLoader
                 {
                     String name = jar.getString(1);
                     ArivaHistoricData ariva = new ArivaHistoricData(INDEX_FOLDER);
-                    try
-                    {
-                        ariva.load(dfISO.parse("2021-01-01T23:00:00").getTime(), System.currentTimeMillis(), isin, name);
-                        lines = Files.readAllLines(indexFile.toPath(), Charset.forName("UTF-8"));
-                    }
-                    catch (ParseException e)
-                    {
-                        e.printStackTrace();
-                    }
+                    ariva.load("01.01.2022", "27.11.2022", isin, name);
+                    lines = Files.readAllLines(indexFile.toPath(), Charset.forName("UTF-8"));
                 }
-                data.addLines(lines, fromDate , toDate, type);
+                data.addLines(lines, fromDate, toDate, type);
             }
             catch (IOException e)
             {

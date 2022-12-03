@@ -10,14 +10,11 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +25,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.db.DBConnection;
@@ -105,7 +101,7 @@ public class OnVistaCollector
 				File jsonFile = new File(folder, String.format("%s-%02d.json", prefix, page));
 				if (!jsonFile.exists())
 				{
-					String htmlString = HttpTools.downloadFromWebToString(onVistaUrl.replace("${PAGE}", String.valueOf(page)));
+					String htmlString  = HttpTools.downloadFromWebToString(onVistaUrl.replace("${PAGE}", String.valueOf(page)));
 					if (htmlString == null)
 					{
 						break;
@@ -147,80 +143,24 @@ public class OnVistaCollector
 		});
 
 		// get Values
-		List<List<String>> lValues = new ArrayList<>();
+		List<List<Object>> lValues = new ArrayList<>();
 		Elements elRows = doc.select("#finderResults > tbody > tr");
-
-		elRows.forEach(row -> {
-			List<String> lRow = new ArrayList<>();
-			Elements entries = row.select("td");
-			entries.forEach((entry -> {
-				Elements es = entry.select("data");
-				if (es != null && !es.isEmpty())
+		if (elRows != null)
+		{
+			elRows.forEach(row -> {
+				List<Object> lRow = OnVistaModel.parseRow(row);
+				if (lRow != null)
 				{
-					String val = es.get(0).attributes().get("value");
-					lRow.add(val);
-
-					Elements es2 = entry.select("span > time"); // time
-					if (es2 != null && !es2.isEmpty())
-					{
-						String time = es2.get(0).attributes().get("datetime");
-						try
-						{
-							Date date = df.parse(time);
-							long longDate = date.getTime();
-							lRow.add(String.valueOf(longDate));
-
-							Elements es3 = es.get(0).select("span");
-							if (es3 != null && !es3.isEmpty())
-							{
-								lRow.add(es3.get(0).text()); // currency
-							}
-						}
-						catch (ParseException e)
-						{
-							lRow.add(String.valueOf(System.currentTimeMillis()));
-							lRow.add("EURO"); // currency
-							e.printStackTrace();
-						}
-					}
+					lValues.add(lRow);
 				}
 				else
 				{
-					es = entry.select("div > div > div > a");
-					if (es != null && !es.isEmpty())
-					{
-						Element e = es.get(0);
-						String title = e.attr("title");
-						if (title != null)
-						{
-							String[] segs = title.split(":");
-							if (segs.length == 3)
-							{
-								String isin = segs[2].trim();
-								lRow.add(isin);
-								String[] ref = e.attr("href").split("/");
-								lRow.add(ref[ref.length - 1]);
-							}
-						}
-						lRow.add(e.text());
-					}
-					else
-					{
-						lRow.add(entry.text());
-					}
+					System.out.println("Invalid record: ---------------------------------------------------------------------------");
+					System.out.println("Invalid record: ---------------------------------------------------------------------------");
+					System.out.println(row.toString());
 				}
-			}));
-			if (lRow.size() == OnVistaModel.columns.size() - 1)
-			{
-				lValues.add(lRow);
-			}
-			else
-			{
-				System.out.println("Invalid record: --------------------------------");
-				System.out.println(lRow.toString());
-			}
-		});
-
+			});
+		}
 		Map<String, Object> m = new HashMap<>();
 		m.put("cols", lHeaders);
 		m.put("values", lValues);
@@ -274,49 +214,8 @@ public class OnVistaCollector
 								List<Object> list = ((JSONArray)e).toList();
 								AtomicInteger cnt = new AtomicInteger();
 								// System.out.println("--------------------------------------");
-								list.forEach(v -> {
-									try
-									{
-										Column col = OnVistaModel.columns.get(cnt.get());
-										// System.out.println(col.colName + " : " + String.valueOf(v));
-										if (col.unit == UNITS.NUMBER || col.unit == UNITS.EURO || col.unit == UNITS.PERCENT)
-										{
-											String s = String.valueOf(v);
-											if (s == null || s.isEmpty())
-											{
-												psInsert.setDouble(cnt.incrementAndGet(), 0.0);
-											}
-											else
-											{
-												Double d = Double.parseDouble(String.valueOf(v));
-												psInsert.setDouble(cnt.incrementAndGet(), d);
-											}
-										}
-										else if (col.unit == UNITS.LONG)
-										{
-											String s = String.valueOf(v);
-											if (s == null || s.isEmpty())
-											{
-												psInsert.setLong(cnt.incrementAndGet(), 0L);
-											}
-											else
-											{
-												Long l = Long.parseLong(String.valueOf(v));
-												psInsert.setLong(cnt.incrementAndGet(), l);
-											}
-										}
-										else
-										{
-											psInsert.setString(cnt.incrementAndGet(), String.valueOf(v));
-										}
-									}
-									catch (Exception e1)
-									{
-										// TODO Auto-generated catch block
-										e1.printStackTrace();
-									}
-								});
-								psInsert.setTimestamp(cnt.incrementAndGet(), new Timestamp(System.currentTimeMillis()));
+								OnVistaModel.setParams(psInsert, list);
+
 								psInsert.addBatch();
 							}
 						}

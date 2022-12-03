@@ -4,6 +4,7 @@ package com.straube.jones.cmd;
 import java.io.File;
 import java.sql.SQLException;
 
+import com.straube.jones.cmd.ariva.ArivaHistoricData;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.OnVistaDB;
 
@@ -26,7 +27,6 @@ public class StocksGrabber
 		/** OnVista */
 		//createDB();
 		OnVistaCollector onVista = new OnVistaCollector(dataRoot);
-		//File targetFolder = new File("C:/Dev/__GIT/jonesserver/data/onVista/finder/2021-12-22");
 		File targetFolder = onVista.getJsonFromFinder();
   		onVista.updateFinderJsonToDB(targetFolder);
 		//OnVistaIndexer.index(targetFolder, dataRoot);

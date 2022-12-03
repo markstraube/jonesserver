@@ -1,8 +1,17 @@
 package com.straube.jones.cmd.onVista;
 
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.onVista.Column.UNITS;
 
@@ -38,10 +47,10 @@ public class OnVistaModel
         col = new Column("quote.last", "Kurs", UNITS.NUMBER, "cLast");
         columns.add(col);
 
-        col = new Column("dateLong", "Date long",UNITS.LONG, "cDateLong");
+        col = new Column("dateLong", "Date long", UNITS.LONG, "cDateLong");
         columns.add(col);
 
-        col = new Column("currency", "Currency",UNITS.CURRENCY, "cCurrency");
+        col = new Column("currency", "Currency", UNITS.CURRENCY, "cCurrency");
         columns.add(col);
 
         col = new Column("quote.performancePct", "akt. Performance", UNITS.PERCENT, "cPerformance");
@@ -65,23 +74,122 @@ public class OnVistaModel
         col = new Column("doubleValues.cnMarketCapM1", "Marktkapitalisierung 2021", UNITS.EURO, "cMarketCapitalization");
         columns.add(col);
 
-        col = new Column("stocksDetails.theScreenerRisk", "Risiko-Rating",UNITS.LONG, "cRiskRating");
+        col = new Column("stocksDetails.theScreenerRisk", "Risiko-Rating", UNITS.LONG, "cRiskRating");
         columns.add(col);
 
         col = new Column("doubleValues.employeesM1", "Beschäftigte 2021", UNITS.LONG, "cEmployees");
         columns.add(col);
 
-        col = new Column("doubleValues.turnoverM1", "Umsatz 2021",UNITS.EURO, "cTurnover");
+        col = new Column("doubleValues.turnoverM1", "Umsatz 2021", UNITS.EURO, "cTurnover");
         columns.add(col);
 
-        col = new Column("updated", "updated",UNITS.AUTO, "cUpdated");
+        col = new Column("updated", "updated", UNITS.AUTO, "cUpdated");
         columns.add(col);
+    }
+
+    public static List<Object> parseRow(Element row)
+    {
+        List<Object> lRow = new ArrayList<>();
+        Elements entries = row.select("td");
+        lRow.add(Column.parseIsin(entries.get(0)));
+        lRow.add(Column.parseShortUrl(entries.get(0)));
+        lRow.add(Column.parseName(entries.get(0)));
+        try
+        {
+            lRow.add(Column.parseWkn(entries.get(1)));
+            lRow.add(Column.parseBranch(entries.get(2)));
+            lRow.add(Column.parseSector(entries.get(3)));
+            lRow.add(Column.parseCountry(entries.get(4)));
+            lRow.add(Column.parseQuote(entries.get(5)));
+            lRow.add(Column.parseDateLong(entries.get(5)));
+            lRow.add(Column.parseCurrency(entries.get(5)));
+            lRow.add(Column.parsePerformance(entries.get(6)));
+            lRow.add(Column.parsePef52(entries.get(7)));
+            lRow.add(Column.parsePefM6(entries.get(8)));
+            lRow.add(Column.parsePefW4(entries.get(9)));
+            lRow.add(Column.parseDivYield(entries.get(10)));
+            lRow.add(Column.parseDividend(entries.get(11)));
+            lRow.add(Column.parseCapitalization(entries.get(12)));
+            lRow.add(Column.parseRisk(entries.get(13)));
+            lRow.add(Column.parseEmployees(entries.get(14)));
+            lRow.add(Column.parseTurnover(entries.get(15)));
+
+            return lRow;
+        }
+        catch (Exception ignore)
+        {
+            System.out.println(String.format("ERR: NOT adding name: %s, ISIN: %s", lRow.get(2), lRow.get(0)));
+        }
+        return null;
+    }
+
+
+    public static PreparedStatement setParams(PreparedStatement stmnt, List<Object> params)
+    {
+        try
+        {
+            stmnt.setString(1, String.valueOf(params.get(0)));
+            stmnt.setString(2, String.valueOf(params.get(1)));
+            stmnt.setString(3, String.valueOf(params.get(2)));
+            stmnt.setString(4, String.valueOf(params.get(3)));
+            stmnt.setString(5, String.valueOf(params.get(4)));
+            stmnt.setString(6, String.valueOf(params.get(5)));
+            stmnt.setString(7, String.valueOf(params.get(6)));
+            stmnt.setDouble(8, makeDouble((params.get(7))));
+            stmnt.setLong(9, makeLong(params.get(8)));
+            stmnt.setString(10, String.valueOf(params.get(9)));
+            stmnt.setDouble(11, makeDouble((params.get(10))));
+            stmnt.setDouble(12, makeDouble((params.get(11))));
+            stmnt.setDouble(13, makeDouble((params.get(12))));
+            stmnt.setDouble(14, makeDouble((params.get(13))));
+            stmnt.setDouble(15, makeDouble((params.get(14))));
+            stmnt.setDouble(16, makeDouble((params.get(15))));
+            stmnt.setDouble(17, makeDouble((params.get(16))));
+            stmnt.setLong(18, makeLong(params.get(17)));
+            stmnt.setLong(19, makeLong(params.get(18)));
+            stmnt.setDouble(20, makeDouble((params.get(19))));
+            stmnt.setTimestamp(21, new Timestamp(System.currentTimeMillis()));
+        }
+        catch (Exception e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return stmnt;
+    }
+
+
+    private static Double makeDouble(Object object)
+    {
+        if (object instanceof Double)
+        {
+            return (Double)object;
+        }
+        else if (object instanceof Integer)
+        { return ((Integer)object).doubleValue(); }
+        return 0d;
+    }
+
+
+    private static Long makeLong(Object object)
+    {
+        if (object instanceof Long)
+        {
+            return (Long)object;
+        }
+        else if (object instanceof Integer)
+        { return ((Integer)object).longValue(); }
+        return 0L;
     }
 }
 
+
 class Column
 {
-    public enum UNITS {
+    static final SimpleDateFormat DATEFORMAT = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSX");
+
+    public enum UNITS
+    {
         EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY, AUTO, LONG, CURRENCY
     }
 
@@ -97,9 +205,154 @@ class Column
         this.unit = unit;
         this.colName = colName;
     }
-}
 
-class Columns
-{
-    
+
+    public static Double parseTurnover(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Long parseEmployees(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Long.parseLong(val);
+    }
+
+
+    public static Long parseRisk(Element element)
+    {
+        return Long.valueOf(1L);
+    }
+
+
+    public static Double parseCapitalization(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Double parseDividend(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Double parseDivYield(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Double parsePefM6(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Double parsePefW4(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Double parsePef52(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Double parsePerformance(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static Long parseDateLong(Element element)
+        throws ParseException
+    {
+        Element e = element.select("span > time").first();
+        String time = e.attributes().get("datetime");
+        Date date = DATEFORMAT.parse(time);
+        return date.getTime();
+    }
+
+
+    public static Double parseQuote(Element element)
+    {
+        Element e = element.select("data").first();
+        String val = e.attributes().get("value");
+        return Double.parseDouble(val);
+    }
+
+
+    public static String parseCountry(Element element)
+    {
+        return element.text();
+    }
+
+
+    public static String parseBranch(Element element)
+    {
+        return element.text();
+    }
+
+
+    public static String parseSector(Element element)
+    {
+        return element.text();
+    }
+
+
+    public static String parseWkn(Element element)
+    {
+        return element.text();
+    }
+
+
+    public static String parseName(Element element)
+    {
+        Element e = element.select("div > div > div > a").first();
+        return e.text();
+    }
+
+
+    public static String parseCurrency(Element element)
+    {
+        Element e = element.select("td > data > span").first();
+        return e.text(); // currency
+    }
+
+
+    public static String parseIsin(Element element)
+    {
+        Element e = element.select("div > div > div > a").first();
+        String title = e.attr("title");
+        return title.split(":")[2].trim();
+    }
+
+
+    public static String parseShortUrl(Element element)
+    {
+        Element e = element.select("div > div > div > a").first();
+        String[] ref = e.attr("href").split("/");
+        return ref[ref.length - 1];
+    }
 }
