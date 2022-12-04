@@ -10,13 +10,16 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.json.JSONObject;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.aop.framework.autoproxy.target.QuickTargetSourceCreator;
 
+import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.onVista.Column.UNITS;
 
 public class OnVistaModel
@@ -24,6 +27,8 @@ public class OnVistaModel
     public final static List<Column> columns = new ArrayList<>();
     public static Map<String, Object> mStocksCounter;
     public static final long OneWeekMillis = 7 * 24 * 3600 * 1000L;
+
+    public static Map<String, Double> rates = new HashMap<>();
 
     /**
      */
@@ -100,11 +105,12 @@ public class OnVistaModel
     {
         try
         {
+            (new EuroRates(rootFolder)).load(rates);
             byte[] buf = Files.readAllBytes(Paths.get(rootFolder, "fundamentals", "StocksCounter.json"));
             JSONObject jo = new JSONObject(new String(buf, "UTF-8"));
             mStocksCounter = jo.toMap();
         }
-        catch (IOException e)
+        catch (Exception e)
         {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -130,10 +136,8 @@ public class OnVistaModel
             lRow.add(quote);
             lRow.add(Column.parseExchange(entries.get(5)));
             Long quoteDate = Column.parseDateLong(entries.get(5));
-            if (quoteDate < System.currentTimeMillis()- OneWeekMillis)
-            {
-                return null;
-            }
+            if (quoteDate < System.currentTimeMillis() - OneWeekMillis)
+            { return null; }
             lRow.add(quoteDate);
             lRow.add(Column.parseCurrency(entries.get(5)));
             lRow.add(Column.parsePerformance(entries.get(6)));
@@ -157,21 +161,19 @@ public class OnVistaModel
     }
 
 
-    private static Double calcCaptitalization(String isin, Double quote, Double fallBack)
+    private static Double calcCaptitalization(String isin, Double quote, String currency, Double fallBack)
     {
         if (mStocksCounter != null)
         {
-            Object o = mStocksCounter.get(isin);
-            if (o instanceof Double)
+            try
             {
-                return (Double)o * quote;
+                Object o = mStocksCounter.get(isin);
+                return makeDouble(o) * quote / rates.get(currency.toUpperCase());
             }
-            else if (o instanceof Integer)
+            catch (Exception ignore)
             {
-                return (Integer)o * quote;
+                ignore.printStackTrace();
             }
-            else if (o instanceof Long)
-            { return (Long)o * quote; }
         }
         return fallBack;
     }
@@ -181,24 +183,30 @@ public class OnVistaModel
     {
         try
         {
-            stmnt.setString(1, String.valueOf(params.get(0)));
+            String isin = String.valueOf(params.get(0));
+            Double quote = makeDouble(params.get(7));
+            String currency = String.valueOf(params.get(10));
+            Double capitalization = makeDouble((params.get(17)));
+            capitalization = calcCaptitalization(isin, quote, currency, capitalization);
+
+            stmnt.setString(1, isin);
             stmnt.setString(2, String.valueOf(params.get(1)));
             stmnt.setString(3, String.valueOf(params.get(2)));
             stmnt.setString(4, String.valueOf(params.get(3)));
             stmnt.setString(5, String.valueOf(params.get(4)));
             stmnt.setString(6, String.valueOf(params.get(5)));
             stmnt.setString(7, String.valueOf(params.get(6)));
-            stmnt.setDouble(8, makeDouble((params.get(7))));
+            stmnt.setDouble(8, quote);
             stmnt.setString(9, String.valueOf(params.get(8)));
             stmnt.setLong(10, makeLong(params.get(9)));
-            stmnt.setString(11, String.valueOf(params.get(10)));
+            stmnt.setString(11, currency);
             stmnt.setDouble(12, makeDouble((params.get(11))));
             stmnt.setDouble(13, makeDouble((params.get(12))));
             stmnt.setDouble(14, makeDouble((params.get(13))));
             stmnt.setDouble(15, makeDouble((params.get(14))));
             stmnt.setDouble(16, makeDouble((params.get(15))));
             stmnt.setDouble(17, makeDouble((params.get(16))));
-            stmnt.setDouble(18, makeDouble((params.get(17))));
+            stmnt.setDouble(18, capitalization);
             stmnt.setLong(19, makeLong(params.get(18)));
             stmnt.setLong(20, makeLong(params.get(19)));
             stmnt.setDouble(21, makeDouble((params.get(20))));
@@ -213,11 +221,15 @@ public class OnVistaModel
     }
 
 
-    private static Double makeDouble(Object object)
+    public static Double makeDouble(Object object)
     {
         if (object instanceof Double)
         {
             return (Double)object;
+        }
+        else if (object instanceof Long)
+        {
+            return ((Long)object).doubleValue();
         }
         else if (object instanceof Integer)
         { return ((Integer)object).doubleValue(); }
@@ -225,7 +237,7 @@ public class OnVistaModel
     }
 
 
-    private static Long makeLong(Object object)
+    public static Long makeLong(Object object)
     {
         if (object instanceof Long)
         {
