@@ -1,7 +1,6 @@
 package com.straube.jones.cmd.onVista;
 
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -17,7 +16,6 @@ import java.util.Map;
 import org.json.JSONObject;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.aop.framework.autoproxy.target.QuickTargetSourceCreator;
 
 import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.onVista.Column.UNITS;

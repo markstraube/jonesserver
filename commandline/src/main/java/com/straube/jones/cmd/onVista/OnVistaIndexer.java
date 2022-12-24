@@ -8,6 +8,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,39 +115,9 @@ public class OnVistaIndexer
         {
             List<Object> m = ((JSONArray)stock).toList();
 
-            String date = String.valueOf(m.get(0));
-            if ("null".equals(date) || "n.a.".equals(date))
-            { return true; }
+            String isin = ((String)m.get(0));
+            Long dateLong = OnVistaModel.makeLong(m.get(9));
 
-            Map<String, Object> mFigures = (Map<String, Object>)(m.get(0));
-            String testPerf4 = (String)(mFigures.get("PERFORMANCE_4_WEEKS"));
-            if (testPerf4 == null || testPerf4.length() == 0)
-            { return true; }
-
-            String url = String.valueOf(m.get(0));
-            String[] s = url.split("-");
-            final String isin = s[s.length - 1];
-
-            String last = String.valueOf(m.get(0));
-            s = last.split(" ");
-            String sValue = s[0].replace(".", "").replace(",", ".");
-            if (!sValue.contains(".") || sValue.contains("%"))
-            { return true; }
-            final double value = Double.parseDouble(sValue);
-            final String currency = s[1].trim();
-
-            s = stocksFile.getParentFile().getName().split("-");
-            final String year = s[0];
-            s = date.split("/");
-            final String time = s[1].trim() + ":00";
-            s = s[0].split("\\.");
-            final String day = s[0].trim();
-            final String month = s[1].trim();
-            final String stocksDateTime = String.format("%s-%s-%sT%s", year, month, day, time);
-
-            final long stockDateLong = df.parse(stocksDateTime).getTime();
-
-            String name = (String)m.get(0);// : "Microsoft",
             File jsonFile = new File(indexFolder, isin + ".json");
             FileWriter w = writers.get(isin);
             if (w == null)
@@ -159,50 +130,31 @@ public class OnVistaIndexer
                     JSONArray jar = new JSONArray(lastLine);
                     Long timestamp = jar.getLong(3);
                     isKnownData(isin, timestamp);
-                    if (stockDateLong < timestamp)
+                    if (dateLong < timestamp)
                     { return true; }
                 }
                 w = new FileWriter(jsonFile, Charset.forName("UTF-8"), true);
                 writers.put(isin, w);
             }
-            if (isKnownData(isin, stockDateLong))
+            if (isKnownData(isin, dateLong))
             {
                 return true; // do not report already reported data
             }
             try (FileWriter mw = new FileWriter(new File(indexFolder, isin + ".meta.json"), Charset.forName("UTF-8")))
             {
-                String country = (String)m.get(0);
-                String nsin = (String)m.get(0);// : "870747",
-                String countryCode = (String)m.get(0);// : "us",
-                String branch = (String)m.get(0);// : "Standardsoftware",
 
-                JSONObject meta = new JSONObject();
-                meta.put("name", name);
-                meta.put("isin", isin);
-                meta.put("country", country);
-                meta.put("country-code", countryCode);
-                meta.put("currency", currency);
-                meta.put("branch", branch);
-                meta.put("nsin", nsin);
-                meta.put("url", url);
+                JSONArray data = new JSONArray();
+                data.put(isin); // isin
+                data.put((String)m.get(1)); // name
+                Date d = new Date();
+                d.setTime(dateLong);
+                data.put(df.format(d));
+                data.put(dateLong);
+                data.put(OnVistaModel.makeDouble(m.get(7)));
 
-                meta.put("capitalization", mFigures.get("MARKET_CAPITALIZATION"));
-                meta.put("turnover", mFigures.get("TURNOVER"));
-                meta.put("dividend", mFigures.get("DIVIDEND_AMOUNT"));
-                meta.put("perf4", mFigures.get("PERFORMANCE_4_WEEKS"));
-                meta.put("perf26", mFigures.get("PERFORMANCE_6_MONTHS"));
-                meta.put("perf52", mFigures.get("PERFORMANCE_52_WEEKS"));
-                meta.write(mw, 0, 0);
+                data.write(w, 0, 0);
+                w.write("\n");
             }
-            JSONArray data = new JSONArray();
-            data.put(isin);
-            data.put(name);
-            data.put(stocksDateTime);
-            data.put(stockDateLong);
-            data.put(value);
-
-            data.write(w, 0, 0);
-            w.write("\n");
         }
         return true;
     }

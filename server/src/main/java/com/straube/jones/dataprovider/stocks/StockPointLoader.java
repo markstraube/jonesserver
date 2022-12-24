@@ -15,7 +15,7 @@ import com.straube.jones.cmd.ariva.ArivaHistoricData;
 
 public class StockPointLoader
 {
-    public static final String DATA_FOLDER = System.getProperty("user.home") + "/data";
+    public static final String DATA_FOLDER = /*System.getProperty("user.home") +*/ "C:/Dev/__GIT/jonesserver/data";
     public static final String INDEX_FOLDER = DATA_FOLDER + "/onVista/index";
 
     private static final DateFormat dfISO = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.GERMAN);
