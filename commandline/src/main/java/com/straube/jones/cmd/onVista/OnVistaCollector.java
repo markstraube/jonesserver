@@ -36,8 +36,6 @@ public class OnVistaCollector
 	private File ONVISTA_ROOT;
 	private File ONVISTA_FINDER;
 
-	private final static String ONVISTA_FINDER_BASE_URL = "https://www.onvista.de/aktien/finder";
-
 	private final static String[] COLS = {	"instrument", ",instrument.wkn", ",company.branch.name", ",company.nameCountry", ",quote.last,quote.performancePct", ",doubleValues.perfW52", ",doubleValues.cnDivYieldM1", ",doubleValues.cnMarketCapM0",
 											",doubleValues.cnDpsM1", ",company.branch.sector.name", ",doubleValues.perfM6,doubleValues.perfW4", ",stocksDetails.theScreenerRisk", ",doubleValues.employeesM1", ",doubleValues.turnoverM1"};
 
