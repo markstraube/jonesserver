@@ -6,9 +6,9 @@ import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -250,8 +250,6 @@ public class OnVistaModel
 
 class Column
 {
-    static final SimpleDateFormat DATEFORMAT = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSX");
-
     public enum UNITS
     {
         EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY, AUTO, LONG, CURRENCY
@@ -359,12 +357,13 @@ class Column
 
 
     public static Long parseDateLong(Element element)
-        throws ParseException
     {
         Element e = element.select("span > time").first();
         String time = e.attributes().get("datetime");
-        Date date = DATEFORMAT.parse(time);
-        return date.getTime();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'hh:mm:ss.SSSX");
+        ZonedDateTime zonedDateTime = ZonedDateTime.parse(time, formatter);
+        return zonedDateTime.toInstant().toEpochMilli();
     }
 
 
