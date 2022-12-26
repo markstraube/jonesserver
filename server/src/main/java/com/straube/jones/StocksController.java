@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(path = "/api")
 public class StocksController
 {
-	private static final String HTML_ROOT_FOLDER = "./data/html/";
+	private static final String HTML_ROOT_FOLDER = System.getProperty("data.root", "./data") + "/onVista/fundamentals/cache/";
 	static
 	{
 		new File(HTML_ROOT_FOLDER).mkdirs();
@@ -47,51 +47,26 @@ public class StocksController
 	public String getOnVistaReport(@PathVariable
 	String shortUrl)
 	{
-		final String url = "https://www.onvista.de/aktien/kennzahlen/" + shortUrl;
-		File htmlFile = new File(HTML_ROOT_FOLDER, shortUrl + ".html");
+		String[] segs = shortUrl.split("-");
+		File htmlFile = new File(HTML_ROOT_FOLDER, segs[segs.length - 1] + ".html");
 		if (htmlFile.exists())
 		{
 			try
 			{
-				return new String(Files.readAllBytes(htmlFile.toPath()));
+				String html = new String(Files.readAllBytes(htmlFile.toPath()));
+				final Document doc0 = Jsoup.parse(html, "UTF-8");
+				final Element e0 = doc0	.select("#__next > div.ov-content > div > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9 > div:nth-child(2) > div > div > p").first();
+				final String text = e0.text();
+				
+				return text;
 			}
 			catch (IOException e)
 			{
 				e.printStackTrace();
-				htmlFile.delete();
+				//htmlFile.delete();
 			}
 		}
-		try
-		{
-			// final String html = HttpTools.downloadFromWebToFile(url, htmlFile, false);
-			String html = HttpTools.downloadFromWebToString(url);
-			final Document doc0 = Jsoup.parse(html, "UTF-8");
-			final Element e0 = doc0.select("#__next > div.ov-content.grid-container.grid-container--limited-lg > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9").first();
-
-			final Document doc2 = Jsoup.parse(e0.outerHtml());
-			doc2.select("article > div > table.TECHNISCH").remove();
-			doc2.select("span").remove();
-			doc2.select("a").remove();
-			try (InputStream in = this.getClass().getClassLoader().getResourceAsStream("com/straube/jones/css/onvista.css"))
-			{
-				if (in != null)
-				{
-					byte[] cssBuf = in.readAllBytes();
-					if (cssBuf != null && cssBuf.length > 0)
-					{
-						doc2.head().append("<style>" + new String(cssBuf) + "</style>");
-					}
-				}
-			}
-			String htmlReply = doc2.outerHtml();
-			Files.writeString(htmlFile.toPath(), htmlReply, StandardCharsets.UTF_8);
-			return htmlReply;
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			return "";
-		}
+		return "No Data";		
 	}
 
 
@@ -111,7 +86,7 @@ public class StocksController
 	{
 		if (start == null)
 		{
-			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000; //~6 Month back
+			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000; // ~6 Month back
 		}
 		if (type == null)
 		{

@@ -3,18 +3,21 @@ package com.straube.jones.cmd.ariva;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.nio.charset.Charset;
-import java.nio.file.DirectoryStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -23,64 +26,40 @@ import com.straube.jones.cmd.html.HttpTools;
 
 public class ArivaHistoricData
 {
-
-    public static void main(String[] args)
-        throws Exception
-    {
-        ArivaHistoricData ariva = new ArivaHistoricData("C:\\Dev\\__GIT\\jonesserver\\data\\ariva\\historic");
-        String startDate = "01.01.2022";
-        String endDate = "27.11.2022";
-
-        DirectoryStream.Filter<Path> filter = file -> {
-            final String fileName = file.toFile().getName();
-            return (fileName.endsWith(".json"));
-        };
-
-        Path dirName = Path.of("C:\\Dev\\__GIT\\jonesserver\\data\\onVista\\finder2\\2022-11-25");
-
-        try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
-        {
-            paths.forEach((path) -> {
-                try
-                {
-                    String buf = new String(Files.readAllBytes(path));
-                    JSONObject jo = new JSONObject(buf);
-                    JSONArray ja = jo.getJSONArray("values");
-                    ja.forEach(e -> {
-                        if (e instanceof JSONArray)
-                        {
-                            List<Object> list = ((JSONArray)e).toList();
-                            String isin = String.valueOf(list.get(0));
-                            String name = String.valueOf(list.get(1));
-
-                            ariva.load(startDate, endDate, isin, name);
-                        }
-                    });
-                }
-                catch (Exception ignore)
-                {
-                    ignore.printStackTrace();
-                }
-            });
-        }
-    }
-
     public final File rootFolder;
-    private static final DateFormat dfAriva = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMAN);
-    private static final DateFormat dfISO = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.GERMAN);
+    private final DateFormat dfArivaHistoric = new SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN);
+    private final DateFormat dfAriva = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMAN);
+    private final DateFormat dfISO = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.GERMAN);
 
     public ArivaHistoricData(String rootFolder)
     {
-        this.rootFolder = new File(rootFolder);
+        this.rootFolder = new File(rootFolder, "ariva/historic");
         this.rootFolder.mkdirs();
     }
 
 
-    public boolean load(String startDate, String endDate, String isin, String name)
+    public List<String> load(String isin, String name)
     {
-        String baseURL = String.format("https://www.ariva.de/%s/historische_kurse", isin);
+        List<String> result = new ArrayList<>();
+        String startDate = dfArivaHistoric.format(LocalDate.now().minusYears(1).toEpochDay() * 24 * 60 * 60 * 1000);
+        String endDate = dfArivaHistoric.format(LocalDate.now().toEpochDay() * 24 * 60 * 60 * 1000);
+
+        File dataFile = new File(rootFolder, isin + ".json");
+        if (dataFile.exists() && (dataFile.lastModified() > System.currentTimeMillis() - 24 * 60 * 60 * 1000))
+        {
+            try
+            {
+                List<String> lines = Files.readAllLines(dataFile.toPath(), StandardCharsets.UTF_8);
+                return lines;
+            }
+            catch (IOException e)
+            {
+                return new ArrayList<>();
+            }
+        }
         try
         {
+            String baseURL = String.format("https://www.ariva.de/%s/historische_kurse", isin);
             String response = HttpTools.downloadFromWebToString(baseURL);
             Document doc = Jsoup.parse(response);
             Elements elSecu = doc.select("#pageHistoricQuotes > div.column.third.last > div.formRow.abstand > form > input[name=secu]");
@@ -100,8 +79,7 @@ public class ArivaHistoricData
             // 2021-12-27; 264,20; 266,80; 263,00; 264,00; 22.025; 5.829.269
             // to: ["DE0006916604","Pfeiffer Vacuum Technology","2020-06-15T17:35:00",1592235300000,150.6]
             String[] lines = historic.split("\n");
-            File dataFile = new File(rootFolder, isin + ".json");
-            try (FileWriter w = new FileWriter(dataFile, Charset.forName("UTF-8")))
+            try (FileWriter w = new FileWriter(dataFile, StandardCharsets.UTF_8))
             {
                 for (int i = lines.length - 1; i > 0; i-- )
                 {
@@ -119,16 +97,31 @@ public class ArivaHistoricData
                     String sVolume = segs[6].replace(".", "");
                     long timestamp = dfAriva.parse(sDate).getTime() + 23 * 60 * 60 * 1000;
                     String sISODate = dfISO.format(new Date(timestamp));
-
-                    w.write(String.format("[\"%s\",\"%s\",\"%s\",%d,%s,%s,%s,%s,%s,%s]%n", isin, name, sISODate, timestamp, sFinish, sOpen, sHigh, sLow, sPeaces, sVolume));
+                    String row = String.format("[\"%s\",\"%s\",\"%s\",%d,%s,%s,%s,%s,%s,%s]%n", isin, name, sISODate, timestamp, sFinish, sOpen, sHigh, sLow, sPeaces, sVolume);
+                    w.write(row);
+                    result.add(row);
                 }
             }
+            return result;
         }
         catch (Exception e)
         {
             e.printStackTrace();
-            return false;
+            return result;
         }
-        return true;
+    }
+
+
+    public static long calcLastWorkDay()
+    {
+        LocalDateTime today = LocalDateTime.now();
+        DayOfWeek day = DayOfWeek.of(today.get(ChronoField.DAY_OF_WEEK));
+        if (day == DayOfWeek.SUNDAY)
+        {
+            return today.minusDays(2).toInstant(ZoneOffset.ofHours(1)).toEpochMilli();
+        }
+        else if (day == DayOfWeek.SATURDAY)
+        { return today.minusDays(1).toInstant(ZoneOffset.ofHours(1)).toEpochMilli(); }
+        return today.toInstant(ZoneOffset.ofHours(1)).toEpochMilli();
     }
 }

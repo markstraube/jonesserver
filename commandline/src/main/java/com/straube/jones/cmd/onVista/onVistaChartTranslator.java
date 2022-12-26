@@ -4,7 +4,7 @@ package com.straube.jones.cmd.onVista;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,7 +36,7 @@ public class onVistaChartTranslator
         throws IOException
     {
         final List<TupleOfDouble> data = new ArrayList<>();
-        final List<String> lines = FileUtils.readLines(new File(filename));
+        final List<String> lines = FileUtils.readLines(new File(filename), "UTF-8");
         lines.forEach(line -> {
             String[] segs = line.split(" ");
             data.add(new TupleOfDouble(Double.parseDouble(segs[1]), Double.parseDouble(segs[2])));
@@ -47,7 +47,7 @@ public class onVistaChartTranslator
         Double yRange = data.get(0).getY() + data.get(data.size() - 1).getY();
         Double yFactor = (yEnd - yStart) / yRange;
 
-        try (FileWriter w = new FileWriter(new File(filename + ".json"), Charset.forName("UTF-8")))
+        try (FileWriter w = new FileWriter(new File(filename + ".json"), StandardCharsets.UTF_8))
         {
             DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss", Locale.GERMAN);
             data.forEach(t -> {

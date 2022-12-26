@@ -3,7 +3,7 @@ package com.straube.jones.cmd.onVista;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -113,7 +113,7 @@ public class OnVistaCollector
 					{
 						break;
 					}
-					try (FileWriter writer = new FileWriter(jsonFile, Charset.forName("UTF-8")))
+					try (FileWriter writer = new FileWriter(jsonFile, StandardCharsets.UTF_8))
 					{
 						jo.write(writer, 4, 4);
 					}
