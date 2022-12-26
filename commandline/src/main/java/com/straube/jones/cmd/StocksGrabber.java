@@ -6,7 +6,6 @@ import java.sql.SQLException;
 
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.OnVistaDB;
-import com.straube.jones.cmd.onVista.OnVistaIndexer;
 
 /**
  * Hello world!
@@ -29,7 +28,6 @@ public class StocksGrabber
 		OnVistaCollector onVista = new OnVistaCollector(dataRoot);
 		File targetFolder = onVista.getJsonFromFinder();
   		onVista.updateFinderJsonToDB(targetFolder);
-		//OnVistaIndexer.index(targetFolder, dataRoot);
 
 		System.out.println("Done - leaving program");
 	}
