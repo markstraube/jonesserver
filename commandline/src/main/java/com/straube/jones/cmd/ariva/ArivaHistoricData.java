@@ -3,16 +3,11 @@ package com.straube.jones.cmd.ariva;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -38,25 +33,11 @@ public class ArivaHistoricData
     }
 
 
-    public List<String> load(String isin, String name)
+    public boolean preFetch(String isin)
     {
-        List<String> result = new ArrayList<>();
         String startDate = dfArivaHistoric.format(LocalDate.now().minusYears(1).toEpochDay() * 24 * 60 * 60 * 1000);
         String endDate = dfArivaHistoric.format(LocalDate.now().toEpochDay() * 24 * 60 * 60 * 1000);
 
-        File dataFile = new File(rootFolder, isin + ".json");
-        if (dataFile.exists() && (dataFile.lastModified() > System.currentTimeMillis() - 24 * 60 * 60 * 1000))
-        {
-            try
-            {
-                List<String> lines = Files.readAllLines(dataFile.toPath(), StandardCharsets.UTF_8);
-                return lines;
-            }
-            catch (IOException e)
-            {
-                return new ArrayList<>();
-            }
-        }
         try
         {
             String baseURL = String.format("https://www.ariva.de/%s/historische_kurse", isin);
@@ -79,6 +60,7 @@ public class ArivaHistoricData
             // 2021-12-27; 264,20; 266,80; 263,00; 264,00; 22.025; 5.829.269
             // to: ["DE0006916604","Pfeiffer Vacuum Technology","2020-06-15T17:35:00",1592235300000,150.6]
             String[] lines = historic.split("\n");
+            File dataFile = new File(rootFolder, isin + ".json");
             try (FileWriter w = new FileWriter(dataFile, StandardCharsets.UTF_8))
             {
                 for (int i = lines.length - 1; i > 0; i-- )
@@ -97,31 +79,38 @@ public class ArivaHistoricData
                     String sVolume = segs[6].replace(".", "");
                     long timestamp = dfAriva.parse(sDate).getTime() + 23 * 60 * 60 * 1000;
                     String sISODate = dfISO.format(new Date(timestamp));
-                    String row = String.format("[\"%s\",\"%s\",\"%s\",%d,%s,%s,%s,%s,%s,%s]%n", isin, name, sISODate, timestamp, sFinish, sOpen, sHigh, sLow, sPeaces, sVolume);
+                    String row = String.format("[\"%s\",\"%s\",\"%s\",%d,%s,%s,%s,%s,%s,%s]%n", isin, isin, sISODate, timestamp, sFinish, sOpen, sHigh, sLow, sPeaces, sVolume);
                     w.write(row);
-                    result.add(row);
                 }
+                return true;
             }
-            return result;
+        }
+        catch (Exception ignore)
+        {
+            ignore.printStackTrace();
+        }
+        return false;
+    }
+
+
+    public List<String> load(String isin)
+    {
+        List<String> result = new ArrayList<>();
+
+        File dataFile = new File(rootFolder, isin + ".json");
+        if (!dataFile.exists() && !preFetch(isin))
+            { return new ArrayList<>(); }
+        if (dataFile.lastModified() < System.currentTimeMillis() - 24 * 60 * 60 * 1000 && !preFetch(isin))
+            { return new ArrayList<>(); }
+        try
+        {
+            List<String> lines = Files.readAllLines(dataFile.toPath(), StandardCharsets.UTF_8);
+            return lines;
         }
         catch (Exception e)
         {
             e.printStackTrace();
             return result;
         }
-    }
-
-
-    public static long calcLastWorkDay()
-    {
-        LocalDateTime today = LocalDateTime.now();
-        DayOfWeek day = DayOfWeek.of(today.get(ChronoField.DAY_OF_WEEK));
-        if (day == DayOfWeek.SUNDAY)
-        {
-            return today.minusDays(2).toInstant(ZoneOffset.ofHours(1)).toEpochMilli();
-        }
-        else if (day == DayOfWeek.SATURDAY)
-        { return today.minusDays(1).toInstant(ZoneOffset.ofHours(1)).toEpochMilli(); }
-        return today.toInstant(ZoneOffset.ofHours(1)).toEpochMilli();
     }
 }

@@ -3,19 +3,9 @@ package com.straube.jones;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-
-import com.straube.jones.dataprovider.stocks.StockItem;
-import com.straube.jones.dataprovider.stocks.StockPointLoader;
-import com.straube.jones.dataprovider.stocks.StockPoints;
-import com.straube.jones.dataprovider.stocks.StocksLoader;
-import com.straube.jones.dataprovider.stocks.TableData;
-import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
-import com.straube.jones.cmd.html.HttpTools;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -26,6 +16,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.straube.jones.dataprovider.stocks.StockItem;
+import com.straube.jones.dataprovider.stocks.StockPointLoader;
+import com.straube.jones.dataprovider.stocks.StockPoints;
+import com.straube.jones.dataprovider.stocks.StocksLoader;
+import com.straube.jones.dataprovider.stocks.TableData;
+import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 
 @RestController
 @RequestMapping(path = "/api")
@@ -95,6 +92,12 @@ public class StocksController
 		return StockPointLoader.loadRaw(isin, start, type);
 	}
 
+	@RequestMapping(path = "/stockItem/prefetch", produces = "application/json")
+	public boolean prefetchData(@RequestParam
+	String isin)
+	{
+		return StockPointLoader.prefetchIsin(isin);
+	}
 
 	@RequestMapping(path = "/stockItems", produces = "application/json")
 	public Map<String, List<StockItem>> getStockItems()

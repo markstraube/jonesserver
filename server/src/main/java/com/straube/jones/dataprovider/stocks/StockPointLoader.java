@@ -3,6 +3,7 @@ package com.straube.jones.dataprovider.stocks;
 
 import java.io.File;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class StockPointLoader
     {
         try
         {
-            List<String> lines = Files.readAllLines(new File(INDEX_FOLDER, isin + ".json").toPath(), Charset.forName("UTF-8"));
+            List<String> lines = Files.readAllLines(new File(INDEX_FOLDER, isin + ".json").toPath(), StandardCharsets.UTF_8);
             StockPoints p = new StockPoints(lines);
             return p;
         }
@@ -42,9 +43,16 @@ public class StockPointLoader
 
         isins.forEach(isin -> {
             ArivaHistoricData ariva = new ArivaHistoricData(DATA_FOLDER);
-            List<String> lines = ariva.load(isin, isin);
+            List<String> lines = ariva.load(isin);
             data.addLines(lines, fromDate, toDate, type);
         });
         return data;
+    }
+
+
+    public static boolean prefetchIsin(String isin)
+    {
+        ArivaHistoricData ariva = new ArivaHistoricData(DATA_FOLDER);
+        return ariva.preFetch(isin);
     }
 }
