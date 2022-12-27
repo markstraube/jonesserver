@@ -33,8 +33,11 @@ public class ArivaHistoricData
     }
 
 
-    public boolean preFetch(String isin)
+    public File preFetch(String isin)
     {
+        File dataFile = new File(rootFolder, isin + ".json");
+        if (dataFile.exists() && dataFile.lastModified() > System.currentTimeMillis() - 24 * 60 * 60 * 1000)
+        { return dataFile; }
         String startDate = dfArivaHistoric.format(LocalDate.now().minusYears(1).toEpochDay() * 24 * 60 * 60 * 1000);
         String endDate = dfArivaHistoric.format(LocalDate.now().toEpochDay() * 24 * 60 * 60 * 1000);
 
@@ -60,7 +63,6 @@ public class ArivaHistoricData
             // 2021-12-27; 264,20; 266,80; 263,00; 264,00; 22.025; 5.829.269
             // to: ["DE0006916604","Pfeiffer Vacuum Technology","2020-06-15T17:35:00",1592235300000,150.6]
             String[] lines = historic.split("\n");
-            File dataFile = new File(rootFolder, isin + ".json");
             try (FileWriter w = new FileWriter(dataFile, StandardCharsets.UTF_8))
             {
                 for (int i = lines.length - 1; i > 0; i-- )
@@ -82,35 +84,34 @@ public class ArivaHistoricData
                     String row = String.format("[\"%s\",\"%s\",\"%s\",%d,%s,%s,%s,%s,%s,%s]%n", isin, isin, sISODate, timestamp, sFinish, sOpen, sHigh, sLow, sPeaces, sVolume);
                     w.write(row);
                 }
-                return true;
+                return dataFile;
             }
         }
         catch (Exception ignore)
         {
             ignore.printStackTrace();
         }
-        return false;
+        return null;
     }
 
 
     public List<String> load(String isin)
     {
         List<String> result = new ArrayList<>();
-
-        File dataFile = new File(rootFolder, isin + ".json");
-        if (!dataFile.exists() && !preFetch(isin))
-            { return new ArrayList<>(); }
-        if (dataFile.lastModified() < System.currentTimeMillis() - 24 * 60 * 60 * 1000 && !preFetch(isin))
-            { return new ArrayList<>(); }
-        try
+        File dataFile = preFetch(isin);
+        if (dataFile != null)
         {
-            List<String> lines = Files.readAllLines(dataFile.toPath(), StandardCharsets.UTF_8);
-            return lines;
+            try
+            {
+                List<String> lines = Files.readAllLines(dataFile.toPath(), StandardCharsets.UTF_8);
+                return lines;
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+                return result;
+            }
         }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-            return result;
-        }
+        return result;
     }
 }

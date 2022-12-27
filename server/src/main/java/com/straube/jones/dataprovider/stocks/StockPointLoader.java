@@ -53,6 +53,6 @@ public class StockPointLoader
     public static boolean prefetchIsin(String isin)
     {
         ArivaHistoricData ariva = new ArivaHistoricData(DATA_FOLDER);
-        return ariva.preFetch(isin);
+        return ariva.preFetch(isin) != null;
     }
 }
