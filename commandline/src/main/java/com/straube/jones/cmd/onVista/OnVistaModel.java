@@ -1,6 +1,7 @@
 package com.straube.jones.cmd.onVista;
 
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -221,7 +222,11 @@ public class OnVistaModel
 
     public static Double makeDouble(Object object)
     {
-        if (object instanceof Double)
+        if (object instanceof BigDecimal)
+        {
+            return ((BigDecimal)object).doubleValue();
+        }
+        else if (object instanceof Double)
         {
             return (Double)object;
         }
