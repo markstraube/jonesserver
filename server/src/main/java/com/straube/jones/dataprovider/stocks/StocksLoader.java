@@ -30,9 +30,8 @@ public class StocksLoader
 
         String query = "SELECT * FROM tOnVista ORDER BY cName asc";
 
-        try
-        {
-            Connection connection = DBConnection.getStocksConnection();
+        try(Connection connection = DBConnection.getStocksConnection())
+        {            
             try (PreparedStatement ps = connection.prepareStatement(query))
             {
                 ps.execute();
@@ -47,6 +46,7 @@ public class StocksLoader
                 }
                 stockItems.put("stockItems", stockList);
             }
+            connection.commit();
         }
         catch (Exception e)
         {

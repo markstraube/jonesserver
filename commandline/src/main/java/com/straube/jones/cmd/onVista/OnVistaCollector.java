@@ -101,7 +101,7 @@ public class OnVistaCollector
 				File jsonFile = new File(folder, String.format("%s-%02d.json", prefix, page));
 				if (!jsonFile.exists())
 				{
-					String htmlString  = HttpTools.downloadFromWebToString(onVistaUrl.replace("${PAGE}", String.valueOf(page)));
+					String htmlString = HttpTools.downloadFromWebToString(onVistaUrl.replace("${PAGE}", String.valueOf(page)));
 					if (htmlString == null)
 					{
 						break;
@@ -187,59 +187,56 @@ public class OnVistaCollector
 		});
 		onVistaColumns.trimToSize();
 		onVistaColumns.deleteCharAt(onVistaColumns.length() - 1).trimToSize();
-		System.out.println(onVistaColumns.toString());
 		onVistaValues.trimToSize();
 		onVistaValues.deleteCharAt(onVistaValues.length() - 1).trimToSize();
 
-		final Connection connection = DBConnection.getStocksConnection();
-		final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista;");
-		psTruncate.executeQuery();
-		connection.commit();
-
-		try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
+		try (final Connection connection = DBConnection.getStocksConnection())
 		{
-			paths.forEach((path) -> {
-				try
-				{
-					final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")");
+			final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista;");
+			psTruncate.executeQuery();
+			connection.commit();
 
-					String jsonString = FileUtils.readFileToString(path.toFile(), "UTF-8");
-					JSONObject jo = new JSONObject(jsonString);
-					JSONArray ar = jo.getJSONArray("values");
-					ar.forEach((e) -> {
-						try
-						{
-							if (e instanceof JSONArray)
+			try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
+			{
+				paths.forEach((path) -> {
+					try
+					{
+						final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")");
+
+						String jsonString = FileUtils.readFileToString(path.toFile(), "UTF-8");
+						JSONObject jo = new JSONObject(jsonString);
+						JSONArray ar = jo.getJSONArray("values");
+						ar.forEach((e) -> {
+							try
 							{
-								List<Object> list = ((JSONArray)e).toList();
-								AtomicInteger cnt = new AtomicInteger();
-								// System.out.println("--------------------------------------");
-								OnVistaModel.setParams(psInsert, list);
+								if (e instanceof JSONArray)
+								{
+									List<Object> list = ((JSONArray)e).toList();
+									AtomicInteger cnt = new AtomicInteger();
+									// System.out.println("--------------------------------------");
+									OnVistaModel.setParams(psInsert, list);
 
-								psInsert.addBatch();
+									psInsert.addBatch();
+								}
 							}
-						}
-						catch (Exception e2)
-						{
-							e2.printStackTrace();
-						}
-					});
-					final int[] nr = psInsert.executeBatch();
-					connection.commit();
-				}
-				catch (Exception e1)
-				{
-					e1.printStackTrace();
-				}
-			});
+							catch (Exception e2)
+							{
+								e2.printStackTrace();
+							}
+						});
+						final int[] nr = psInsert.executeBatch();
+						connection.commit();
+					}
+					catch (Exception e1)
+					{
+						e1.printStackTrace();
+					}
+				});
+			}
 		}
 		catch (Exception e)
 		{
 			e.printStackTrace();
-		}
-		finally
-		{
-			DBConnection.close();
 		}
 	}
 }

@@ -361,7 +361,7 @@ class Column
         Element e = element.select("span > time").first();
         String time = e.attributes().get("datetime");
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'hh:mm:ss.SSSX");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
         ZonedDateTime zonedDateTime = ZonedDateTime.parse(time, formatter);
         return zonedDateTime.toInstant().toEpochMilli();
     }

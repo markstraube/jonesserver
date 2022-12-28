@@ -21,15 +21,15 @@ public class OnVistaDB
             {
                 ddl.append("`").append(col.colName).append("` double DEFAULT NULL,");
             }
-            else if (col.unit == UNITS.LONG) 
+            else if (col.unit == UNITS.LONG)
             {
                 ddl.append("`").append(col.colName).append("` decimal(14,0) DEFAULT 0,");
             }
-            else if (col.unit == UNITS.PRIMARY) 
+            else if (col.unit == UNITS.PRIMARY)
             {
                 ddl.append("`").append(col.colName).append("` varchar(100) NOT NULL,");
             }
-            else if (col.unit == UNITS.AUTO) 
+            else if (col.unit == UNITS.AUTO)
             {
                 ddl.append("`").append(col.colName).append("` timestamp DEFAULT current_timestamp(),");
             }
@@ -42,9 +42,11 @@ public class OnVistaDB
 
         ddl.append(" PRIMARY KEY (`cIsin`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
         ddl.trimToSize();
-        Connection connection = DBConnection.getStocksConnection();
-        PreparedStatement stmnt = connection.prepareStatement(ddl.toString());
-        stmnt.execute();
-        connection.close(); 
+        try (Connection connection = DBConnection.getStocksConnection())
+        {
+            PreparedStatement stmnt = connection.prepareStatement(ddl.toString());
+            stmnt.execute();
+            connection.commit();
+        }
     }
 }
