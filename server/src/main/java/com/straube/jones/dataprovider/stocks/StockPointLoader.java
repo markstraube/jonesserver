@@ -2,7 +2,6 @@ package com.straube.jones.dataprovider.stocks;
 
 
 import java.io.File;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;

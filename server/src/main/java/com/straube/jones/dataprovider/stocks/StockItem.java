@@ -28,7 +28,7 @@ public class StockItem
     String last;
     String currency;
     Double turnover;
-    Double dividend;
+    Double dividendYield;
 
     public StockItem()
     {
@@ -48,7 +48,7 @@ public class StockItem
         last = "";
         currency = "$";
         turnover = 0.0;
-        dividend = 0.0;
+        dividendYield = 0.0;
     }
 
 
@@ -68,10 +68,7 @@ public class StockItem
         Double dblLast = rs.getDouble("cLast");
         last = String.format(Locale.US, "%.2f", dblLast);
         currency = rs.getString("cCurrency");
-        if (dblLast > 0)
-        {
-            dividend = Math.floor((rs.getDouble("cDividend") / dblLast) * 100);
-        }
+        dividendYield = rs.getDouble("cDividendYield");
         turnover = Math.floor(rs.getDouble("cTurnover"));
         onVistaLink = DataUtil.createOnVistaLink(ISIN, shortUrl);
         finanzNetLink = DataUtil.getChartImageWithFinanzNetLink(ISIN, TIMESPAN.YEAR1);
@@ -254,18 +251,18 @@ public class StockItem
     /**
      * @return the dividend
      */
-    public Double getDividend()
+    public Double getDividendYield()
     {
-        return dividend;
+        return dividendYield;
     }
 
 
     /**
      * @param set dividend
      */
-    public void setDividend(Double dividend)
+    public void setDividendYield(Double dividendYield)
     {
-        this.dividend = dividend;
+        this.dividendYield = dividendYield;
     }
 
 

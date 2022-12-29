@@ -78,10 +78,10 @@ public class OnVistaModel
         col = new Column("doubleValues.perfW4", "Performance 4W", UNITS.PERCENT, "cPerf4Weeks");
         columns.add(col);
 
-        col = new Column("doubleValues.cnDivYieldM1", "Dividendenrendite 2021", UNITS.PERCENT, "cDividentPerf1Y");
+        col = new Column("doubleValues.cnDivYieldM0", "Dividendenrendite 2021", UNITS.PERCENT, "cDividendYield");
         columns.add(col);
 
-        col = new Column("doubleValues.cnDpsM1", "Dividende 2021", UNITS.NUMBER, "cDividend");
+        col = new Column("doubleValues.cnDpsM0", "Dividende 2021", UNITS.NUMBER, "cDividend");
         columns.add(col);
 
         col = new Column("doubleValues.cnMarketCapM1", "Marktkapitalisierung 2021", UNITS.EURO, "cMarketCapitalization");

@@ -36,15 +36,10 @@ public class OnVistaCollector
 	private File ONVISTA_ROOT;
 	private File ONVISTA_FINDER;
 
-	private final static String[] COLS = {	"instrument", ",instrument.wkn", ",company.branch.name", ",company.nameCountry", ",quote.last,quote.performancePct", ",doubleValues.perfW52", ",doubleValues.cnDivYieldM1", ",doubleValues.cnMarketCapM0",
-											",doubleValues.cnDpsM1", ",company.branch.sector.name", ",doubleValues.perfM6,doubleValues.perfW4", ",stocksDetails.theScreenerRisk", ",doubleValues.employeesM1", ",doubleValues.turnoverM1"};
-
 	private static final String CONTINENT_NORDAMERIKA = "289";
 	private static final String CONTINENT_EUROPA = "258";
 	private static final String CONTINENT_ASIEN = "259";
 	private static final String[] CONTINENTS = {CONTINENT_NORDAMERIKA, CONTINENT_EUROPA, CONTINENT_ASIEN};
-
-	private static final String QUERY_SUP500 = "https://www.onvista.de/aktien/finder?sort=instrument&order=ASC&idIndex=4359526";
 
 	private static final String QUERY_NORTHAMERICA = "https://www.onvista.de/aktien/finder?sort=doubleValues.cnMarketCapM1&order=DESC&idContinentCompany=289&cnMarketCapM1Range=5000000000;10000000000000";
 	private static final String QUERY_EURO = "https://www.onvista.de/aktien/finder?sort=doubleValues.cnMarketCapM1&order=DESC&idContinentCompany=258&cnMarketCapM1Range=5000000000;10000000000000";
@@ -99,9 +94,10 @@ public class OnVistaCollector
 			for (int page = 0; page < 10; page++ )
 			{
 				File jsonFile = new File(folder, String.format("%s-%02d.json", prefix, page));
+				File htmlFile = new File(folder, String.format("%s-%02d.html", prefix, page));
 				if (!jsonFile.exists())
 				{
-					String htmlString = HttpTools.downloadFromWebToString(onVistaUrl.replace("${PAGE}", String.valueOf(page)));
+					String htmlString = HttpTools.downloadFromWebToFile(onVistaUrl.replace("${PAGE}", String.valueOf(page)), htmlFile, false);
 					if (htmlString == null)
 					{
 						break;
@@ -192,17 +188,16 @@ public class OnVistaCollector
 
 		try (final Connection connection = DBConnection.getStocksConnection())
 		{
-			final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista;");
-			psTruncate.executeQuery();
-			connection.commit();
-
+			try (final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista;"))
+			{
+				psTruncate.executeQuery();
+				connection.commit();
+			}
 			try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
 			{
 				paths.forEach((path) -> {
-					try
+					try(final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")"))
 					{
-						final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")");
-
 						String jsonString = FileUtils.readFileToString(path.toFile(), "UTF-8");
 						JSONObject jo = new JSONObject(jsonString);
 						JSONArray ar = jo.getJSONArray("values");
@@ -212,8 +207,6 @@ public class OnVistaCollector
 								if (e instanceof JSONArray)
 								{
 									List<Object> list = ((JSONArray)e).toList();
-									AtomicInteger cnt = new AtomicInteger();
-									// System.out.println("--------------------------------------");
 									OnVistaModel.setParams(psInsert, list);
 
 									psInsert.addBatch();
@@ -224,9 +217,9 @@ public class OnVistaCollector
 								e2.printStackTrace();
 							}
 						});
-						final int[] nr = psInsert.executeBatch();
+						psInsert.executeBatch();
 						connection.commit();
-					}
+					}				
 					catch (Exception e1)
 					{
 						e1.printStackTrace();
