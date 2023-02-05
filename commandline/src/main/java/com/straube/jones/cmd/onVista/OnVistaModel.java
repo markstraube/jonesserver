@@ -406,7 +406,7 @@ class Column
 
     public static String parseName(Element element)
     {
-        Element e = element.select("div > div > div > a").first();
+        Element e = element.select("div > a").first();
         return e.text();
     }
 
@@ -420,7 +420,7 @@ class Column
 
     public static String parseIsin(Element element)
     {
-        Element e = element.select("div > div > div > a").first();
+        Element e = element.select("div > a").first();
         String title = e.attr("title");
         return title.split(":")[2].trim();
     }
@@ -428,7 +428,7 @@ class Column
 
     public static String parseShortUrl(Element element)
     {
-        Element e = element.select("div > div > div > a").first();
+        Element e = element.select("div > a").first();
         String[] ref = e.attr("href").split("/");
         return ref[ref.length - 1];
     }
