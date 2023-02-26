@@ -59,6 +59,6 @@ public class DBConnection
 
 	public static Connection getStocksConnection()
 	{
-		return getConnection("192.168.178.142", "stocksdb", "ant0n10", "stocksdb");
+		return getConnection("192.168.178.31", "stocksdb", "stocksdb", "StocksDB");
 	}
 }

@@ -188,7 +188,7 @@ public class OnVistaCollector
 
 		try (final Connection connection = DBConnection.getStocksConnection())
 		{
-			try (final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE stocksdb.tOnVista;"))
+			try (final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE tOnVista;"))
 			{
 				psTruncate.executeQuery();
 				connection.commit();
