@@ -6,3 +6,12 @@ Accept: application/json
 
 GET https://www.onvista.de/aktien/finder?idBranch=1
 Accept: application/json
+
+###
+
+POST http://192.168.178.31:8086/write?db=mydb
+Accept: */*
+Content-Type: application/octet-stream
+
+< C:\Dev\__GIT\jonesserver\data\body.txt
+

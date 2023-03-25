@@ -3,6 +3,7 @@ package com.straube.jones.cmd.html;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -17,6 +18,7 @@ import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -127,6 +129,36 @@ public class HttpTools
 				Files.writeString(Paths.get(htmlFile.toURI()), htmlString, Charset.forName("UTF-8"), StandardOpenOption.CREATE);
 			}
 			return htmlString;
+		}
+	}
+
+
+	public static String postBinary(String url, String body) throws IOException
+	{
+		try (final CloseableHttpClient httpClient = HttpClients.createDefault())
+		{
+			final HttpPost httpPost = new HttpPost(url);
+
+			httpPost.setHeader("Accept", "*/*");
+			httpPost.setHeader("Content-type", "application/octet-stream");
+
+			try
+			{
+				final ResponseHandler<String> responseHandler = response -> {
+					final int status = response.getStatusLine().getStatusCode();
+					final HttpEntity entity = response.getEntity();
+					return entity != null ? EntityUtils.toString(entity) : HTML_NOT_FOUND;
+				};
+				StringEntity stringEntity = new StringEntity(body);
+				httpPost.getRequestLine();
+				httpPost.setEntity(stringEntity);
+
+				return httpClient.execute(httpPost, responseHandler);
+			}
+			catch (Exception e)
+			{
+				throw new RuntimeException(e);
+			}
 		}
 	}
 
