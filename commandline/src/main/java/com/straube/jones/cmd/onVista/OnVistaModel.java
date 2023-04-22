@@ -422,7 +422,7 @@ class Column
     {
         Element e = element.select("div > a").first();
         String title = e.attr("title");
-        return title.split(":")[2].trim();
+        return title.split("·")[2].trim();
     }
 
 
