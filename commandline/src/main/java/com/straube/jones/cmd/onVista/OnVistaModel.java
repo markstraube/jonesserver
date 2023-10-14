@@ -135,8 +135,11 @@ public class OnVistaModel
             lRow.add(quote);
             lRow.add(Column.parseExchange(entries.get(5)));
             Long quoteDate = Column.parseDateLong(entries.get(5));
-            if (quoteDate < System.currentTimeMillis() - OneWeekMillis)
-            { return null; }
+            if ((quoteDate < System.currentTimeMillis() - OneWeekMillis) && !isin.equalsIgnoreCase("DK0062498333"))
+            {
+                System.out.println(String.format("### SKIPPING outdated ISIN:%s, Date:%d", isin, quoteDate));
+                return null;
+            }
             lRow.add(quoteDate);
             lRow.add(Column.parseCurrency(entries.get(5)));
             lRow.add(Column.parsePerformance(entries.get(6)));

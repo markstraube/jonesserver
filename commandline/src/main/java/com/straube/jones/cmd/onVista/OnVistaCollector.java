@@ -151,9 +151,9 @@ public class OnVistaCollector
 				}
 				else
 				{
-					System.out.println("Invalid record: ---------------------------------------------------------------------------");
-					System.out.println("Invalid record: ---------------------------------------------------------------------------");
-					System.out.println(row.toString());
+//      			System.out.println("### Invalid record: ---------------------------------------------------------------------------");
+//					System.out.println(row.toString());
+//					System.out.println("### Invalid record: ---------------------------------------------------------------------------");
 				}
 			});
 		}
