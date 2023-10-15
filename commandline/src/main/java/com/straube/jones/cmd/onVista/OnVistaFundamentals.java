@@ -12,12 +12,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.currencies.EuroRates;
@@ -92,61 +93,84 @@ public class OnVistaFundamentals
     {
         String baseURL = String.format("https://www.onvista.de/aktien/unternehmensprofil/%s", shortUrl);
         File htmlFile = new File(this.cacheFolder, isin + ".html");
+        AtomicLong stockCount = new AtomicLong(0);
 
         try
         {
             String response = HttpTools.downloadFromWebToFile(baseURL, htmlFile, false);
             Document doc = Jsoup.parse(response);
-            Elements rows = doc.select("#__next > div.ov-content > div > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9 > div");
-            int sz = rows.size();
-            for (int i = 0; i < sz; i++ )
+            Elements rows = doc.select("#allStocks");
+            if (rows != null && !rows.isEmpty())
             {
-                Element e = rows.get(i);
-                Elements es = e.select("div > div > div > div > table > tbody > tr");
-                if (es.isEmpty())
+                List<Node> nodes = rows.first().parent().parent().nextSibling().childNode(0).childNode(0).childNode(0).childNode(0).childNode(0).childNode(1).childNodes();
+                nodes.forEach((r -> {
+                    if (stockCount.get() == 0)
+                    {
+                        try
+                        {
+                            String href = r.childNode(0).childNode(0).childNode(0).attr("href");
+                            if (href.contains(isin))
+                            {
+                                String count = r.childNode(1).childNode(0).attr("value");
+                                stockCount.set(parseLong(count));
+                            }
+                            else
+                            {
+                                href = r.childNode(0).childNode(0).childNode(0).childNode(0).childNode(0).attr("href");
+                                if (href.contains(isin))
+                                {
+                                    String count = r.childNode(1).childNode(0).attr("value");
+                                    stockCount.set(parseLong(count));
+                                }
+                            }
+                        }
+                        catch (Exception ignore)
+                        {
+                            System.err.println(String.format("### Failed parsing #allStocks for isin:%s", isin));
+                        }
+                    }
+                }));
+            }
+            if (stockCount.get() == 0)
+            {
+                rows = doc.select("#marketData");
+                if (rows != null && !rows.isEmpty())
                 {
-                    continue;
+                    try
+                    {
+                        String count = rows.first().parent().parent().nextSibling().nextSibling().childNode(0).childNode(0).childNode(0).childNode(1).childNode(0).attr("value");
+                        stockCount.set(parseLong(count));
+                    }
+                    catch (Exception ignore)
+                    {
+                        System.err.println(String.format("### Failed parsing #marketData for isin:%s", isin));
+                    }
                 }
-                int sz2 = es.size();
-                for (int j = 0; j < sz2; j++ )
-                {
-                    Elements es2 = es.get(j).select("tr > td > div > div > > div > a");
-                    if (es2.isEmpty())
-                    {
-                        continue;
-                    }
-                    String href = es2.first().attr("href");
-                    if (href == null || !href.contains(isin))
-                    {
-                        continue;
-                    }
-                    Elements es3 = es.get(j).select("tr > td:nth-child(3) > data");
-                    if (es3.isEmpty())
-                    {
-                        continue;
-                    }
-                    String capitalization = es3.first().attr("value");
-                    Elements es4 = es.get(j).select("tr > td:nth-child(4) > data");
-                    if (es4.isEmpty())
-                    {
-                        continue;
-                    }
-                    String quote = es4.first().attr("value");
-                    String currency = es.get(j).select("tr > td:nth-child(4) > data > span").first().text().toUpperCase();
-                    Number nQuote = NF.parse(quote);
-                    Number nCapitalization = NF.parse(capitalization);
-                    if (rates.get(currency) == null)
-                    {
-                        break;
-                    }
-                    Double d = nCapitalization.doubleValue() / nQuote.doubleValue() * rates.get(currency);
-                    return d.longValue();
-                }
+            }
+            if (stockCount.get() == 0)
+            {
+                System.out.println(String.format("### No stocks counter found for isin:%s", isin));
             }
         }
         catch (Exception ignore)
         {
-            ignore.printStackTrace();
+            System.err.println(String.format("### Unexpected error for isin:%s", isin));
+        }
+        return stockCount.get();
+    }
+
+
+    private static long parseLong(String s)
+    {
+        if (s != null || !s.isEmpty())
+        {
+            try
+            {
+                Double d = Double.parseDouble(s);
+                return d.longValue();
+            }
+            catch (Exception e)
+            {}
         }
         return 0L;
     }

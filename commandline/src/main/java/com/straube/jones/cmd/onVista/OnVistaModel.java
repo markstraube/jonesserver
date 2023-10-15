@@ -170,6 +170,10 @@ public class OnVistaModel
             try
             {
                 Object o = mStocksCounter.get(isin);
+                if ("GBP".equalsIgnoreCase(currency))
+                {
+                    return makeDouble(o) * quote / 100 / rates.get(currency.toUpperCase());
+                }
                 return makeDouble(o) * quote / rates.get(currency.toUpperCase());
             }
             catch (Exception ignore)

@@ -201,7 +201,7 @@ public class OnVistaCollector
 						String jsonString = FileUtils.readFileToString(path.toFile(), "UTF-8");
 						JSONObject jo = new JSONObject(jsonString);
 						JSONArray ar = jo.getJSONArray("values");
-						ar.forEach((e) -> {
+						ar.forEach(e -> {
 							try
 							{
 								if (e instanceof JSONArray)
