@@ -18,7 +18,7 @@ public class TableData
     public void addLines(List<String> lines, long fromDate, long toDate, int type)
     {
         Double refValue = null;
-        for (int i = 1; i < lines.size(); i++ )
+        for (int i = 0; i < lines.size(); i++ )
         {
             JSONArray jar = new JSONArray(lines.get(i));
             long date = (jar.getLong(3) / ONE_DAY_MILLIS) * ONE_DAY_MILLIS;
