@@ -42,7 +42,7 @@ public class StockPointLoader
 
         isins.forEach(isin -> {
             ArivaHistoricData ariva = new ArivaHistoricData(DATA_FOLDER);
-            List<String> lines = ariva.load(isin);
+            List<String> lines = ariva.getData(isin);
             data.addLines(lines, fromDate, toDate, type);
         });
         return data;
