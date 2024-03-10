@@ -165,6 +165,7 @@ public class OnVistaModel
 
     private static Double calcCaptitalization(String isin, Double quote, String currency, Double fallBack)
     {
+        double result = fallBack;
         if (mStocksCounter != null)
         {
             try
@@ -172,16 +173,27 @@ public class OnVistaModel
                 Object o = mStocksCounter.get(isin);
                 if ("GBP".equalsIgnoreCase(currency))
                 {
-                    return makeDouble(o) * quote / 100 / rates.get(currency.toUpperCase());
+                    result = makeDouble(o) * quote / 100 / rates.get(currency.toUpperCase());
+                    if (result == 0)
+                    {
+                        result = fallBack / 100 / rates.get(currency.toUpperCase());
+                    }
                 }
-                return makeDouble(o) * quote / rates.get(currency.toUpperCase());
+                else
+                {
+                    result = makeDouble(o) * quote / rates.get(currency.toUpperCase());
+                    if (result == 0)
+                    {
+                        result = fallBack;
+                    }
+                }
             }
             catch (Exception ignore)
             {
                 ignore.printStackTrace();
             }
         }
-        return fallBack;
+        return result;
     }
 
 
