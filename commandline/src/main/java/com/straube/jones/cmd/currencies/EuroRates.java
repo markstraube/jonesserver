@@ -23,25 +23,15 @@ import com.straube.jones.cmd.html.HttpTools;
 
 public class EuroRates
 {
-    public static void main(String[] args)
-        throws IOException
-    {
-        EuroRates euroRates = new EuroRates("C:\\Dev\\__GIT\\jonesserver\\data\\onVista\\eurorates");
-
-        Map<String, Double> rates = new HashMap<>();
-
-        euroRates.load(rates);
-    }
-
     public final File rootFolder;
     public final File cacheFolder;
     public static final NumberFormat NF = NumberFormat.getInstance(Locale.ENGLISH);
-    public static final SimpleDateFormat DF = new SimpleDateFormat("d.m.yyyy");
-    public static final SimpleDateFormat ISO = new SimpleDateFormat("yyyy-mm-dd");
+    public static final SimpleDateFormat DF = new SimpleDateFormat("d.M.yyyy");
+    public static final SimpleDateFormat ISO = new SimpleDateFormat("yyyy-MM-dd");
 
-    public EuroRates(String rootFolder)
+    public EuroRates(File folder)
     {
-        this.rootFolder = new File(rootFolder, "eurorates");
+        this.rootFolder = new File(folder, "eurorates");
         this.cacheFolder = new File(this.rootFolder, "cache");
         this.cacheFolder.mkdirs();
     }
@@ -52,8 +42,7 @@ public class EuroRates
         String baseURL = "https://wechselkurse-euro.de/";
         
         long timestamp = System.currentTimeMillis();
-        Date d = new Date();
-        d.setTime(timestamp);
+        Date d = new Date(timestamp);
         String filename = ISO.format(d) + ".html";
         File htmlFile = new File(this.cacheFolder,filename);
         try
@@ -73,8 +62,7 @@ public class EuroRates
 
             rates.put("EUR", 1d);
 
-            d = new Date();
-            d.setTime(timestamp);
+            d = new Date(timestamp);
             filename = ISO.format(d) + ".json";
 
             JSONObject jo = new JSONObject(rates);

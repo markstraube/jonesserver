@@ -29,7 +29,7 @@ public class OnVistaFundamentals
     public static void main(String[] args)
         throws Exception
     {
-        OnVistaFundamentals onVista = new OnVistaFundamentals("C:\\Dev\\__GIT\\jonesserver\\data\\onVista");
+        OnVistaFundamentals onVista = new OnVistaFundamentals(new File("C:\\Dev\\__GIT\\jonesserver\\data\\onVista"));
 
         DirectoryStream.Filter<Path> filter = file -> {
             final String fileName = file.toFile().getName();
@@ -79,7 +79,7 @@ public class OnVistaFundamentals
 
     Map<String, Double> rates = new HashMap<>();
 
-    public OnVistaFundamentals(String rootFolder)
+    public OnVistaFundamentals(File rootFolder)
     {
         this.rootFolder = new File(rootFolder, "fundamentals");
         this.cacheFolder = new File(this.rootFolder, "cache");

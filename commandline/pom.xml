@@ -70,7 +70,7 @@
 						<configuration>
 							<archive>
 								<manifest>
-									<mainClass>com.straube.jones.cmd.StocksGrabber</mainClass>
+									<mainClass>com.straube.jones.cmd.Main</mainClass>
 								</manifest>
 							</archive>
 							<descriptorRefs>

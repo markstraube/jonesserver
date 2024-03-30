@@ -2,6 +2,7 @@ package com.straube.jones.cmd.onVista;
 
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
@@ -14,99 +15,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import java.io.File;
+
 import org.json.JSONObject;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.currencies.EuroRates;
-import com.straube.jones.cmd.onVista.Column.UNITS;
 
-public class OnVistaModel
+public class OnVistaParser
 {
-    public final static List<Column> columns = new ArrayList<>();
+
     public static Map<String, Object> mStocksCounter;
     public static final long OneWeekMillis = 7 * 24 * 3600 * 1000L;
 
     public static Map<String, Double> rates = new HashMap<>();
 
-    /**
-     */
-    static
-    {
-        Column col = new Column("isin", "ISIN", UNITS.PRIMARY, "cIsin");
-        columns.add(col);
-
-        col = new Column("ref", "REF", UNITS.TEXT, "cRef");
-        columns.add(col);
-
-        col = new Column("instrument", "Name", UNITS.TEXT, "cName");
-        columns.add(col);
-
-        col = new Column("instrument.wkn", "WKN", UNITS.TEXT, "cNsin");
-        columns.add(col);
-
-        col = new Column("company.branch.name", "Branche", UNITS.TEXT, "cBranch");
-        columns.add(col);
-
-        col = new Column("company.branch.sector.name", "Sektor", UNITS.TEXT, "cSector");
-        columns.add(col);
-
-        col = new Column("company.nameCountry", "Land", UNITS.TEXT, "cCountryCode");
-        columns.add(col);
-
-        col = new Column("quote.last", "Kurs", UNITS.NUMBER, "cLast");
-        columns.add(col);
-
-        col = new Column("exchange", "Börse", UNITS.TEXT, "cExchange");
-        columns.add(col);
-
-        col = new Column("dateLong", "Date long", UNITS.LONG, "cDateLong");
-        columns.add(col);
-
-        col = new Column("currency", "Currency", UNITS.CURRENCY, "cCurrency");
-        columns.add(col);
-
-        col = new Column("quote.performancePct", "akt. Performance", UNITS.PERCENT, "cPerformance");
-        columns.add(col);
-
-        col = new Column("doubleValues.perfW52", "Performance 1J", UNITS.PERCENT, "cPerf1Year");
-        columns.add(col);
-
-        col = new Column("doubleValues.perfM6", "Performance 6M", UNITS.PERCENT, "cPerf6Months");
-        columns.add(col);
-
-        col = new Column("doubleValues.perfW4", "Performance 4W", UNITS.PERCENT, "cPerf4Weeks");
-        columns.add(col);
-
-        col = new Column("doubleValues.cnDivYieldM0", "Dividendenrendite 2021", UNITS.PERCENT, "cDividendYield");
-        columns.add(col);
-
-        col = new Column("doubleValues.cnDpsM0", "Dividende 2021", UNITS.NUMBER, "cDividend");
-        columns.add(col);
-
-        col = new Column("doubleValues.cnMarketCapM1", "Marktkapitalisierung 2021", UNITS.EURO, "cMarketCapitalization");
-        columns.add(col);
-
-        col = new Column("stocksDetails.theScreenerRisk", "Risiko-Rating", UNITS.LONG, "cRiskRating");
-        columns.add(col);
-
-        col = new Column("doubleValues.employeesM1", "Beschäftigte 2021", UNITS.LONG, "cEmployees");
-        columns.add(col);
-
-        col = new Column("doubleValues.turnoverM1", "Umsatz 2021", UNITS.EURO, "cTurnover");
-        columns.add(col);
-
-        col = new Column("updated", "updated", UNITS.AUTO, "cUpdated");
-        columns.add(col);
-    }
-
-    public static void init(String rootFolder)
+    public static void init(File rootFolder)
     {
         try
         {
             (new EuroRates(rootFolder)).load(rates);
-            byte[] buf = Files.readAllBytes(Paths.get(rootFolder, "fundamentals", "StocksCounter.json"));
-            JSONObject jo = new JSONObject(new String(buf, "UTF-8"));
+            byte[] buf = Files.readAllBytes(Paths.get(rootFolder.getAbsolutePath(), "fundamentals", "StocksCounter.json"));
+            JSONObject jo = new JSONObject(new String(buf, StandardCharsets.UTF_8));
             mStocksCounter = jo.toMap();
         }
         catch (Exception e)
@@ -121,37 +52,37 @@ public class OnVistaModel
     {
         List<Object> lRow = new ArrayList<>();
         Elements entries = row.select("td");
-        String isin = Column.parseIsin(entries.get(0));
+        String isin = Parser.parseIsin(entries.get(0));
         lRow.add(isin);
-        lRow.add(Column.parseShortUrl(entries.get(0)));
-        lRow.add(Column.parseName(entries.get(0)));
+        lRow.add(Parser.parseShortUrl(entries.get(0)));
+        lRow.add(Parser.parseName(entries.get(0)));
         try
         {
-            lRow.add(Column.parseWkn(entries.get(1)));
-            lRow.add(Column.parseBranch(entries.get(2)));
-            lRow.add(Column.parseSector(entries.get(3)));
-            lRow.add(Column.parseCountry(entries.get(4)));
-            Double quote = Column.parseQuote(entries.get(5));
+            lRow.add(Parser.parseWkn(entries.get(1)));
+            lRow.add(Parser.parseBranch(entries.get(2)));
+            lRow.add(Parser.parseSector(entries.get(3)));
+            lRow.add(Parser.parseCountry(entries.get(4)));
+            Double quote = Parser.parseQuote(entries.get(5));
             lRow.add(quote);
-            lRow.add(Column.parseExchange(entries.get(5)));
-            Long quoteDate = Column.parseDateLong(entries.get(5));
+            lRow.add(Parser.parseExchange(entries.get(5)));
+            Long quoteDate = Parser.parseDateLong(entries.get(5));
             if ((quoteDate < System.currentTimeMillis() - OneWeekMillis) && !isin.equalsIgnoreCase("DK0062498333"))
             {
                 System.out.println(String.format("### SKIPPING outdated ISIN:%s, Date:%d", isin, quoteDate));
                 return null;
             }
             lRow.add(quoteDate);
-            lRow.add(Column.parseCurrency(entries.get(5)));
-            lRow.add(Column.parsePerformance(entries.get(6)));
-            lRow.add(Column.parsePef52(entries.get(7)));
-            lRow.add(Column.parsePefM6(entries.get(8)));
-            lRow.add(Column.parsePefW4(entries.get(9)));
-            lRow.add(Column.parseDivYield(entries.get(10)));
-            lRow.add(Column.parseDividend(entries.get(11)));
-            lRow.add(Column.parseCapitalization(entries.get(12)));
-            lRow.add(Column.parseRisk(entries.get(13)));
-            lRow.add(Column.parseEmployees(entries.get(14)));
-            lRow.add(Column.parseTurnover(entries.get(15)));
+            lRow.add(Parser.parseCurrency(entries.get(5)));
+            lRow.add(Parser.parsePerformance(entries.get(6)));
+            lRow.add(Parser.parsePef52(entries.get(7)));
+            lRow.add(Parser.parsePefM6(entries.get(8)));
+            lRow.add(Parser.parsePefW4(entries.get(9)));
+            lRow.add(Parser.parseDivYield(entries.get(10)));
+            lRow.add(Parser.parseDividend(entries.get(11)));
+            lRow.add(Parser.parseCapitalization(entries.get(12)));
+            lRow.add(Parser.parseRisk(entries.get(13)));
+            lRow.add(Parser.parseEmployees(entries.get(14)));
+            lRow.add(Parser.parseTurnover(entries.get(15)));
 
             return lRow;
         }
@@ -272,27 +203,8 @@ public class OnVistaModel
 }
 
 
-class Column
+class Parser
 {
-    public enum UNITS
-    {
-        EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY, AUTO, LONG, CURRENCY
-    }
-
-    String id;
-    String label;
-    UNITS unit;
-    String colName;
-
-    Column(String id, String label, UNITS unit, String colName)
-    {
-        this.id = id;
-        this.label = label;
-        this.unit = unit;
-        this.colName = colName;
-    }
-
-
     public static Double parseTurnover(Element element)
     {
         Element e = element.select("data").first();

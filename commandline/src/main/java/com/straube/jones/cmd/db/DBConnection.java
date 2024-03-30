@@ -32,21 +32,19 @@ public class DBConnection
 				Class.forName("org.mariadb.jdbc.Driver");
 				initialized = true;
 			}
+			//System.out.println("Connecting to a selected database...");
+			final String connectUrl = DB_URL.replace("${host}", host).replace("${db}", db);
 
+			Properties prop = new Properties();
+			prop.put("charSet", "UTF-8");
+			prop.put("user", user);
+			prop.put("password", password);
+			prop.put("allowPublicKeyRetrieval", "true");
 
-				System.out.println("Connecting to a selected database...");
-				final String connectUrl = DB_URL.replace("${host}", host).replace("${db}", db);
-
-				Properties prop = new Properties();
-				prop.put("charSet", "UTF-8");
-				prop.put("user", user);
-				prop.put("password", password);
-				prop.put("allowPublicKeyRetrieval","true");
-
-				Connection connection = DriverManager.getConnection(connectUrl, prop);
-				connection.setAutoCommit(false);
-				System.out.println("Connected database successfully...");
-				return connection;
+			Connection connection = DriverManager.getConnection(connectUrl, prop);
+			connection.setAutoCommit(false);
+			//System.out.println("Connected database successfully...");
+			return connection;
 		}
 		catch (final Exception e)
 		{

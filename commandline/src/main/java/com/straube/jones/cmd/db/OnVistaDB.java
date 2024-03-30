@@ -1,22 +1,25 @@
-package com.straube.jones.cmd.onVista;
+package com.straube.jones.cmd.db;
 
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import com.straube.jones.cmd.db.DBConnection;
-import com.straube.jones.cmd.onVista.Column.UNITS;
+import com.straube.jones.cmd.db.Column.UNITS;
 
 public class OnVistaDB
 {
-
-    public static void create()
+    public static void create(String tableName, List<Column> model)
         throws SQLException
     {
+        Map<String, String> keyMap = new HashMap<>();
+
         StringBuilder ddl = new StringBuilder();
-        ddl.append("CREATE TABLE `tOnVista` (");
-        OnVistaModel.columns.forEach(col -> {
+        ddl.append("CREATE TABLE `").append(tableName).append("`(");
+        model.forEach(col -> {
             if (col.unit == UNITS.NUMBER || col.unit == UNITS.EURO || col.unit == UNITS.PERCENT)
             {
                 ddl.append("`").append(col.colName).append("` double DEFAULT NULL,");
@@ -28,6 +31,15 @@ public class OnVistaDB
             else if (col.unit == UNITS.PRIMARY)
             {
                 ddl.append("`").append(col.colName).append("` varchar(100) NOT NULL,");
+                keyMap.put("primaryKey", col.colName);
+            }
+            else if (col.unit == UNITS.DATE)
+            {
+                ddl.append("`").append(col.colName).append("` datetime NOT NULL,");
+            }
+            else if (col.unit == UNITS.TIMESTAMP)
+            {
+                ddl.append("`").append(col.colName).append("` timestamp NOT NULL,");
             }
             else if (col.unit == UNITS.AUTO)
             {
@@ -40,7 +52,7 @@ public class OnVistaDB
         });
         ddl.trimToSize();
 
-        ddl.append(" PRIMARY KEY (`cIsin`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
+        ddl.append(" PRIMARY KEY (`").append(keyMap.get("primaryKey")).append("`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
         ddl.trimToSize();
         try (Connection connection = DBConnection.getStocksConnection())
         {

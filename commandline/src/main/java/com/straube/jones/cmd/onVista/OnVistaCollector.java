@@ -27,9 +27,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 
+import com.straube.jones.cmd.db.Column;
 import com.straube.jones.cmd.db.DBConnection;
+import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.html.HttpTools;
-import com.straube.jones.cmd.onVista.Column.UNITS;
 
 public class OnVistaCollector
 {
@@ -66,7 +67,7 @@ public class OnVistaCollector
 		final File targetFolder = new File(ONVISTA_FINDER, baseName);
 		targetFolder.mkdirs();
 
-		OnVistaModel.init(ONVISTA_ROOT.getAbsolutePath());
+		OnVistaParser.init(ONVISTA_ROOT);
 
 		AtomicInteger cnt = new AtomicInteger();
 		Arrays.asList(QUERIES).forEach(query -> {
@@ -82,8 +83,8 @@ public class OnVistaCollector
 		final StringBuilder onVistaQueryUrl = new StringBuilder();
 		onVistaQueryUrl.append(query);
 		onVistaQueryUrl.append("&page=${PAGE}&cols=");
-		OnVistaModel.columns.forEach(col -> {
-			if (col.unit != UNITS.PRIMARY)
+		OnVistaModel.getModel().forEach(col -> {
+			if (col.unit != Column.UNITS.PRIMARY)
 			{
 				onVistaQueryUrl.append(col.id).append(",");
 			}
@@ -144,7 +145,7 @@ public class OnVistaCollector
 		if (elRows != null)
 		{
 			elRows.forEach(row -> {
-				List<Object> lRow = OnVistaModel.parseRow(row);
+				List<Object> lRow = OnVistaParser.parseRow(row);
 				if (lRow != null)
 				{
 					lValues.add(lRow);
@@ -165,7 +166,7 @@ public class OnVistaCollector
 	}
 
 
-	public void updateFinderJsonToDB(File targetFolder)
+	public void updateFinderJsonToOnVistaTable(File targetFolder)
 		throws SQLException
 	{
 		DirectoryStream.Filter<Path> filter = file -> {
@@ -177,7 +178,7 @@ public class OnVistaCollector
 
 		StringBuilder onVistaColumns = new StringBuilder();
 		StringBuilder onVistaValues = new StringBuilder();
-		OnVistaModel.columns.forEach(col -> {
+		OnVistaModel.getModel().forEach(col -> {
 			onVistaColumns.append(col.colName).append(",");
 			onVistaValues.append("?,");
 		});
@@ -207,7 +208,7 @@ public class OnVistaCollector
 								if (e instanceof JSONArray)
 								{
 									List<Object> list = ((JSONArray)e).toList();
-									OnVistaModel.setParams(psInsert, list);
+									OnVistaParser.setParams(psInsert, list);
 
 									psInsert.addBatch();
 								}
