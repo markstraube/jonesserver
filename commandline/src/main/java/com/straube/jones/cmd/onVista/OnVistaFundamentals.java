@@ -77,15 +77,11 @@ public class OnVistaFundamentals
     public final File cacheFolder;
     public static final NumberFormat NF = NumberFormat.getInstance(Locale.ENGLISH);
 
-    Map<String, Double> rates = new HashMap<>();
-
     public OnVistaFundamentals(File rootFolder)
     {
         this.rootFolder = new File(rootFolder, "fundamentals");
         this.cacheFolder = new File(this.rootFolder, "cache");
         this.cacheFolder.mkdirs();
-
-        (new EuroRates(rootFolder)).load(rates);
     }
 
 

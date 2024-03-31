@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.straube.jones.cmd.currencies.CurrencyDB;
 import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.db.StocksModel;
@@ -64,11 +65,13 @@ public class Main
             File ef = new File(dataRoot, "onVista");
             ef.mkdirs();
             EuroRates euroRates = new EuroRates(ef);
-            Map<String, Double> rates = new HashMap<>();
-            euroRates.load(rates);
+            euroRates.load();
+            break;
+        case "importOeNB":
+            CurrencyDB.importCSV(Paths.get(dataRoot, "onVista/eurorates/OeNB.csv"));
             break;
         default:
-            System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates] -DcreateModel=[false | true]");
+            System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates | importOeNB] -DcreateModel=[false | true]");
 
         }
         System.out.println("Done - leaving program");

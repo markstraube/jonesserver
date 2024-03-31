@@ -2,18 +2,14 @@ package com.straube.jones.cmd.currencies;
 
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.charset.Charset;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.HashMap;
 
-import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -37,8 +33,9 @@ public class EuroRates
     }
 
 
-    public long load(Map<String, Double> rates)
+    public long load()
     {
+        Map<String, Double> rates = new HashMap<>();
         String baseURL = "https://wechselkurse-euro.de/";
         
         long timestamp = System.currentTimeMillis();
@@ -52,7 +49,6 @@ public class EuroRates
             Document doc = Jsoup.parse(response);
             String timestampString = doc.selectFirst("#page > h2.ecb").text();
             timestamp = extractTimestamp(timestampString);
-            rates.put("TIMESTAMP", timestamp * 1d);
 
             Elements rows = doc.select("#page > div.table_responsive.mb10social > table > tbody > tr");
             extractRates(rows, rates);
@@ -60,16 +56,7 @@ public class EuroRates
             rows = doc.select("#page > div.table_responsive.mb20-mt > table > tbody > tr");
             extractRates(rows, rates);
 
-            rates.put("EUR", 1d);
-
-            d = new Date(timestamp);
-            filename = ISO.format(d) + ".json";
-
-            JSONObject jo = new JSONObject(rates);
-            try (FileWriter w = new FileWriter(new File(rootFolder, filename), Charset.forName("UTF-8")))
-            {
-                jo.write(w, 4, 4);
-            }
+            CurrencyDB.update(timestamp, rates);
         }
         catch (Exception ignore)
         {

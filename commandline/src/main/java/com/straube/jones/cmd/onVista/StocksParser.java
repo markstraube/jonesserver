@@ -5,9 +5,9 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.Timestamp;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -20,6 +20,7 @@ import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.straube.jones.cmd.currencies.CurrencyDB;
 import com.straube.jones.cmd.db.DBConnection;
 import com.straube.jones.cmd.db.StocksModel;
 
@@ -84,7 +85,8 @@ public class StocksParser
                             }
                             catch (Exception e2)
                             {
-                                e2.printStackTrace();
+                                System.out.println(String.format("... ERR: %s -> dumping object %s", e2.getMessage(), e.toString()));
+                                
                             }
                         });
                         psInsert.executeBatch();
@@ -112,8 +114,12 @@ public class StocksParser
             String primaryKey = UUID.randomUUID().toString();
             stmnt.setString(1, primaryKey);
             stmnt.setString(2, String.valueOf(params.get(0))); // ISIN
-            stmnt.setDouble(3, Double.parseDouble(String.valueOf(params.get(7)))); // Quote
-            stmnt.setString(4, String.valueOf(params.get(10))); // Currency
+
+            double d = Double.parseDouble(String.valueOf(params.get(7))); // Quote
+            String c = String.valueOf(params.get(10));
+
+            stmnt.setDouble(3, CurrencyDB.getAsEuro(c, d, timeStamp));
+            stmnt.setString(4, "EUR"); // Currency
             stmnt.setLong(5, timeStamp);
             stmnt.setTimestamp(6, sqlTimestamp);
         }

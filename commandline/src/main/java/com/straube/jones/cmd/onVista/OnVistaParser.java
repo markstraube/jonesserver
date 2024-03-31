@@ -21,6 +21,7 @@ import org.json.JSONObject;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import com.straube.jones.cmd.currencies.CurrencyDB;
 import com.straube.jones.cmd.currencies.EuroRates;
 
 public class OnVistaParser
@@ -35,7 +36,7 @@ public class OnVistaParser
     {
         try
         {
-            (new EuroRates(rootFolder)).load(rates);
+            (new EuroRates(rootFolder)).load();
             byte[] buf = Files.readAllBytes(Paths.get(rootFolder.getAbsolutePath(), "fundamentals", "StocksCounter.json"));
             JSONObject jo = new JSONObject(new String(buf, StandardCharsets.UTF_8));
             mStocksCounter = jo.toMap();
@@ -104,15 +105,15 @@ public class OnVistaParser
                 Object o = mStocksCounter.get(isin);
                 if ("GBP".equalsIgnoreCase(currency))
                 {
-                    result = makeDouble(o) * quote / 100 / rates.get(currency.toUpperCase());
+                    result = CurrencyDB.getAsEuro(currency, makeDouble(o) * quote / 100, System.currentTimeMillis());
                     if (result == 0)
                     {
-                        result = fallBack / 100 / rates.get(currency.toUpperCase());
+                        result = CurrencyDB.getAsEuro(currency, fallBack / 100, System.currentTimeMillis());
                     }
                 }
                 else
                 {
-                    result = makeDouble(o) * quote / rates.get(currency.toUpperCase());
+                    result = CurrencyDB.getAsEuro(currency, makeDouble(o) * quote, System.currentTimeMillis());
                     if (result == 0)
                     {
                         result = fallBack;
