@@ -3,14 +3,15 @@ package com.straube.jones.cmd.onVista;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.NumberFormat;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -25,10 +26,13 @@ import com.straube.jones.cmd.html.HttpTools;
 
 public class OnVistaFundamentals
 {
-    public static void main(String[] args)
+    public static void reloadAllCounter(String dataRoot, String dateString)
         throws Exception
     {
-        OnVistaFundamentals onVista = new OnVistaFundamentals(new File("./data"));
+        System.out.println(String.format("... reloading all stocks counter for date:%s.", dateString));
+        File fundamentalFolder = new File(dataRoot, "onVista/fundamentals");
+        File cacheFolder = new File(fundamentalFolder, "cache");
+        cacheFolder.mkdirs();
 
         DirectoryStream.Filter<Path> filter = file -> {
             final String fileName = file.toFile().getName();
@@ -37,11 +41,11 @@ public class OnVistaFundamentals
 
         final Map<String, Long> mStockCounter = new HashMap<>();
 
-        Path dirName = Path.of("./data", "onVista/finder2/2022-12-02");
+        Path dirName = Path.of(dataRoot, "onVista/finder2/", dateString);
 
         try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
         {
-            paths.forEach((path) -> {
+            paths.forEach(path -> {
                 try
                 {
                     String buf = new String(Files.readAllBytes(path));
@@ -54,7 +58,7 @@ public class OnVistaFundamentals
                             String isin = String.valueOf(list.get(0));
                             String href = String.valueOf(list.get(1));
 
-                            Long l = onVista.getStocksCount(isin, href);
+                            Long l = getStocksCount(isin, href, cacheFolder);
                             mStockCounter.put(isin, l);
                         }
                     });
@@ -66,28 +70,17 @@ public class OnVistaFundamentals
             });
         }
         JSONObject jo = new JSONObject(mStockCounter);
-        try (FileWriter w = new FileWriter(new File(onVista.rootFolder, "StocksCounter.json"), Charset.forName("UTF-8")))
+        try (FileWriter w = new FileWriter(new File(fundamentalFolder, "StocksCounter.json"), Charset.forName("UTF-8")))
         {
             jo.write(w, 4, 4);
         }
     }
 
-    public final File rootFolder;
-    public final File cacheFolder;
-    public static final NumberFormat NF = NumberFormat.getInstance(Locale.ENGLISH);
 
-    public OnVistaFundamentals(File rootFolder)
-    {
-        this.rootFolder = new File(rootFolder, "onVista/fundamentals");
-        this.cacheFolder = new File(this.rootFolder, "cache");
-        this.cacheFolder.mkdirs();
-    }
-
-
-    public Long getStocksCount(String isin, String shortUrl)
+    public static Long getStocksCount(String isin, String shortUrl, File cacheFolder)
     {
         String baseURL = String.format("https://www.onvista.de/aktien/unternehmensprofil/%s", shortUrl);
-        File htmlFile = new File(this.cacheFolder, isin + ".html");
+        File htmlFile = new File(cacheFolder, isin + ".html");
         AtomicLong stockCount = new AtomicLong(0);
 
         try
@@ -168,5 +161,13 @@ public class OnVistaFundamentals
             {}
         }
         return 0L;
+    }
+
+
+    public static Map<String, Object> getStocksCounter(String rootFolder) throws IOException
+    {
+            byte[] buf = Files.readAllBytes(Paths.get(rootFolder, "fundamentals", "StocksCounter.json"));
+            JSONObject jo = new JSONObject(new String(buf, StandardCharsets.UTF_8));
+            return jo.toMap();
     }
 }

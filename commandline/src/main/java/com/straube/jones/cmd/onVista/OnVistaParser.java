@@ -1,10 +1,8 @@
 package com.straube.jones.cmd.onVista;
 
 
+import java.io.File;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.text.ParseException;
@@ -15,9 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import java.io.File;
-
-import org.json.JSONObject;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
@@ -37,13 +32,10 @@ public class OnVistaParser
         try
         {
             (new EuroRates(rootFolder)).load();
-            byte[] buf = Files.readAllBytes(Paths.get(rootFolder.getAbsolutePath(), "fundamentals", "StocksCounter.json"));
-            JSONObject jo = new JSONObject(new String(buf, StandardCharsets.UTF_8));
-            mStocksCounter = jo.toMap();
+            mStocksCounter = OnVistaFundamentals.getStocksCounter(rootFolder.getAbsolutePath());
         }
         catch (Exception e)
         {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }

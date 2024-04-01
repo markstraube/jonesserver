@@ -2,31 +2,30 @@ package com.straube.jones.cmd;
 
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
 
 import com.straube.jones.cmd.currencies.CurrencyDB;
 import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.db.StocksModel;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
+import com.straube.jones.cmd.onVista.OnVistaFundamentals;
 import com.straube.jones.cmd.onVista.StocksParser;
 
 public class Main
 {
     public static void main(final String[] args)
-        throws SQLException,
-        IOException
+        throws Exception
     {
         final String dataRoot = System.getProperty("data.root", "./data");
         final String command = System.getProperty("command", "onVista");
         final String createModel = System.getProperty("createModel", "false");
+        final String dateString = System.getProperty("dateString", "2024-03-31");
+
         switch (command)
         {
         case "onVista":
@@ -70,8 +69,11 @@ public class Main
         case "importOeNB":
             CurrencyDB.importCSV(Paths.get(dataRoot, "onVista/eurorates/OeNB.csv"));
             break;
+        case "fundamentals":
+            OnVistaFundamentals.reloadAllCounter(dataRoot, dateString);
+            break;
         default:
-            System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates | importOeNB] -DcreateModel=[false | true]");
+            System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates | importOeNB | fundamentals] -DcreateModel=[false | true]");
 
         }
         System.out.println("Done - leaving program");
