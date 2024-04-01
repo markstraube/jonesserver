@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.NumberFormat;
 import java.text.ParseException;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -58,17 +59,21 @@ public class CurrencyDB
             {
                 Instant timeStamp = Instant.ofEpochMilli(time);
                 ZonedDateTime zonedDate = timeStamp.atZone(ZoneId.systemDefault());
+                DayOfWeek dayOfWeek = zonedDate.getDayOfWeek();
+                if (dayOfWeek.equals(DayOfWeek.SUNDAY) || dayOfWeek.equals(DayOfWeek.SATURDAY))
+                {
+                    time = time - OneDayMillis;
+                    continue;
+                }
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currency.toUpperCase()).has(date))
                 {
                     System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currency.toUpperCase()));
                     time = time - OneDayMillis;
+                    continue;
                 }
-                else
-                {
-                    rate = currencyDB.getJSONObject(currency.toUpperCase()).getDouble(date);
-                    break;
-                }
+                rate = currencyDB.getJSONObject(currency.toUpperCase()).getDouble(date);
+                break;
             }
         }
         else
