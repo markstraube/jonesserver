@@ -9,30 +9,24 @@ import java.text.ParseException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.currencies.CurrencyDB;
 import com.straube.jones.cmd.currencies.EuroRates;
+import com.straube.jones.cmd.db.StockCounterDB;
 
 public class OnVistaParser
 {
-
-    public static Map<String, Object> mStocksCounter;
     public static final long OneWeekMillis = 7 * 24 * 3600 * 1000L;
-
-    public static Map<String, Double> rates = new HashMap<>();
 
     public static void init(File rootFolder)
     {
         try
         {
             (new EuroRates(rootFolder)).load();
-            mStocksCounter = OnVistaFundamentals.getStocksCounter(rootFolder.getAbsolutePath());
         }
         catch (Exception e)
         {
@@ -90,14 +84,14 @@ public class OnVistaParser
     private static Double calcCaptitalization(String isin, Double quote, String currency, Double fallBack)
     {
         double result = fallBack;
-        if (mStocksCounter != null)
+        long stockCount = StockCounterDB.getStockCounter(isin);
+        if (stockCount != 0)
         {
             try
             {
-                Object o = mStocksCounter.get(isin);
                 if ("GBP".equalsIgnoreCase(currency))
                 {
-                    result = CurrencyDB.getAsEuro(currency, makeDouble(o) * quote / 100, System.currentTimeMillis());
+                    result = CurrencyDB.getAsEuro(currency, stockCount * quote / 100, System.currentTimeMillis());
                     if (result == 0)
                     {
                         result = CurrencyDB.getAsEuro(currency, fallBack / 100, System.currentTimeMillis());
@@ -105,7 +99,7 @@ public class OnVistaParser
                 }
                 else
                 {
-                    result = CurrencyDB.getAsEuro(currency, makeDouble(o) * quote, System.currentTimeMillis());
+                    result = CurrencyDB.getAsEuro(currency, stockCount * quote, System.currentTimeMillis());
                     if (result == 0)
                     {
                         result = fallBack;

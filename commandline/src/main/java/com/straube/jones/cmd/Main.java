@@ -13,7 +13,7 @@ import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.db.StocksModel;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
-import com.straube.jones.cmd.onVista.OnVistaFundamentals;
+import com.straube.jones.cmd.db.StockCounterDB;
 import com.straube.jones.cmd.onVista.StocksParser;
 
 public class Main
@@ -22,7 +22,7 @@ public class Main
         throws Exception
     {
         final String dataRoot = System.getProperty("data.root", "./data");
-        final String command = System.getProperty("command", "onVista");
+        final String command = System.getProperty("command", "fundamentals");
         final String createModel = System.getProperty("createModel", "false");
         final String dateString = System.getProperty("dateString", "2024-03-31");
 
@@ -70,7 +70,7 @@ public class Main
             CurrencyDB.importCSV(Paths.get(dataRoot, "onVista/eurorates/OeNB.csv"));
             break;
         case "fundamentals":
-            OnVistaFundamentals.reloadAllCounter(dataRoot, dateString);
+            StockCounterDB.reloadAllCounter(dataRoot, dateString, true);
             break;
         default:
             System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates | importOeNB | fundamentals] -DcreateModel=[false | true]");
