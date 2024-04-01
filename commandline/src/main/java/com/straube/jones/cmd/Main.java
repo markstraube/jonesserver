@@ -25,7 +25,7 @@ public class Main
         IOException
     {
         final String dataRoot = System.getProperty("data.root", "./data");
-        final String command = System.getProperty("command", "eurorates");
+        final String command = System.getProperty("command", "onVista");
         final String createModel = System.getProperty("createModel", "false");
         switch (command)
         {

@@ -21,7 +21,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 
-import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.html.HttpTools;
 
 public class OnVistaFundamentals
@@ -29,7 +28,7 @@ public class OnVistaFundamentals
     public static void main(String[] args)
         throws Exception
     {
-        OnVistaFundamentals onVista = new OnVistaFundamentals(new File("C:\\Dev\\__GIT\\jonesserver\\data\\onVista"));
+        OnVistaFundamentals onVista = new OnVistaFundamentals(new File("./data"));
 
         DirectoryStream.Filter<Path> filter = file -> {
             final String fileName = file.toFile().getName();
@@ -38,7 +37,7 @@ public class OnVistaFundamentals
 
         final Map<String, Long> mStockCounter = new HashMap<>();
 
-        Path dirName = Path.of("C:\\Dev\\__GIT\\jonesserver\\data\\onVista\\finder2\\2022-12-02");
+        Path dirName = Path.of("./data", "onVista/finder2/2022-12-02");
 
         try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
         {
@@ -79,7 +78,7 @@ public class OnVistaFundamentals
 
     public OnVistaFundamentals(File rootFolder)
     {
-        this.rootFolder = new File(rootFolder, "fundamentals");
+        this.rootFolder = new File(rootFolder, "onVista/fundamentals");
         this.cacheFolder = new File(this.rootFolder, "cache");
         this.cacheFolder.mkdirs();
     }
