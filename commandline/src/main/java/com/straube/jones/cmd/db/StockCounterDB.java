@@ -127,13 +127,29 @@ public class StockCounterDB
                     String isin = fileName.split("\\.")[0];
                     String content = new String(Files.readAllBytes(path));
                     int pos = content.indexOf("Anzahl Aktien");
-                    int valuePos = content.indexOf("value", pos);
-                    if (valuePos - pos < 250) // no value;
+                    int pos2 = content.indexOf("Anzahl Aktien", pos + 1);
+                    if (pos2 < 0)
                     {
-                        int startPos = content.indexOf("\"", valuePos) + 1;
-                        int endPos = content.indexOf("\"", startPos);
-                        String value = content.substring(startPos, endPos);
-                        stockCount = parseLong(value);
+                        int valuePos = content.indexOf("Anzahl Aktien", pos + 1);
+                        if (valuePos - pos < 250) // no value;
+                        {
+                            int startPos = content.indexOf("\"", valuePos) + 1;
+                            int endPos = content.indexOf("\"", startPos);
+                            String value = content.substring(startPos, endPos);
+                            stockCount = parseLong(value);
+                        }
+                    }
+                    else
+                    {
+                        pos = content.indexOf(isin, pos2);
+                        int valuePos = content.indexOf("value", pos + 1);
+                        if (valuePos - pos < 300) // no value;
+                        {
+                            int startPos = content.indexOf("\"", valuePos) + 1;
+                            int endPos = content.indexOf("\"", startPos);
+                            String value = content.substring(startPos, endPos);
+                            stockCount = parseLong(value);
+                        }
                     }
                     newCounterDB.put(isin, stockCount);
                 }

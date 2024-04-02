@@ -68,7 +68,7 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currency.toUpperCase()).has(date))
                 {
-                    System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currency.toUpperCase()));
+                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currency.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }

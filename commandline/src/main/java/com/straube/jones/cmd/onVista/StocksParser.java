@@ -29,7 +29,7 @@ public class StocksParser
     public static void insertFinderJsonToStocksTable(Path path)
         throws SQLException
     {
-        System.out.print(String.format("... processing folder %s", path.toFile().getName()));
+        System.out.println(String.format("... processing folder %s", path.toFile().getName()));
         Instant timeStamp = Instant.parse(path.getFileName() + "T06:00:00.00Z");
         ZonedDateTime zonedDate = timeStamp.atZone(ZoneId.systemDefault());
         DayOfWeek dayOfWeek = zonedDate.getDayOfWeek();
