@@ -46,7 +46,6 @@ public class StocksLoader
                 }
                 stockItems.put("stockItems", stockList);
             }
-            connection.commit();
         }
         catch (Exception e)
         {

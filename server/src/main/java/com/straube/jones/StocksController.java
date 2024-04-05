@@ -74,6 +74,19 @@ public class StocksController
 		return StockPointLoader.load(isin);
 	}
 
+	@RequestMapping(path = "/stock/branch/data", produces = "application/json")
+	public Map<Long, Double> getRawDataForBranch(@RequestParam(required = false) String branch, @RequestParam(required = false) String country, @RequestParam(required = false) Long start)
+	{
+		if (start == null)
+		{
+			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000L; // ~6 Month back
+		}
+		if (country == null)
+		{
+			country = "%";
+		}
+		return StockPointLoader.loadRawForBranch(branch, country, start);
+	}
 
 	@RequestMapping(path = "/stock/data", produces = "application/json")
 	public TableData getRawData(@RequestParam
@@ -83,7 +96,7 @@ public class StocksController
 	{
 		if (start == null)
 		{
-			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000; // ~6 Month back
+			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000L; // ~6 Month back
 		}
 		if (type == null)
 		{

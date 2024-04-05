@@ -24,6 +24,7 @@ public class TableData
             long date = (jar.getLong(3) / ONE_DAY_MILLIS) * ONE_DAY_MILLIS;
             if (fromDate <= date && toDate >= date)
             {
+                //["DE000TRAT0N7","DE000TRAT0N7","2023-04-28T23:00:00",1682715600000,20.80,20.80,20.80,20.80,4,83 €]
                 List<Object> item = new ArrayList<>();
                 item.add(jar.getString(0));
                 item.add(jar.getString(1));
