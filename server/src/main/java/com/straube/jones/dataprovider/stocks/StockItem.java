@@ -5,10 +5,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Locale;
 
-import javax.persistence.Column;
-
 import com.straube.jones.dataprovider.DataUtil;
 import com.straube.jones.dataprovider.DataUtil.TIMESPAN;
+
+import jakarta.persistence.Column;
 
 public class StockItem
 {

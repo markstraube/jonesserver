@@ -25,7 +25,7 @@ import com.straube.jones.dataprovider.stocks.TableData;
 import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 
 @RestController
-@RequestMapping(path = "/api")
+@RequestMapping(value = "/api")
 public class StocksController
 {
 	private static final String HTML_ROOT_FOLDER = System.getProperty("data.root", "./data") + "/onVista/fundamentals/cache/";
@@ -34,9 +34,9 @@ public class StocksController
 		new File(HTML_ROOT_FOLDER).mkdirs();
 	}
 
-	public @RequestMapping(value = "/") String index()
+	public @RequestMapping(value = "/hello") String index()
 	{
-		return "index";
+		return "StocksServer";
 	}
 
 
@@ -52,18 +52,16 @@ public class StocksController
 			{
 				String html = new String(Files.readAllBytes(htmlFile.toPath()));
 				final Document doc0 = Jsoup.parse(html, "UTF-8");
-				final Element e0 = doc0	.select("#__next > div.ov-content > div > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9 > div:nth-child(2) > div > div > p").first();
-				final String text = e0.text();
-				
-				return text;
+				final Element e0 = doc0	.select("#__next > div.ov-content > div > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9 > div:nth-child(2) > div > div > p")
+										.first();
+				return e0.text();
 			}
 			catch (IOException e)
 			{
 				e.printStackTrace();
-				//htmlFile.delete();
 			}
 		}
-		return "No Data";		
+		return "No Data";
 	}
 
 
@@ -74,8 +72,12 @@ public class StocksController
 		return StockPointLoader.load(isin);
 	}
 
+
 	@RequestMapping(path = "/stock/branch/data", produces = "application/json")
-	public Map<Long, Double> getRawDataForBranch(@RequestParam(required = false) String branch, @RequestParam(required = false) String country, @RequestParam(required = false) Long start)
+	public Map<Long, Double> getRawDataForBranch(@RequestParam(required = false)
+	String branch, @RequestParam(required = false)
+	String country, @RequestParam(required = false)
+	Long start)
 	{
 		if (start == null)
 		{
@@ -87,6 +89,7 @@ public class StocksController
 		}
 		return StockPointLoader.loadRawForBranch(branch, country, start);
 	}
+
 
 	@RequestMapping(path = "/stock/data", produces = "application/json")
 	public TableData getRawData(@RequestParam
@@ -105,12 +108,14 @@ public class StocksController
 		return StockPointLoader.loadRaw(isin, start, type);
 	}
 
+
 	@RequestMapping(path = "/stockItem/prefetch", produces = "application/json")
 	public boolean prefetchData(@RequestParam
 	String isin)
 	{
 		return StockPointLoader.prefetchIsin(isin);
 	}
+
 
 	@RequestMapping(path = "/stockItems", produces = "application/json")
 	public Map<String, List<StockItem>> getStockItems()
