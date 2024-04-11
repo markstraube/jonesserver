@@ -1,9 +1,6 @@
 package com.straube.jones.dataprovider.stocks;
 
 
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -23,27 +20,10 @@ import com.straube.jones.cmd.db.DBConnection;
 
 public class StockPointLoader
 {
-    public static final String DATA_FOLDER = System.getProperty("data.root", "C:/Dev/__GIT/jonesserver/data");
-    public static final String INDEX_FOLDER = DATA_FOLDER + "/onVista/index";
+    public static final String DATA_FOLDER = System.getProperty("data.root", "/home/mark/Software/data");
 
     private StockPointLoader()
     {}
-
-
-    public static StockPoints load(String isin)
-    {
-        try
-        {
-            List<String> lines = Files.readAllLines(new File(INDEX_FOLDER, isin + ".json").toPath(), StandardCharsets.UTF_8);
-            StockPoints p = new StockPoints(lines);
-            return p;
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-        return null;
-    }
 
 
     public static TableData loadRaw(List<String> isins, long start, int type)

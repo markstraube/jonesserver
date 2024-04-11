@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.straube.jones.dataprovider.stocks.StockItem;
 import com.straube.jones.dataprovider.stocks.StockPointLoader;
-import com.straube.jones.dataprovider.stocks.StockPoints;
 import com.straube.jones.dataprovider.stocks.StocksLoader;
 import com.straube.jones.dataprovider.stocks.TableData;
 import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
@@ -34,7 +33,7 @@ public class StocksController
 		new File(HTML_ROOT_FOLDER).mkdirs();
 	}
 
-	public @RequestMapping(value = "/hello") String index()
+	public @RequestMapping(value = "/") String index()
 	{
 		return "StocksServer";
 	}
@@ -62,14 +61,6 @@ public class StocksController
 			}
 		}
 		return "No Data";
-	}
-
-
-	@RequestMapping(path = "/stock/points/{isin}", produces = "application/json")
-	public StockPoints getStockPoints(@PathVariable
-	String isin)
-	{
-		return StockPointLoader.load(isin);
 	}
 
 

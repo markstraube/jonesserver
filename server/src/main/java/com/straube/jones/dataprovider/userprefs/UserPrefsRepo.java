@@ -7,7 +7,7 @@ import java.nio.file.Files;
 
 public class UserPrefsRepo
 {
-    private static final String USER_PREFS_ROOT = "./data/userprefs/";
+    private static final String USER_PREFS_ROOT = "/home/mark/Software/data/userprefs/";
     private static final String USEER_PREFS_FILTER_FILE = "filter.data";
 
     static
