@@ -38,13 +38,13 @@ public class OnVistaParser
     public static List<Object> parseRow(Element row)
     {
         List<Object> lRow = new ArrayList<>();
-        Elements entries = row.select("td");
-        String isin = Parser.parseIsin(entries.get(0));
-        lRow.add(isin);
-        lRow.add(Parser.parseShortUrl(entries.get(0)));
-        lRow.add(Parser.parseName(entries.get(0)));
         try
         {
+            Elements entries = row.select("td");
+            String isin = Parser.parseIsin(entries.get(0));
+            lRow.add(isin);
+            lRow.add(Parser.parseShortUrl(entries.get(0)));
+            lRow.add(Parser.parseName(entries.get(0)));
             lRow.add(Parser.parseWkn(entries.get(1)));
             lRow.add(Parser.parseBranch(entries.get(2)));
             lRow.add(Parser.parseSector(entries.get(3)));
@@ -75,7 +75,8 @@ public class OnVistaParser
         }
         catch (Exception ignore)
         {
-            System.out.println(String.format("ERR: NOT adding name: %s, ISIN: %s", lRow.get(2), lRow.get(0)));
+            System.out.println(String.format("Could not parse row: %s", ignore.getMessage()));
+            System.out.println(row.toString());            
         }
         return null;
     }
@@ -324,8 +325,8 @@ class Parser
 
     public static String parseName(Element element)
     {
-        Element e = element.select("div > a").first();
-        return e.text();
+        //Element e = element.select("div > a").first();
+        return element.text();
     }
 
 
