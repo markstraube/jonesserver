@@ -8,7 +8,7 @@ import java.nio.file.Files;
 public class UserPrefsRepo
 {
     private static final String USER_PREFS_ROOT = "/home/mark/Software/data/userprefs/";
-    private static final String USEER_PREFS_FILTER_FILE = "filter.data";
+    private static final String USEER_PREFS_FILTER_FILE = "filter.json";
 
     static
     {
@@ -39,7 +39,7 @@ public class UserPrefsRepo
     public static String getStocks(String topic)
         throws IOException
     {
-        File f = new File(USER_PREFS_ROOT, topic + ".data");
+        File f = new File(USER_PREFS_ROOT, topic + ".json");
         if (!f.exists())
         { return ""; }
         return new String(Files.readAllBytes(f.toPath()));
@@ -58,7 +58,7 @@ public class UserPrefsRepo
     public static String saveStocks(String topic, String stocks)
         throws IOException
     {
-        File f = new File(USER_PREFS_ROOT, topic + ".data");
+        File f = new File(USER_PREFS_ROOT, topic + ".json");
         Files.write(f.toPath(), stocks.getBytes());
         return "OK";
     }
