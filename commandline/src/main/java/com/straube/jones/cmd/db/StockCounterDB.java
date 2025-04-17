@@ -11,17 +11,11 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Node;
-import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.html.HttpTools;
-import com.straube.jones.cmd.onVista.OnVistaParser;
 
 public class StockCounterDB
 {

@@ -208,9 +208,12 @@ public class OnVistaCollector
 								if (e instanceof JSONArray)
 								{
 									List<Object> list = ((JSONArray)e).toList();
-									OnVistaParser.setParams(psInsert, list);
+									if (accepted(list))
+									{
+										OnVistaParser.setParams(psInsert, list);
 
-									psInsert.addBatch();
+										psInsert.addBatch();
+									}
 								}
 							}
 							catch (Exception e2)
@@ -232,5 +235,19 @@ public class OnVistaCollector
 		{
 			e.printStackTrace();
 		}
+	}
+
+	private boolean accepted(List<Object> list) {
+		if (list.size() < 3 || !(list.get(2) instanceof String)) {
+			return false;
+		}
+		String name = list.get(2).toString();
+		final List<String> tokens = Arrays.asList("ADR", "CDR", "RMB", "NVDR", "GDR", "YC1", "YC 1"); 
+		for (String token : tokens) {
+			if (name.contains(token)) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

@@ -1,0 +1,28 @@
+query {
+    viewer {
+      homes {
+        currentSubscription{
+          priceInfo{
+            current{
+              total
+              energy
+              tax
+              startsAt
+            }
+            today {
+              total
+              energy
+              tax
+              startsAt
+            }
+            tomorrow {
+              total
+              energy
+              tax
+              startsAt
+            }
+          }
+        }
+      }
+    }
+  }
