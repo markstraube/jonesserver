@@ -7,13 +7,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
+import java.time.Instant;
 
 import com.straube.jones.cmd.currencies.CurrencyDB;
 import com.straube.jones.cmd.currencies.EuroRates;
 import com.straube.jones.cmd.db.OnVistaModel;
+import com.straube.jones.cmd.db.StockCounterDB;
 import com.straube.jones.cmd.db.StocksModel;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
-import com.straube.jones.cmd.db.StockCounterDB;
+import com.straube.jones.cmd.onVista.StocksLoader;
 import com.straube.jones.cmd.onVista.StocksParser;
 
 public class Main
@@ -22,10 +24,11 @@ public class Main
         throws Exception
     {
         final String dataRoot = System.getProperty("data.root", "./data");
-        final String command = System.getProperty("command", "fundamentals");
+        final String webDataRoot = System.getProperty("web.data.root", "./data");
+        final String command = System.getProperty("command", "onVista");
         final String createModel = System.getProperty("createModel", "false");
         final String dateString = System.getProperty("dateString", "2024-03-31");
-
+       
         switch (command)
         {
         case "onVista":
@@ -37,6 +40,10 @@ public class Main
             File targetFolder = onVista.getJsonFromFinder();
             onVista.updateFinderJsonToOnVistaTable(targetFolder);
             StocksParser.insertFinderJsonToStocksTable(targetFolder.toPath());
+
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/365");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/28");
+
             break;
         case "stocks":
             if ("true".equals(createModel))

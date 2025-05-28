@@ -4,12 +4,17 @@ package com.straube.jones;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,10 +32,11 @@ import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 @RequestMapping(value = "/api")
 public class StocksController
 {
-	private static final String HTML_ROOT_FOLDER = System.getProperty("data.root", "./data") + "/onVista/fundamentals/cache/";
+	private static final String DATA_ROOT_FOLDER = System.getProperty("data.root", "/home/mark/Software/data");
+	private static final String FUNDAMENTALS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/onVista/fundamentals/cache/";
 	static
 	{
-		new File(HTML_ROOT_FOLDER).mkdirs();
+		new File(FUNDAMENTALS_ROOT_FOLDER).mkdirs();
 	}
 
 	public @RequestMapping(value = "/") String index()
@@ -44,7 +50,7 @@ public class StocksController
 	String shortUrl)
 	{
 		String[] segs = shortUrl.split("-");
-		File htmlFile = new File(HTML_ROOT_FOLDER, segs[segs.length - 1] + ".html");
+		File htmlFile = new File(FUNDAMENTALS_ROOT_FOLDER, segs[segs.length - 1] + ".html");
 		if (htmlFile.exists())
 		{
 			try
@@ -161,6 +167,39 @@ public class StocksController
 		{
 			e.printStackTrace();
 			return "[]";
+		}
+	}
+
+
+	@GetMapping(path = "/stock/image", produces = MediaType.IMAGE_PNG_VALUE)
+	public ResponseEntity<byte[]> getStockImage(
+												@RequestParam
+												String isin,
+												@RequestParam(required = false)
+												Long start,
+												@RequestParam(required = false)
+												Long end,
+												@RequestParam(required = false, defaultValue = "64")
+												Integer width,
+												@RequestParam(required = false, defaultValue = "48")
+												Integer height,
+												@RequestParam(required = false, defaultValue = "365")
+												Integer path)
+	{
+		try
+		{
+			String dir = String.format("%s/%sx%s/%s.png", path, width, height, isin);
+			File imageFile = new File(DATA_ROOT_FOLDER, dir);
+
+			if (!imageFile.exists())
+			{ return ResponseEntity.notFound().build(); }
+			byte[] imageBytes = Files.readAllBytes(imageFile.toPath());
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(imageBytes);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return ResponseEntity.internalServerError().build();
 		}
 	}
 }
