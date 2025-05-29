@@ -68,14 +68,45 @@ public class StocksLoader
                 }
                 try (ResultSet rs = ps.executeQuery())
                 {
+                    // Map: ISIN -> Map<LocalDate, Double>
+                    Map<String, Map<LocalDate, Double>> temp = new HashMap<>();
                     while (rs.next())
                     {
                         String isin = rs.getString("cIsin");
-                        long date = rs.getLong("cDateLong");
-                        LocalDate localDate = Instant.ofEpochMilli(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                        long dateLong = rs.getLong("cDateLong");
+                        LocalDate localDate = Instant.ofEpochMilli(dateLong).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
                         double price = rs.getDouble("cLast");
-                        StockDataPoint point = new StockDataPoint(isin, localDate, price);
-                        result.computeIfAbsent(isin, k -> new ArrayList<>()).add(point);
+                        temp.computeIfAbsent(isin, k -> new HashMap<>()).put(localDate, price);
+                    }
+
+                    // Für jede ISIN: Zeitreihe pro Tag aufbauen
+                    LocalDate startDate = Instant.ofEpochMilli(start).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                    LocalDate endDate = Instant.ofEpochMilli(end).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+
+                    List<String> isinList;
+                    if (isins != null && isins.length > 0) {
+                        isinList = java.util.Arrays.asList(isins);
+                    } else {
+                        isinList = new ArrayList<>(temp.keySet());
+                    }
+
+                    for (String isin : isinList) {
+                        Map<LocalDate, Double> dateToPrice = temp.getOrDefault(isin, new HashMap<>());
+                        List<StockDataPoint> points = new ArrayList<>();
+                        double lastValue = 0.0;
+                        boolean firstValueFound = false;
+                        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+                            if (dateToPrice.containsKey(d)) {
+                                lastValue = dateToPrice.get(d);
+                                points.add(new StockDataPoint(isin, d, lastValue));
+                                firstValueFound = true;
+                            } else if (!firstValueFound) {
+                                points.add(new StockDataPoint(isin, d, 0.0));
+                            } else {
+                                points.add(new StockDataPoint(isin, d, lastValue));
+                            }
+                        }
+                        result.put(isin, points);
                     }
                 }
             }

@@ -41,8 +41,8 @@ public class Main
             onVista.updateFinderJsonToOnVistaTable(targetFolder);
             StocksParser.insertFinderJsonToStocksTable(targetFolder.toPath());
 
-            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/365");
-            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/28");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/1Y");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/1M");
 
             break;
         case "stocks":

@@ -184,7 +184,7 @@ public class StocksController
 												@RequestParam(required = false, defaultValue = "48")
 												Integer height,
 												@RequestParam(required = false, defaultValue = "365")
-												Integer path)
+												String path)
 	{
 		try
 		{
