@@ -1,6 +1,5 @@
 package com.straube.jones.cmd.onVista;
 
-
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -20,21 +19,33 @@ import java.util.stream.Collectors;
 
 import com.straube.jones.cmd.db.StockDataPoint;
 
+/**
+ * Utility-Klasse zur Erzeugung von Aktienchart-Bildern.
+ */
 public class StockChartGenerator
 {
     private static final int DEFAULTMARGIN = 40;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final Color LIGHT_BLUE_FILL = new Color(80, 90, 190, 150); // Light blue with transparency
+    private static final Color LIGHT_BLUE_FILL = new Color(80, 90, 190, 150); // Transparente Füllfarbe für Chartfläche
     private static final Color GRID_COLOR = Color.LIGHT_GRAY;
     private static final Color AXIS_COLOR = Color.BLACK;
     private static final Color TEXT_COLOR = Color.BLACK;
-    private static final int SINGLE_POINT_RECT_WIDTH = 6; // Width of the rectangle for a single data point
+    private static final int SINGLE_POINT_RECT_WIDTH = 6; // Breite für Einzelpunkt-Darstellung
 
+    /**
+     * Erzeugt ein Chart-Bild für die übergebenen Datenpunkte.
+     * @param dataPoints Liste der Datenpunkte (sortiert nach Datum)
+     * @param width Bildbreite
+     * @param height Bildhöhe
+     * @param isin ISIN für Titel/Beschriftung
+     * @return BufferedImage mit Chart
+     */
     public static BufferedImage generateChart(List<StockDataPoint> dataPoints, int width, int height, String isin)
     {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = image.createGraphics();
 
+        // Bestimme, ob Ränder/Margins gezeichnet werden sollen
         boolean showMargings = true;
         int margin = getMargin(width, height);
         if (margin == 0)
@@ -42,13 +53,15 @@ public class StockChartGenerator
             showMargings = false;
         }
 
+        // Anti-Aliasing für bessere Darstellung aktivieren
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
+        // Hintergrund weiß füllen
         g2d.setColor(Color.WHITE);
         g2d.fillRect(0, 0, width, height);
 
-        // Handle Empty Data
+        // Falls keine Daten vorhanden sind, Hinweistext zeichnen
         if (dataPoints == null || dataPoints.isEmpty())
         {
             g2d.setColor(Color.BLACK);
@@ -59,25 +72,28 @@ public class StockChartGenerator
             return image;
         }
 
+        // Datenpunkte sortieren (nach Datum)
         List<StockDataPoint> sortedDataPoints = new ArrayList<>(dataPoints);
         Collections.sort(sortedDataPoints);
 
+        // Bestimme Zeitbereich (X-Achse)
         LocalDate minDate = sortedDataPoints.get(0).getDate();
         LocalDate maxDate = sortedDataPoints.get(sortedDataPoints.size() - 1).getDate();
 
+        // Bestimme Wertebereich (Y-Achse)
         double dataMaxPrice = sortedDataPoints.stream().mapToDouble(StockDataPoint::getPrice).max().orElse(0.0);
         double dataMinPrice = sortedDataPoints.stream().mapToDouble(StockDataPoint::getPrice).min().orElse(0.0);
 
-        // Minimal dargestellter Y-Wert ist 10 Punkte unterhalb des minimalen Wertes der Zeitreihe
-        double yAxisMinPrice = dataMinPrice - 10.0;
-        // Optional: falls yAxisMinPrice > 0, auf 0 setzen (damit Chart nicht "über" 0 startet)
-        // yAxisMinPrice = Math.min(yAxisMinPrice, 0.0);
+        // Minimal dargestellter Y-Wert ist 5 Punkte unterhalb des minimalen Wertes der Zeitreihe
+        double yAxisMinPrice = dataMinPrice - 5.0;
 
+        // Maximalwert für Y-Achse bestimmen
         double yAxisTentativeMaxPrice = (dataMaxPrice == 0.0) ? 10.0 : dataMaxPrice;
         if (yAxisTentativeMaxPrice < yAxisMinPrice) {
             yAxisTentativeMaxPrice = yAxisMinPrice + 10.0;
         }
 
+        // Tick-Werte für Y-Achse berechnen
         List<Double> yTickValues = calculateTickValues(yAxisMinPrice, yAxisTentativeMaxPrice, 10);
         double yAxisMaxPriceForScaling = yTickValues.get(yTickValues.size() - 1);
         if (yAxisMaxPriceForScaling == 0 && yAxisMinPrice == 0)
@@ -88,9 +104,9 @@ public class StockChartGenerator
 
         int chartWidth = width - 2 * margin;
         int chartHeight = height - 2 * margin;
-        int xAxisY = height - margin;
+        int xAxisY = height - margin; // Y-Koordinate der X-Achse
 
-        // Draw Y-axis and horizontal grid lines
+        // Y-Achse und horizontale Hilfslinien zeichnen
         g2d.setFont(new Font("Arial", Font.PLAIN, 10));
         for (Double tickValue : yTickValues)
         {
@@ -106,24 +122,24 @@ public class StockChartGenerator
                 g2d.drawLine(margin, y, width - margin, y);
             }
             g2d.setColor(TEXT_COLOR);
-            // Draw y-axis label for all ticks (including negative)
+            // Y-Achsen-Beschriftung für alle Ticks (auch negative)
             if (showMargings)
             {
                 g2d.drawString(String.format("%.0f", tickValue), margin - 25, y + 4);
             }
         }
 
-        // Draw X-axis and vertical grid lines
+        // X-Achse und vertikale Hilfslinien zeichnen
         g2d.setColor(AXIS_COLOR);
-        g2d.drawLine(margin, xAxisY, width - margin, xAxisY); // X-axis line
-        g2d.drawLine(margin, margin, margin, xAxisY); // Y-axis line
+        g2d.drawLine(margin, xAxisY, width - margin, xAxisY); // X-Achse
+        g2d.drawLine(margin, margin, margin, xAxisY); // Y-Achse
 
-        // X-axis date ticks and vertical grid lines
+        // X-Achsen-Beschriftung und vertikale Hilfslinien für Datumswerte
         if (showMargings)
         {
-            // Chart Title
+            // Chart-Titel
             g2d.setFont(new Font("Arial", Font.BOLD, 16));
-            drawTextCentered(g2d, "Stock Chart for ISIN: " + isin, width / 2, margin / 2);
+            drawTextCentered(g2d, isin, width / 2, margin / 2);
             FontMetrics fm = g2d.getFontMetrics();
             g2d.setColor(Color.BLACK);
             g2d.setFont(new Font("Arial", Font.PLAIN, 10));
@@ -133,7 +149,7 @@ public class StockChartGenerator
                 g2d.drawString(maxDate.format(DATE_FORMATTER), width - margin - fm.stringWidth(maxDate.format(DATE_FORMATTER)), xAxisY + 15);
             }
         }
-        // Axis Ticks and Labels
+        // Zusätzliche Datums-Ticks und vertikale Linien
         long totalDays = ChronoUnit.DAYS.between(minDate, maxDate);
         if (totalDays > 1)
         {
@@ -145,7 +161,7 @@ public class StockChartGenerator
                     LocalDate date = minDate.plusDays(totalDays * i / (numDateLines + 1));
                     int x = mapDateToX(date, minDate, maxDate, chartWidth, margin);
                     g2d.setColor(GRID_COLOR);
-                    g2d.drawLine(x, margin, x, xAxisY); // Vertical grid line
+                    g2d.drawLine(x, margin, x, xAxisY); // Vertikale Hilfslinie
                     g2d.setColor(TEXT_COLOR);
                     String dateStr = date.format(DATE_FORMATTER);
                     drawTextCentered(g2d, dateStr, x, xAxisY + 15, false);
@@ -153,10 +169,11 @@ public class StockChartGenerator
             }
         }
 
-        // Create and fill the area polygon between StockPoints and 0.0 line
+        // Fläche zwischen Chartlinie und 0.0-Linie füllen
         Polygon filledArea = new Polygon();
         if (sortedDataPoints.size() == 1)
         {
+            // Einzelpunkt: Rechteck um den Punkt zeichnen
             StockDataPoint point = sortedDataPoints.get(0);
             int x = mapDateToX(point.getDate(), minDate, maxDate, chartWidth, margin);
             int yPrice = mapPriceToY(point.getPrice(), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
@@ -169,23 +186,24 @@ public class StockChartGenerator
         }
         else
         {
-            // Add leftmost point at 0.0 line
+            // Polygon von 0.0-Linie zu allen Chartpunkten und zurück zur 0.0-Linie
             int xFirst = mapDateToX(sortedDataPoints.get(0).getDate(), minDate, maxDate, chartWidth, margin);
             int yZero = mapPriceToY(0.0, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
             filledArea.addPoint(xFirst, yZero);
 
-            // Add all data points
+            // Alle Chartpunkte hinzufügen
             for (StockDataPoint point : sortedDataPoints)
             {
                 int x = mapDateToX(point.getDate(), minDate, maxDate, chartWidth, margin);
                 int y = mapPriceToY(point.getPrice(), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
                 filledArea.addPoint(x, y);
             }
-            // Add rightmost point at 0.0 line
+            // Rechts wieder zur 0.0-Linie
             int xLast = mapDateToX(sortedDataPoints.get(sortedDataPoints.size() - 1).getDate(), minDate, maxDate, chartWidth, margin);
             filledArea.addPoint(xLast, yZero);
         }
 
+        // Fläche füllen
         g2d.setColor(LIGHT_BLUE_FILL);
         g2d.fill(filledArea);
 
@@ -193,40 +211,43 @@ public class StockChartGenerator
         return image;
     }
 
-
+    /**
+     * Bestimmt den Margin für das Chart abhängig von der Bildgröße.
+     */
     private static int getMargin(int width, int height)
     {
-        if (width < 800 || height < 600)
+        if (width < 400 || height < 300)
         {
-            return 0; // No margins for small charts
+            return 0; // Keine Margins für kleine Charts
         }
         return DEFAULTMARGIN;
     }
 
-
+    /**
+     * Berechnet sinnvolle Tick-Werte für die Y-Achse.
+     */
     private static List<Double> calculateTickValues(double dataMin, double dataMax, int targetNumTicks)
     {
         List<Double> ticks = new ArrayList<>();
         if (dataMax < dataMin)
-            dataMax = dataMin + 10; // Ensure max is greater than min for calculation
+            dataMax = dataMin + 10;
         if (dataMax == dataMin && dataMin == 0)
-            dataMax = 10.0; // Default if all data is 0
+            dataMax = 10.0;
         else if (dataMax == dataMin)
-            dataMax = dataMin + 1.0; // If all values are same but non-zero
+            dataMax = dataMin + 1.0;
 
         double range = dataMax - dataMin;
         if (range == 0)
-        { // Handle case where all data points have the same non-zero value
+        {
             ticks.add(dataMin);
-            ticks.add(dataMax + 1.0); // Add one tick above
+            ticks.add(dataMax + 1.0);
             return ticks.stream().distinct().sorted().collect(Collectors.toList());
         }
 
-        double rawStep = range / Math.max(1, targetNumTicks - 1); // Avoid division by zero for
-                                                                  // targetNumTicks=1
+        double rawStep = range / Math.max(1, targetNumTicks - 1);
 
-        // Calculate "nice" step value (e.g., 1, 2, 5, 10, 20, 25, 50, 100...)
-        double[] niceSteps = {1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000}; // Extended
+        // "Schöne" Schrittweiten
+        double[] niceSteps = {1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000};
         double step = rawStep;
         double magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
 
@@ -236,9 +257,9 @@ public class StockChartGenerator
             if (step >= rawStep)
                 break;
         }
-        // Refine step if it creates too many/few ticks
+        // Schrittweite ggf. anpassen
         if (range / step > targetNumTicks * 1.5 && targetNumTicks > 1)
-        { // Too many ticks, try larger step
+        {
             for (double niceStepBase : niceSteps)
             {
                 if (niceStepBase * magnitude > step)
@@ -249,56 +270,60 @@ public class StockChartGenerator
             }
         }
 
-        double currentTick = 0; // Y-axis always starts at 0
-        // Add ticks starting from 0
+        // Ticks ab dataMin (statt 0) erzeugen
+        double currentTick = Math.ceil(dataMin / step) * step;
         while (currentTick <= dataMax + step / 2)
-        { // Add step/2 to ensure dataMax is covered
+        {
             ticks.add(roundToSensibleDecimal(currentTick));
             if (step == 0)
-                break; // Avoid infinite loop if step is somehow 0
+                break;
             currentTick += step;
         }
 
         if (ticks.isEmpty() || ticks.get(ticks.size() - 1) < dataMax)
         {
-            ticks.add(roundToSensibleDecimal(currentTick)); // Ensure dataMax is covered or slightly exceeded
-                                                            // by a tick
+            ticks.add(roundToSensibleDecimal(currentTick));
         }
 
-        // Ensure there are at least two ticks (0 and max) if dataMax is very small or step is large
         if (ticks.size() < 2)
         {
             ticks.clear();
-            ticks.add(0.0);
-            ticks.add(roundToSensibleDecimal(dataMax > 0 ? dataMax : 10.0)); // If dataMax is 0, make top tick
-                                                                             // 10
+            ticks.add(dataMin);
+            ticks.add(roundToSensibleDecimal(dataMax > dataMin ? dataMax : dataMin + 10.0));
         }
 
         return ticks.stream().distinct().sorted().collect(Collectors.toList());
     }
 
-
+    /**
+     * Rundet Werte für Tick-Beschriftung sinnvoll.
+     */
     private static double roundToSensibleDecimal(double value)
     {
         if (value == 0)
             return 0.0;
-        // For values >= 1, round to 2 decimal places. For smaller, allow more precision.
         if (Math.abs(value) >= 1)
         {
             return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
         }
         else if (Math.abs(value) >= 0.01)
-        { return BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).doubleValue(); }
-        return value; // Keep as is for very small numbers or let formatter handle
+        {
+            return BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).doubleValue();
+        }
+        return value;
     }
 
-
+    /**
+     * Zeichnet Text zentriert an die angegebene Position.
+     */
     private static void drawTextCentered(Graphics2D g2d, String text, int x, int y)
     {
         drawTextCentered(g2d, text, x, y, false);
     }
 
-
+    /**
+     * Zeichnet Text zentriert, optional rotiert.
+     */
     private static void drawTextCentered(Graphics2D g2d, String text, int x, int y, boolean rotate)
     {
         FontMetrics fm = g2d.getFontMetrics();
@@ -319,11 +344,15 @@ public class StockChartGenerator
         }
     }
 
-
+    /**
+     * Berechnet die X-Position für ein Datum.
+     */
     private static int mapDateToX(LocalDate date, LocalDate minDate, LocalDate maxDate, int chartWidth, int margin)
     {
         if (minDate.equals(maxDate))
-        { return margin + chartWidth / 2; }
+        {
+            return margin + chartWidth / 2;
+        }
         long totalDays = ChronoUnit.DAYS.between(minDate, maxDate);
         long daysFromMin = ChronoUnit.DAYS.between(minDate, date);
         if (totalDays == 0)
@@ -331,14 +360,16 @@ public class StockChartGenerator
         return margin + (int)(daysFromMin * (double)chartWidth / totalDays);
     }
 
-
+    /**
+     * Berechnet die Y-Position für einen Wert.
+     */
     private static int mapPriceToY(double price, double minPrice, double maxPriceForScaling, int chartHeight, int topMargin, int bottomMarginY)
     {
         if (maxPriceForScaling <= minPrice)
-        { // Avoid division by zero or negative scaling factor
-            return bottomMarginY - chartHeight / 2; // Center vertically if no range
+        {
+            return bottomMarginY - chartHeight / 2;
         }
-        // Y is inverted in graphics (0 at top)
+        // Y ist invertiert (0 oben)
         double normalizedPrice = (price - minPrice) / (maxPriceForScaling - minPrice);
         return bottomMarginY - (int)(normalizedPrice * chartHeight);
     }
