@@ -65,41 +65,48 @@ public class StockChartGenerator
         LocalDate minDate = sortedDataPoints.get(0).getDate();
         LocalDate maxDate = sortedDataPoints.get(sortedDataPoints.size() - 1).getDate();
 
-        double dataMaxPrice = 0;
-        for (StockDataPoint point : sortedDataPoints)
-        {
-            if (point.getPrice() > dataMaxPrice)
-            {
-                dataMaxPrice = point.getPrice();
-            }
-        }
+        double dataMaxPrice = sortedDataPoints.stream().mapToDouble(StockDataPoint::getPrice).max().orElse(0.0);
+        double dataMinPrice = sortedDataPoints.stream().mapToDouble(StockDataPoint::getPrice).min().orElse(0.0);
 
-        double yAxisMinPrice = 0.0;
+        // Minimal dargestellter Y-Wert ist 10 Punkte unterhalb des minimalen Wertes der Zeitreihe
+        double yAxisMinPrice = dataMinPrice - 10.0;
+        // Optional: falls yAxisMinPrice > 0, auf 0 setzen (damit Chart nicht "über" 0 startet)
+        // yAxisMinPrice = Math.min(yAxisMinPrice, 0.0);
+
         double yAxisTentativeMaxPrice = (dataMaxPrice == 0.0) ? 10.0 : dataMaxPrice;
+        if (yAxisTentativeMaxPrice < yAxisMinPrice) {
+            yAxisTentativeMaxPrice = yAxisMinPrice + 10.0;
+        }
 
         List<Double> yTickValues = calculateTickValues(yAxisMinPrice, yAxisTentativeMaxPrice, 10);
         double yAxisMaxPriceForScaling = yTickValues.get(yTickValues.size() - 1);
         if (yAxisMaxPriceForScaling == 0 && yAxisMinPrice == 0)
-        { // All prices are 0, ensure some height
-            yAxisMaxPriceForScaling = 10.0; // Default max if all data is zero
-            yTickValues = calculateTickValues(0, yAxisMaxPriceForScaling, 5); // Recalculate ticks
+        {
+            yAxisMaxPriceForScaling = 10.0;
+            yTickValues = calculateTickValues(0, yAxisMaxPriceForScaling, 5);
         }
 
         int chartWidth = width - 2 * margin;
         int chartHeight = height - 2 * margin;
-        int xAxisY = height - margin; // Y-coordinate of the X-axis
+        int xAxisY = height - margin;
 
         // Draw Y-axis and horizontal grid lines
         g2d.setFont(new Font("Arial", Font.PLAIN, 10));
         for (Double tickValue : yTickValues)
         {
             int y = mapPriceToY(tickValue, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
-            g2d.setColor(GRID_COLOR);
-            g2d.drawLine(margin, y, width - margin, y); // Horizontal grid line
+            if (Math.abs(tickValue) < 1e-8) // 0.0 Linie
+            {
+                g2d.setColor(Color.RED);
+                g2d.drawLine(margin, y, width - margin, y);
+            }
+            else 
+            {
+                g2d.setColor(GRID_COLOR);
+                g2d.drawLine(margin, y, width - margin, y);
+            }
             g2d.setColor(TEXT_COLOR);
-            // Avoid drawing "0.00" if it's not the absolute min and another 0.00 tick exists
-            if (tickValue == 0.0 && yTickValues.stream().filter(v -> v == 0.0).count() > 1 && y != xAxisY)
-                continue;
+            // Draw y-axis label for all ticks (including negative)
             if (showMargings)
             {
                 g2d.drawString(String.format("%.0f", tickValue), margin - 25, y + 4);
@@ -146,33 +153,37 @@ public class StockChartGenerator
             }
         }
 
-        // Create and fill the area polygon
+        // Create and fill the area polygon between StockPoints and 0.0 line
         Polygon filledArea = new Polygon();
         if (sortedDataPoints.size() == 1)
         {
             StockDataPoint point = sortedDataPoints.get(0);
             int x = mapDateToX(point.getDate(), minDate, maxDate, chartWidth, margin);
             int yPrice = mapPriceToY(point.getPrice(), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+            int yZero = mapPriceToY(0.0, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
 
-            filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, xAxisY);
+            filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, yZero);
             filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, yPrice);
             filledArea.addPoint(x + SINGLE_POINT_RECT_WIDTH / 2, yPrice);
-            filledArea.addPoint(x + SINGLE_POINT_RECT_WIDTH / 2, xAxisY);
+            filledArea.addPoint(x + SINGLE_POINT_RECT_WIDTH / 2, yZero);
         }
         else
         {
-            // Add bottom-left point
-            filledArea.addPoint(mapDateToX(sortedDataPoints.get(0).getDate(), minDate, maxDate, chartWidth, margin), xAxisY);
+            // Add leftmost point at 0.0 line
+            int xFirst = mapDateToX(sortedDataPoints.get(0).getDate(), minDate, maxDate, chartWidth, margin);
+            int yZero = mapPriceToY(0.0, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+            filledArea.addPoint(xFirst, yZero);
 
-            // Add data points
+            // Add all data points
             for (StockDataPoint point : sortedDataPoints)
             {
                 int x = mapDateToX(point.getDate(), minDate, maxDate, chartWidth, margin);
                 int y = mapPriceToY(point.getPrice(), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
                 filledArea.addPoint(x, y);
             }
-            // Add bottom-right point
-            filledArea.addPoint(mapDateToX(sortedDataPoints.get(sortedDataPoints.size() - 1).getDate(), minDate, maxDate, chartWidth, margin), xAxisY);
+            // Add rightmost point at 0.0 line
+            int xLast = mapDateToX(sortedDataPoints.get(sortedDataPoints.size() - 1).getDate(), minDate, maxDate, chartWidth, margin);
+            filledArea.addPoint(xLast, yZero);
         }
 
         g2d.setColor(LIGHT_BLUE_FILL);
@@ -189,7 +200,8 @@ public class StockChartGenerator
         {
             return 0; // No margins for small charts
         }
-        return DEFAULTMARGIN;    }
+        return DEFAULTMARGIN;
+    }
 
 
     private static List<Double> calculateTickValues(double dataMin, double dataMax, int targetNumTicks)

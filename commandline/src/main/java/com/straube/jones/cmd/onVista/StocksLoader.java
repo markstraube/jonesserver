@@ -83,28 +83,55 @@ public class StocksLoader
                     LocalDate startDate = Instant.ofEpochMilli(start).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
                     LocalDate endDate = Instant.ofEpochMilli(end).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
 
+                    // Falls Startdatum auf Wochenende fällt, auf nächsten Montag setzen
+                    while (startDate.getDayOfWeek().getValue() > 5)
+                    { // 6=Samstag, 7=Sonntag
+                        startDate = startDate.plusDays(1);
+                        if (startDate.isAfter(endDate))
+                            break;
+                    }
+
                     List<String> isinList;
-                    if (isins != null && isins.length > 0) {
+                    if (isins != null && isins.length > 0)
+                    {
                         isinList = java.util.Arrays.asList(isins);
-                    } else {
+                    }
+                    else
+                    {
                         isinList = new ArrayList<>(temp.keySet());
                     }
 
-                    for (String isin : isinList) {
+                    for (String isin : isinList)
+                    {
                         Map<LocalDate, Double> dateToPrice = temp.getOrDefault(isin, new HashMap<>());
                         List<StockDataPoint> points = new ArrayList<>();
                         double lastValue = 0.0;
                         boolean firstValueFound = false;
-                        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-                            if (dateToPrice.containsKey(d)) {
+                        double firstNonZero = 0.0;
+                        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1))
+                        {
+                            double value;
+                            if (dateToPrice.containsKey(d))
+                            {
                                 lastValue = dateToPrice.get(d);
-                                points.add(new StockDataPoint(isin, d, lastValue));
+                                value = lastValue;
                                 firstValueFound = true;
-                            } else if (!firstValueFound) {
-                                points.add(new StockDataPoint(isin, d, 0.0));
-                            } else {
-                                points.add(new StockDataPoint(isin, d, lastValue));
+                                if (firstNonZero == 0.0 && lastValue != 0.0)
+                                {
+                                    firstNonZero = lastValue;
+                                }
                             }
+                            else if (!firstValueFound)
+                            {
+                                value = 0.0;
+                            }
+                            else
+                            {
+                                value = lastValue;
+                            }
+                            // Prozentwert bezogen auf ersten Wert der Zeitreihe, der nicht 0.0 ist
+                            double percent = (firstNonZero != 0.0) ? ((value - firstNonZero) / firstNonZero * 100.0) : 0.0;
+                            points.add(new StockDataPoint(isin, d, percent));
                         }
                         result.put(isin, points);
                     }
