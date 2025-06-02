@@ -187,4 +187,17 @@ public class StocksLoader
             }
         }
     }
+
+    public static void main(String[] args)
+    {
+        // Beispielaufruf: Erzeuge Charts für alle ISINs im letzten Jahr
+        long start = Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365; 
+        long end = Instant.now().toEpochMilli(); // jetzt
+        String[] isins = {"FR0000120073"}; // Alle ISINs
+        int width = 64;
+        int height = 48;
+        String rootFolder = "./charts"; // Zielverzeichnis
+
+        generateAndSaveCharts(start, end, isins, width, height, rootFolder);
+    }
 }
