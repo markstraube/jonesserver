@@ -1,5 +1,6 @@
 package com.straube.jones.cmd.onVista;
 
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -15,6 +16,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.straube.jones.cmd.db.StockDataPoint;
@@ -26,7 +28,8 @@ public class StockChartGenerator
 {
     private static final int DEFAULTMARGIN = 40;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final Color LIGHT_BLUE_FILL = new Color(80, 90, 190, 150); // Transparente Füllfarbe für Chartfläche
+    private static final Color LIGHT_BLUE_FILL = new Color(80, 90, 190, 150); // Transparente Füllfarbe für
+                                                                              // Chartfläche
     private static final Color GRID_COLOR = Color.LIGHT_GRAY;
     private static final Color AXIS_COLOR = Color.BLACK;
     private static final Color TEXT_COLOR = Color.BLACK;
@@ -34,6 +37,7 @@ public class StockChartGenerator
 
     /**
      * Erzeugt ein Chart-Bild für die übergebenen Datenpunkte.
+     * 
      * @param dataPoints Liste der Datenpunkte (sortiert nach Datum)
      * @param width Bildbreite
      * @param height Bildhöhe
@@ -76,20 +80,47 @@ public class StockChartGenerator
         List<StockDataPoint> sortedDataPoints = new ArrayList<>(dataPoints);
         Collections.sort(sortedDataPoints);
 
+        // Finde den ersten gültigen Wert (>0) als Referenz für die Prozentdarstellung
+        double referenceValue = 0.0;
+        int referenceIndex = -1;
+        for (int i = 0; i < sortedDataPoints.size(); i++) {
+            if (sortedDataPoints.get(i).getPrice() != 0.0) {
+                referenceValue = sortedDataPoints.get(i).getPrice();
+                referenceIndex = i;
+                break;
+            }
+        }
+        if (referenceValue == 0.0) {
+            referenceValue = 1.0; // Verhindere Division durch 0, falls alle Werte 0 sind
+            referenceIndex = 0;
+        }
+
+        // Erzeuge eine Liste mit Prozentwerten relativ zum ersten gültigen Wert
+        List<Double> percentValues = new ArrayList<>();
+        for (int i = 0; i < sortedDataPoints.size(); i++) {
+            if (i < referenceIndex) {
+                percentValues.add(0.0);
+            } else {
+                percentValues.add(((sortedDataPoints.get(i).getPrice() / referenceValue) - 1.0) * 100.0);
+            }
+        }
+        //dump2CSV(percentValues);
+
         // Bestimme Zeitbereich (X-Achse)
         LocalDate minDate = sortedDataPoints.get(0).getDate();
         LocalDate maxDate = sortedDataPoints.get(sortedDataPoints.size() - 1).getDate();
 
-        // Bestimme Wertebereich (Y-Achse)
-        double dataMaxPrice = sortedDataPoints.stream().mapToDouble(StockDataPoint::getPrice).max().orElse(0.0);
-        double dataMinPrice = sortedDataPoints.stream().mapToDouble(StockDataPoint::getPrice).min().orElse(0.0);
+        // Bestimme Wertebereich (Y-Achse) für Prozentwerte
+        double dataMaxPercent = percentValues.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+        double dataMinPercent = percentValues.stream().mapToDouble(Double::doubleValue).min().orElse(0.0);
 
-        // Minimal dargestellter Y-Wert ist 5 Punkte unterhalb des minimalen Wertes der Zeitreihe
-        double yAxisMinPrice = dataMinPrice - 5.0;
+        // Minimal dargestellter Y-Wert ist 5 Punkte unterhalb des minimalen Prozentwerts
+        double yAxisMinPrice = dataMinPercent - 5.0;
 
         // Maximalwert für Y-Achse bestimmen
-        double yAxisTentativeMaxPrice = (dataMaxPrice == 0.0) ? 10.0 : dataMaxPrice;
-        if (yAxisTentativeMaxPrice < yAxisMinPrice) {
+        double yAxisTentativeMaxPrice = (dataMaxPercent == 0.0) ? 10.0 : dataMaxPercent;
+        if (yAxisTentativeMaxPrice < yAxisMinPrice)
+        {
             yAxisTentativeMaxPrice = yAxisMinPrice + 10.0;
         }
 
@@ -116,7 +147,7 @@ public class StockChartGenerator
                 g2d.setColor(Color.RED);
                 g2d.drawLine(margin, y, width - margin, y);
             }
-            else 
+            else
             {
                 g2d.setColor(GRID_COLOR);
                 g2d.drawLine(margin, y, width - margin, y);
@@ -174,14 +205,13 @@ public class StockChartGenerator
         if (sortedDataPoints.size() == 1)
         {
             // Einzelpunkt: Rechteck um den Punkt zeichnen
-            StockDataPoint point = sortedDataPoints.get(0);
-            int x = mapDateToX(point.getDate(), minDate, maxDate, chartWidth, margin);
-            int yPrice = mapPriceToY(point.getPrice(), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+            int x = mapDateToX(sortedDataPoints.get(0).getDate(), minDate, maxDate, chartWidth, margin);
+            int yPercent = mapPriceToY(percentValues.get(0), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
             int yZero = mapPriceToY(0.0, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
 
             filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, yZero);
-            filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, yPrice);
-            filledArea.addPoint(x + SINGLE_POINT_RECT_WIDTH / 2, yPrice);
+            filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, yPercent);
+            filledArea.addPoint(x + SINGLE_POINT_RECT_WIDTH / 2, yPercent);
             filledArea.addPoint(x + SINGLE_POINT_RECT_WIDTH / 2, yZero);
         }
         else
@@ -191,11 +221,11 @@ public class StockChartGenerator
             int yZero = mapPriceToY(0.0, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
             filledArea.addPoint(xFirst, yZero);
 
-            // Alle Chartpunkte hinzufügen
-            for (StockDataPoint point : sortedDataPoints)
+            // Alle Chartpunkte als Prozentwerte hinzufügen
+            for (int i = 0; i < sortedDataPoints.size(); i++ )
             {
-                int x = mapDateToX(point.getDate(), minDate, maxDate, chartWidth, margin);
-                int y = mapPriceToY(point.getPrice(), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+                int x = mapDateToX(sortedDataPoints.get(i).getDate(), minDate, maxDate, chartWidth, margin);
+                int y = mapPriceToY(percentValues.get(i), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
                 filledArea.addPoint(x, y);
             }
             // Rechts wieder zur 0.0-Linie
@@ -211,6 +241,7 @@ public class StockChartGenerator
         return image;
     }
 
+
     /**
      * Bestimmt den Margin für das Chart abhängig von der Bildgröße.
      */
@@ -222,6 +253,7 @@ public class StockChartGenerator
         }
         return DEFAULTMARGIN;
     }
+
 
     /**
      * Berechnet sinnvolle Tick-Werte für die Y-Achse.
@@ -295,6 +327,7 @@ public class StockChartGenerator
         return ticks.stream().distinct().sorted().collect(Collectors.toList());
     }
 
+
     /**
      * Rundet Werte für Tick-Beschriftung sinnvoll.
      */
@@ -307,11 +340,10 @@ public class StockChartGenerator
             return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
         }
         else if (Math.abs(value) >= 0.01)
-        {
-            return BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).doubleValue();
-        }
+        { return BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).doubleValue(); }
         return value;
     }
+
 
     /**
      * Zeichnet Text zentriert an die angegebene Position.
@@ -320,6 +352,7 @@ public class StockChartGenerator
     {
         drawTextCentered(g2d, text, x, y, false);
     }
+
 
     /**
      * Zeichnet Text zentriert, optional rotiert.
@@ -344,15 +377,14 @@ public class StockChartGenerator
         }
     }
 
+
     /**
      * Berechnet die X-Position für ein Datum.
      */
     private static int mapDateToX(LocalDate date, LocalDate minDate, LocalDate maxDate, int chartWidth, int margin)
     {
         if (minDate.equals(maxDate))
-        {
-            return margin + chartWidth / 2;
-        }
+        { return margin + chartWidth / 2; }
         long totalDays = ChronoUnit.DAYS.between(minDate, maxDate);
         long daysFromMin = ChronoUnit.DAYS.between(minDate, date);
         if (totalDays == 0)
@@ -360,17 +392,25 @@ public class StockChartGenerator
         return margin + (int)(daysFromMin * (double)chartWidth / totalDays);
     }
 
+
     /**
      * Berechnet die Y-Position für einen Wert.
      */
     private static int mapPriceToY(double price, double minPrice, double maxPriceForScaling, int chartHeight, int topMargin, int bottomMarginY)
     {
         if (maxPriceForScaling <= minPrice)
-        {
-            return bottomMarginY - chartHeight / 2;
-        }
+        { return bottomMarginY - chartHeight / 2; }
         // Y ist invertiert (0 oben)
         double normalizedPrice = (price - minPrice) / (maxPriceForScaling - minPrice);
         return bottomMarginY - (int)(normalizedPrice * chartHeight);
+    }
+
+
+    private static void dump2CSV(List<Double> points)
+    {
+        for (Double point : points)
+        {
+            System.out.printf("%f%n", point);
+        }
     }
 }

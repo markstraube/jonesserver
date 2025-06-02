@@ -107,7 +107,6 @@ public class StocksLoader
                         List<StockDataPoint> points = new ArrayList<>();
                         double lastValue = 0.0;
                         boolean firstValueFound = false;
-                        double firstNonZero = 0.0;
                         for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1))
                         {
                             double value;
@@ -116,10 +115,6 @@ public class StocksLoader
                                 lastValue = dateToPrice.get(d);
                                 value = lastValue;
                                 firstValueFound = true;
-                                if (firstNonZero == 0.0 && lastValue != 0.0)
-                                {
-                                    firstNonZero = lastValue;
-                                }
                             }
                             else if (!firstValueFound)
                             {
@@ -129,9 +124,7 @@ public class StocksLoader
                             {
                                 value = lastValue;
                             }
-                            // Prozentwert bezogen auf ersten Wert der Zeitreihe, der nicht 0.0 ist
-                            double percent = (firstNonZero != 0.0) ? ((value - firstNonZero) / firstNonZero * 100.0) : 0.0;
-                            points.add(new StockDataPoint(isin, d, percent));
+                            points.add(new StockDataPoint(isin, d, value));
                         }
                         result.put(isin, points);
                     }
@@ -188,12 +181,14 @@ public class StocksLoader
         }
     }
 
+
     public static void main(String[] args)
     {
         // Beispielaufruf: Erzeuge Charts für alle ISINs im letzten Jahr
-        long start = Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365; 
+        long start = Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365;
         long end = Instant.now().toEpochMilli(); // jetzt
-        String[] isins = {"FR0000120073"}; // Alle ISINs
+        String[] isins = {"US0028962076"}; // Alle ISINs
+
         int width = 64;
         int height = 48;
         String rootFolder = "./charts"; // Zielverzeichnis
