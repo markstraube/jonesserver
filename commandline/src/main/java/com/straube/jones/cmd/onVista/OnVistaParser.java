@@ -42,6 +42,11 @@ public class OnVistaParser
         {
             Elements entries = row.select("td");
             String isin = Parser.parseIsin(entries.get(0));
+            if (isin == null || isin.isEmpty())
+            {
+                System.out.println("### SKIPPING row with no ISIN");
+                return null;
+            }
             lRow.add(isin);
             lRow.add(Parser.parseShortUrl(entries.get(0)));
             lRow.add(Parser.parseName(entries.get(0)));
@@ -76,7 +81,8 @@ public class OnVistaParser
         catch (Exception ignore)
         {
             System.out.println(String.format("Could not parse row: %s", ignore.getMessage()));
-            System.out.println(row.toString());            
+            System.out.println(row.toString()); 
+            ignore.printStackTrace();           
         }
         return null;
     }
@@ -196,6 +202,10 @@ class Parser
     public static Double parseTurnover(Element element)
     {
         Element e = element.select("data").first();
+        if (e == null)
+        {
+            return 0.0d; // No data available
+        }
         String val = e.attributes().get("value");
         return Double.parseDouble(val);
     }
@@ -204,6 +214,10 @@ class Parser
     public static Long parseEmployees(Element element)
     {
         Element e = element.select("data").first();
+        if(e == null)
+        {
+            return 0L; // No data available
+        }
         String val = e.attributes().get("value");
         return Long.parseLong(val);
     }
@@ -226,6 +240,10 @@ class Parser
     public static Double parseDividend(Element element)
     {
         Element e = element.select("data").first();
+        if (e == null)
+        {
+            return 0.0d; // No data available
+        }
         String val = e.attributes().get("value");
         return Double.parseDouble(val);
     }
@@ -234,6 +252,10 @@ class Parser
     public static Double parseDivYield(Element element)
     {
         Element e = element.select("data").first();
+        if (e == null)
+        {
+            return 0.0d; // No data available
+        }
         String val = e.attributes().get("value");
         return Double.parseDouble(val);
     }
@@ -266,6 +288,10 @@ class Parser
     public static Double parsePerformance(Element element)
     {
         Element e = element.select("data").first();
+        if( e == null)
+        {
+            return 0.0d; // No data available
+        }
         String val = e.attributes().get("value");
         return Double.parseDouble(val);
     }
@@ -340,6 +366,10 @@ class Parser
     public static String parseIsin(Element element)
     {
         Element e = element.select("div > a").first();
+        if (e == null)
+        {
+            return ""; // No ISIN available
+        }
         String title = e.attr("title");
         return title.split("·")[2].trim();
     }
