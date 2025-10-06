@@ -58,15 +58,24 @@ Die OpenAPI-Konfiguration erfolgt über:
    - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
    - Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-## Neue Dateien und Änderungen
+## Neue Dateien und Änderungen (nach Bereinigung)
 
 ### Hinzugefügte Dateien:
 - `src/main/java/com/straube/jones/config/OpenApiConfig.java` - OpenAPI-Konfiguration
 
 ### Geänderte Dateien:
-- `pom.xml` - SpringDoc-Abhängigkeit hinzugefügt
-- `application.properties` - OpenAPI-Pfad-Konfiguration
-- `StocksController.java` - OpenAPI-Annotationen hinzugefügt
+- `pom.xml` - SpringDoc-Abhängigkeit hinzugefügt, veraltete Dependencies entfernt
+- `StocksController.java` - OpenAPI-Annotationen hinzugefügt, Code bereinigt
+
+### Entfernte Dependencies:
+- `javax.servlet-api` - Bereits von Spring Boot bereitgestellt
+- `commons-lang` (v2.2) - Veraltet, commons-lang3 wird verwendet
+- `jaxb-api` - Bereits von Spring Boot 3.x bereitgestellt
+
+### Code-Verbesserungen:
+- Nicht verwendete Imports entfernt
+- Switch-Statements durch if-Statements ersetzt
+- Database-Dependencies auf Spring Boot Versionsmanagement umgestellt
 
 ## API-Dokumentationsfeatures
 

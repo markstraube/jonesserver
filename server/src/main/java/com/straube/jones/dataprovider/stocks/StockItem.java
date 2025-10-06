@@ -8,7 +8,6 @@ import java.util.Locale;
 import com.straube.jones.dataprovider.DataUtil;
 import com.straube.jones.dataprovider.DataUtil.TIMESPAN;
 
-import jakarta.persistence.Column;
 
 public class StockItem
 {
@@ -106,7 +105,6 @@ public class StockItem
     /**
      * @return the link
      */
-    @Column(length = 1000)
     public String getOnVistaLink()
     {
         return onVistaLink;
