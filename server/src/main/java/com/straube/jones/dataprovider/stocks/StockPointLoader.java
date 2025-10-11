@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.straube.jones.cmd.ariva.ArivaHistoricData;
 import com.straube.jones.cmd.db.DBConnection;
+import com.straube.jones.dto.TableDataResponse;
 
 public class StockPointLoader
 {
@@ -26,9 +27,9 @@ public class StockPointLoader
     {}
 
 
-    public static TableData loadRaw(List<String> isins, long start, int type)
+    public static TableDataResponse loadRaw(List<String> isins, long start, int type)
     {
-        TableData data = new TableData();
+        TableDataResponse data = new TableDataResponse();
 
         long fromDate = start;
         long toDate = System.currentTimeMillis();
