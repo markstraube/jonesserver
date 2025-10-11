@@ -50,7 +50,8 @@ public class StocksController
 
 	@Operation(summary = "Basis-Endpoint", description = "Gibt den Namen des Services zurück")
 	@ApiResponse(responseCode = "200", description = "Service-Name")
-	public @RequestMapping(value = "/") String index()
+	@GetMapping(value = "/")
+	public String index()
 	{
 		return "StocksServer";
 	}
@@ -59,7 +60,7 @@ public class StocksController
 	@Operation(summary = "OnVista-Bericht abrufen", description = "Lädt einen OnVista-Bericht basierend auf der Short-URL")
 	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Bericht erfolgreich abgerufen"),
 							@ApiResponse(responseCode = "404", description = "Bericht nicht gefunden")})
-	@RequestMapping(path = "/onvista/aktien/kennzahlen/{shortUrl}")
+	@GetMapping(path = "/onvista/aktien/kennzahlen/{shortUrl}")
 	public String getOnVistaReport(@Parameter(description = "Short-URL der OnVista-Aktie")
 	@PathVariable
 	String shortUrl)
@@ -87,7 +88,7 @@ public class StocksController
 
 	@Operation(summary = "Branchendaten abrufen", description = "Lädt Rohdaten für eine bestimmte Branche")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Daten erfolgreich abgerufen")})
-	@RequestMapping(path = "/stock/branch/data", produces = "application/json")
+	@GetMapping(path = "/stock/branch/data", produces = "application/json")
 	public Map<Long, Double> getRawDataForBranch(@Parameter(description = "Branche")
 	@RequestParam(required = false)
 	String branch,
@@ -112,7 +113,7 @@ public class StocksController
 
 	@Operation(summary = "Aktienrohdaten abrufen", description = "Lädt Rohdaten für bestimmte ISINs")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Daten erfolgreich abgerufen")})
-	@RequestMapping(path = "/stock/data", produces = "application/json")
+	@GetMapping(path = "/stock/data", produces = "application/json")
 	public TableData getRawData(@Parameter(description = "Liste der ISINs")
 	@RequestParam
 	List<String> isin,
@@ -137,7 +138,7 @@ public class StocksController
 
 	@Operation(summary = "Daten vorabladen", description = "Lädt Daten für eine ISIN vorab")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Vorabladen erfolgreich")})
-	@RequestMapping(path = "/stockItem/prefetch", produces = "application/json")
+	@GetMapping(path = "/stockItem/prefetch", produces = "application/json")
 	public boolean prefetchData(@Parameter(description = "ISIN der Aktie")
 	@RequestParam
 	String isin)
@@ -148,7 +149,7 @@ public class StocksController
 
 	@Operation(summary = "Alle Aktien abrufen", description = "Lädt alle verfügbaren Aktieninformationen")
 	@ApiResponse(responseCode = "200", description = "Aktieninformationen erfolgreich abgerufen")
-	@RequestMapping(path = "/stockItems", produces = "application/json")
+	@GetMapping(path = "/stockItems", produces = "application/json")
 	public Map<String, List<StockItem>> getStockItems()
 	{
 		return StocksLoader.load();
@@ -188,7 +189,7 @@ public class StocksController
 	@Operation(summary = "Benutzereinstellungen abrufen", description = "Lädt Benutzereinstellungen für ein bestimmtes Thema")
 	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Einstellungen erfolgreich abgerufen"),
 							@ApiResponse(responseCode = "500", description = "Fehler beim Laden")})
-	@RequestMapping(path = "/prefs/{topic}", produces = "application/json")
+	@GetMapping(path = "/prefs/{topic}", produces = "application/json")
 	public String getUserPrefs(@Parameter(description = "Thema der Einstellungen")
 	@PathVariable
 	String topic)
