@@ -141,7 +141,7 @@ public class StocksController
 		return StockPointLoader.loadRaw(isin, start, type);
 	}
 
-
+	/** 
 	@Operation(summary = "Daten vorabladen", description = "Lädt Daten für eine ISIN vorab")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Vorabladen erfolgreich")})
 	@GetMapping(path = "/stock_item/prefetch", produces = "application/json")
@@ -156,7 +156,7 @@ public class StocksController
 			return BooleanResponse.failure("Failed to prefetch data for ISIN: " + isin);
 		}
 	}
-
+	**/
 
 	@Operation(summary = "Alle Aktien abrufen", description = "Lädt alle verfügbaren Aktieninformationen")
 	@ApiResponse(responseCode = "200", description = "Aktieninformationen erfolgreich abgerufen")

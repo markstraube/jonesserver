@@ -75,27 +75,48 @@ public class TableDataResponse
         }
     }
 
+    @JsonProperty("data")
     public List<List<Object>> getData()
     {
         List<List<Object>> result = new ArrayList<>();
         
-        // Header hinzufügen
+        // Header als Objekte hinzufügen
         List<Object> headerRow = new ArrayList<>();
-        headerRow.addAll(headers);
+        for (String header : headers) {
+            headerRow.add(new FieldValue(header));
+        }
         result.add(headerRow);
         
-        // Datenzeilen hinzufügen
+        // Datenzeilen als Objekte hinzufügen
         for (TableRow row : rows) {
             List<Object> dataRow = new ArrayList<>();
-            dataRow.add(row.getIsin());
-            dataRow.add(row.getName());
-            dataRow.add(row.getDate());
-            dataRow.add(row.getDateLong());
-            dataRow.add(row.getValue());
+            dataRow.add(new FieldValue(row.getIsin()));
+            dataRow.add(new FieldValue(row.getName()));
+            dataRow.add(new FieldValue(row.getDate()));
+            dataRow.add(new FieldValue(row.getDateLong()));
+            dataRow.add(new FieldValue(row.getValue()));
             result.add(dataRow);
         }
         
         return result;
+    }
+
+    // Hilfsklasse um primitive Werte als Objekte zu verpacken
+    public static class FieldValue {
+        @JsonProperty("value")
+        private Object value;
+
+        public FieldValue(Object value) {
+            this.value = value;
+        }
+
+        public Object getValue() {
+            return value;
+        }
+
+        public void setValue(Object value) {
+            this.value = value;
+        }
     }
 
     public static class TableRow
