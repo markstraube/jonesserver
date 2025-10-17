@@ -4,8 +4,11 @@ package com.straube.jones;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -24,23 +27,25 @@ import com.straube.jones.dataprovider.stocks.StockItem;
 import com.straube.jones.dataprovider.stocks.StockPointLoader;
 import com.straube.jones.dataprovider.stocks.StocksLoader;
 import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
-import com.straube.jones.dto.BooleanResponse;
 import com.straube.jones.dto.BranchDataResponse;
+import com.straube.jones.dto.LastSharePriceResponse;
 import com.straube.jones.dto.OnVistaReportResponse;
 import com.straube.jones.dto.ServiceInfoResponse;
+import com.straube.jones.dto.ShareSearchResponse;
 import com.straube.jones.dto.TableDataResponse;
 import com.straube.jones.dto.UserPrefsResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping(value = "/api")
-@Tag(name = "Stocks API", description = "API für Aktieninformationen und Datenanalyse")
+@Tag(name = "Stocks API", description = "Comprehensive stock market data API for financial analysis, portfolio management, and investment decision support. Provides real-time and historical stock data, technical analysis tools, and user preference management.")
 public class StocksController
 {
 	private static final String DATA_ROOT_FOLDER = System.getProperty(	"data.root",
@@ -51,8 +56,8 @@ public class StocksController
 		new File(FUNDAMENTALS_ROOT_FOLDER).mkdirs();
 	}
 
-	@Operation(summary = "Basis-Endpoint", description = "Gibt Informationen über den Service zurück")
-	@ApiResponse(responseCode = "200", description = "Service-Informationen")
+	@Operation(summary = "Get Service Information", description = "**Use Case:** Health check and service discovery. Returns metadata about the stocks API service including version, status, and available features. **When to use:** To verify service availability, check API version compatibility, or during system monitoring and diagnostics.")
+	@ApiResponse(responseCode = "200", description = "Service metadata and health status")
 	@GetMapping(value = "/", produces = "application/json")
 	public ServiceInfoResponse index()
 	{
@@ -60,11 +65,11 @@ public class StocksController
 	}
 
 
-	@Operation(summary = "OnVista-Bericht abrufen", description = "Lädt einen OnVista-Bericht basierend auf der Short-URL")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Bericht erfolgreich abgerufen"),
-							@ApiResponse(responseCode = "404", description = "Bericht nicht gefunden")})
+	@Operation(summary = "Retrieve OnVista Financial Report", description = "**Use Case:** Access detailed fundamental analysis and financial metrics from OnVista platform. Returns comprehensive company financials, ratios, and analysis data. **When to use:** For fundamental stock analysis, company valuation, financial health assessment, or when detailed financial metrics are needed for investment decisions. **Input:** OnVista short URL identifier (e.g., 'xyz-123' format).")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Financial report data successfully retrieved"),
+							@ApiResponse(responseCode = "404", description = "Report not found - invalid short URL or data not available")})
 	@GetMapping(path = "/onvista/aktien/kennzahlen/{short_url}", produces = "application/json")
-	public OnVistaReportResponse getOnVistaReport(@Parameter(description = "Short-URL der OnVista-Aktie")
+	public OnVistaReportResponse getOnVistaReport(@Parameter(description = "OnVista short URL identifier (format: alphanumeric-number, e.g., 'apple-123')")
 	@PathVariable("short_url")
 	String shortUrl)
 	{
@@ -77,10 +82,9 @@ public class StocksController
 				String html = new String(Files.readAllBytes(htmlFile.toPath()));
 				final Document doc0 = Jsoup.parse(html, "UTF-8");
 				final Element e0 = doc0	.select("#__next > div.ov-content > div > section > div.col.col-12.inner-spacing--medium-top.ov-snapshot-tabs > div > section > div.col.grid.col--sm-4.col--md-8.col--lg-9.col--xl-9 > div:nth-child(2) > div > div > p")
-											.first();
-				if (e0 != null) {
-					return OnVistaReportResponse.found(shortUrl, e0.text());
-				}
+										.first();
+				if (e0 != null)
+				{ return OnVistaReportResponse.found(shortUrl, e0.text()); }
 			}
 			catch (IOException e)
 			{
@@ -89,22 +93,24 @@ public class StocksController
 		}
 		return OnVistaReportResponse.notFound(shortUrl);
 	}
-	@Operation(summary = "Branchendaten abrufen", description = "Lädt Rohdaten für eine bestimmte Branche")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Daten erfolgreich abgerufen")})
+
+
+	@Operation(summary = "Get Industry Sector Data", description = "**Use Case:** Sector analysis and industry comparison. Retrieves aggregated market data for specific industry sectors with optional geographic filtering. **When to use:** For sector rotation strategies, industry performance analysis, comparative sector studies, or market trend analysis by geography. **Data:** Time-series data with timestamps and values for sector performance metrics. **Default timeframe:** 6 months historical data.")
+	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Sector data successfully retrieved with timestamp-value pairs")})
 	@GetMapping(path = "/stock/branch/data", produces = "application/json")
-	public BranchDataResponse getRawDataForBranch(@Parameter(description = "Branche")
+	public BranchDataResponse getRawDataForBranch(@Parameter(description = "Industry sector name (e.g., 'Technology', 'Healthcare', 'Finance')")
 	@RequestParam(required = false)
 	String branch,
-													@Parameter(description = "Land")
+													@Parameter(description = "Country filter for geographic analysis (use '%' for all countries, specific country codes like 'DE', 'US', etc.)")
 													@RequestParam(required = false)
 													String country,
-													@Parameter(description = "Startzeit (Timestamp)")
+													@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago if not specified.", schema = @Schema(type = "integer", format = "int64"))
 													@RequestParam(value = "start_time", required = false)
 													Long start)
 	{
 		if (start == null)
 		{
-			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000L; // ~6 Month back
+			start = System.currentTimeMillis() - 1 * 30 * 24 * 60 * 60 * 1000L; // ~1 Month back
 		}
 		if (country == null)
 		{
@@ -115,22 +121,22 @@ public class StocksController
 	}
 
 
-	@Operation(summary = "Aktienrohdaten abrufen", description = "Lädt Rohdaten für bestimmte ISINs")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Daten erfolgreich abgerufen")})
+	@Operation(summary = "Get Historical Stock Data", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
+	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock data successfully retrieved in tabular format")})
 	@GetMapping(path = "/stock/data", produces = "application/json")
-	public TableDataResponse getRawData(@Parameter(description = "Liste der ISINs")
+	public TableDataResponse getRawData(@Parameter(description = "List of ISIN codes (International Securities Identification Numbers, e.g., ['US0378331005', 'DE0007164600'])")
 	@RequestParam
 	List<String> isin,
-								@Parameter(description = "Startzeit (Timestamp)")
-								@RequestParam(value = "start_time", required = false)
-								Long start,
-								@Parameter(description = "Datentyp")
-								@RequestParam(required = false)
-								Integer type)
+										@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
+										@RequestParam(value = "start_time", required = false)
+										Long start,
+										@Parameter(description = "Data type identifier (0=price data, 1=volume data, etc.). Defaults to 0 (price data).")
+										@RequestParam(required = false)
+										Integer type)
 	{
 		if (start == null)
 		{
-			start = System.currentTimeMillis() - 6 * 30 * 24 * 60 * 60 * 1000L; // ~6 Month back
+			start = System.currentTimeMillis() - 1 * 30 * 24 * 60 * 60 * 1000L; // ~1 Month back
 		}
 		if (type == null)
 		{
@@ -141,25 +147,9 @@ public class StocksController
 		return StockPointLoader.loadRaw(isin, start, type);
 	}
 
-	/** 
-	@Operation(summary = "Daten vorabladen", description = "Lädt Daten für eine ISIN vorab")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Vorabladen erfolgreich")})
-	@GetMapping(path = "/stock_item/prefetch", produces = "application/json")
-	public BooleanResponse prefetchData(@Parameter(description = "ISIN der Aktie")
-	@RequestParam
-	String isin)
-	{
-		boolean result = StockPointLoader.prefetchIsin(isin);
-		if (result) {
-			return BooleanResponse.success("Data prefetched successfully for ISIN: " + isin);
-		} else {
-			return BooleanResponse.failure("Failed to prefetch data for ISIN: " + isin);
-		}
-	}
-	**/
 
-	@Operation(summary = "Alle Aktien abrufen", description = "Lädt alle verfügbaren Aktieninformationen")
-	@ApiResponse(responseCode = "200", description = "Aktieninformationen erfolgreich abgerufen")
+	@Operation(summary = "Get Stock Universe Catalog", description = "**Use Case:** Stock discovery and universe definition. Returns comprehensive catalog of all available stocks with metadata. **When to use:** For portfolio construction, stock screening, building watchlists, or discovering investment opportunities. **Data structure:** Organized by categories with detailed stock information including symbols, names, sectors, and identifiers. **Performance note:** Large dataset - cache results when possible.")
+	@ApiResponse(responseCode = "200", description = "Complete stock catalog with metadata organized by categories")
 	@GetMapping(path = "/stock_items", produces = "application/json")
 	public Map<String, List<StockItem>> getStockItems()
 	{
@@ -167,16 +157,199 @@ public class StocksController
 	}
 
 
-	@Operation(summary = "Benutzereinstellungen setzen", description = "Speichert Benutzereinstellungen für ein bestimmtes Thema")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Einstellungen erfolgreich gespeichert"),
-							@ApiResponse(responseCode = "500", description = "Fehler beim Speichern")})
+	@Operation(summary = "Get Last Share Price", description = "**Use Case:** Real-time price monitoring and current valuation. Retrieves the most recent known price for a specific stock. **When to use:** For current portfolio valuation, price alerts, real-time trading decisions, or displaying current market values. **Data source:** Uses the latest available price data from stock history. **Performance:** Fast lookup optimized for single stock queries.")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Last share price successfully retrieved"),
+							@ApiResponse(responseCode = "404", description = "No price data found for the given ISIN"),
+							@ApiResponse(responseCode = "500", description = "Internal server error during price lookup")})
+	@GetMapping(path = "/stock/price/last", produces = "application/json")
+	public LastSharePriceResponse getLastSharePrice(@Parameter(description = "ISIN code of the stock to get the last price for")
+	@RequestParam
+	String isin)
+	{
+		try
+		{
+			// Get the latest available data for this ISIN (last 30 days should be sufficient)
+			long startTime = System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L; // 30 days back
+			List<String> isinList = List.of(isin);
+
+			TableDataResponse data = StockPointLoader.loadRaw(isinList, startTime, 0); // type 0 = price data
+
+			if (data.getRows().isEmpty())
+			{ return LastSharePriceResponse.notFound(isin); }
+
+			// Find the row with the latest timestamp
+			TableDataResponse.TableRow latestRow = null;
+			long latestTimestamp = 0;
+
+			for (TableDataResponse.TableRow row : data.getRows())
+			{
+				if (row.getDateLong() != null && row.getDateLong() > latestTimestamp)
+				{
+					latestTimestamp = row.getDateLong();
+					latestRow = row;
+				}
+			}
+
+			if (latestRow == null || latestRow.getValue() == null)
+			{ return LastSharePriceResponse.notFound(isin); }
+
+			return LastSharePriceResponse.success(	isin,
+													latestRow.getValue(),
+													latestRow.getDateLong(),
+													latestRow.getDate());
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return LastSharePriceResponse.error(isin,
+												"Failed to retrieve last share price: " + e.getMessage());
+		}
+	}
+
+
+	@Operation(
+		summary = "Search Stocks by Name", 
+		description = "**Use Case:** Stock discovery through fuzzy name matching. Finds stocks using tolerant similarity search that ignores special characters, whitespaces, and various dash types. **When to use:** For stock lookup when exact names are unknown, user input validation, or building search suggestions. **Algorithm:** Normalized string comparison with similarity scoring. **Results:** Multiple matches possible, sorted by relevance score."
+	)
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "200", description = "Search completed successfully, results include similarity scores"),
+		@ApiResponse(responseCode = "500", description = "Search operation failed - check system availability")
+	})
+	@GetMapping(path = "/stock/search/name", produces = "application/json")
+	public ShareSearchResponse getShareForName(@Parameter(description = "Stock name or partial name to search for (tolerant matching - ignores special characters, spaces, dashes)")
+	@RequestParam
+	String name)
+	{
+		try
+		{
+			// Get all available stocks
+			Map<String, List<StockItem>> allStocks = StocksLoader.load();
+			List<StockItem> stockList = new ArrayList<>();
+			
+			// Flatten all stock categories into one list
+			for (List<StockItem> stocks : allStocks.values())
+			{
+				stockList.addAll(stocks);
+			}
+			
+			// Normalize search query
+			String normalizedQuery = normalizeString(name);
+			
+			if (normalizedQuery.isEmpty())
+			{
+				return ShareSearchResponse.success(name, new ArrayList<>());
+			}
+			
+			// Find matching stocks with similarity scores
+			List<ShareSearchResponse.StockMatch> matches = stockList.stream()
+				.filter(stock -> stock.getName() != null && !stock.getName().trim().isEmpty())
+				.map(stock -> {
+					String normalizedStockName = normalizeString(stock.getName());
+					double similarity = calculateSimilarity(normalizedQuery, normalizedStockName);
+					return new ShareSearchResponse.StockMatch(stock, similarity);
+				})
+				.filter(match -> match.getSimilarityScore() > 0.3) // Only include matches with > 30% similarity
+				.sorted(Comparator.comparing(ShareSearchResponse.StockMatch::getSimilarityScore).reversed())
+				.limit(20) // Limit to top 20 matches
+				.collect(Collectors.toList());
+			
+			return ShareSearchResponse.success(name, matches);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return ShareSearchResponse.error(name, "Failed to search stocks: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Normalizes a string for tolerant comparison by removing special characters,
+	 * whitespaces, and various types of dashes, then converting to lowercase.
+	 */
+	private String normalizeString(String input)
+	{
+		if (input == null)
+		{
+			return "";
+		}
+		
+		// Convert to lowercase and remove all special characters, whitespaces, and dashes
+		return input.toLowerCase()
+				.replaceAll("[\\s\\-\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212]", "") // Remove spaces and all dash types
+				.replaceAll("[^a-z0-9]", ""); // Remove all non-alphanumeric characters
+	}
+
+	/**
+	 * Calculates similarity between two normalized strings using a combination of
+	 * exact match, contains check, and Levenshtein-like distance.
+	 */
+	private double calculateSimilarity(String query, String target)
+	{
+		if (query.equals(target))
+		{
+			return 1.0; // Exact match
+		}
+		
+		if (target.contains(query))
+		{
+			return 0.9; // Query is contained in target
+		}
+		
+		if (query.contains(target))
+		{
+			return 0.8; // Target is contained in query
+		}
+		
+		// Check for partial matches (at least 3 characters)
+		if (query.length() >= 3 && target.length() >= 3)
+		{
+			int maxLength = Math.max(query.length(), target.length());
+			int commonChars = 0;
+			
+			// Count common characters
+			for (int i = 0; i < Math.min(query.length(), target.length()); i++)
+			{
+				if (query.charAt(i) == target.charAt(i))
+				{
+					commonChars++;
+				}
+				else
+				{
+					break; // Stop at first non-matching character from start
+				}
+			}
+			
+			// Check for common substrings
+			for (int len = 3; len <= Math.min(query.length(), target.length()); len++)
+			{
+				for (int i = 0; i <= query.length() - len; i++)
+				{
+					String substring = query.substring(i, i + len);
+					if (target.contains(substring))
+					{
+						commonChars = Math.max(commonChars, len);
+					}
+				}
+			}
+			
+			double similarity = (double) commonChars / maxLength;
+			return similarity > 0.3 ? similarity : 0.0;
+		}
+		
+		return 0.0; // No meaningful similarity
+	}
+
+
+	@Operation(summary = "Save User Preferences", description = "**Use Case:** Persistent user customization and personalization. Stores user-specific settings for different application areas. **When to use:** To save custom filters, stock selections, display preferences, or any user configuration that should persist across sessions. **Special topics:** 'filter' for search/display filters, or custom topic names for stock groupings. **Data format:** JSON string containing preference data.")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Preferences successfully saved with confirmation"),
+							@ApiResponse(responseCode = "500", description = "Save operation failed - check data format or system availability")})
 	@PostMapping(path = "/prefs/{topic}", produces = "application/json")
-	public UserPrefsResponse setUserPref(@Parameter(description = "Thema der Einstellungen")
+	public UserPrefsResponse setUserPref(@Parameter(description = "Preference category (use 'filter' for global filters, or custom names for stock groups)")
 	@PathVariable
 	String topic,
-										@Parameter(description = "Benutzereinstellungen als JSON")
-										@RequestBody
-										String userPrefs)
+											@Parameter(description = "JSON string containing user preferences data structure. Format depends on topic - filters use filter criteria objects, stock groups use arrays of ISINs.")
+											@RequestBody
+											String userPrefs)
 	{
 		try
 		{
@@ -196,11 +369,13 @@ public class StocksController
 			return UserPrefsResponse.error(topic, "Failed to save preferences: " + e.getMessage());
 		}
 	}
-	@Operation(summary = "Benutzereinstellungen abrufen", description = "Lädt Benutzereinstellungen für ein bestimmtes Thema")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Einstellungen erfolgreich abgerufen"),
-							@ApiResponse(responseCode = "500", description = "Fehler beim Laden")})
+
+
+	@Operation(summary = "Load User Preferences", description = "**Use Case:** Retrieve stored user customizations and restore application state. **When to use:** On application startup, when switching contexts, or when user wants to apply saved settings. **Return format:** JSON string containing saved preference data for the specified topic. **Common topics:** 'filter' for global display filters, or custom topic names for specific stock groupings/watchlists.")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Preferences successfully loaded as JSON string"),
+							@ApiResponse(responseCode = "500", description = "Load operation failed - topic may not exist or system error")})
 	@GetMapping(path = "/prefs/{topic}", produces = "application/json")
-	public UserPrefsResponse getUserPrefs(@Parameter(description = "Thema der Einstellungen")
+	public UserPrefsResponse getUserPrefs(@Parameter(description = "Preference category to retrieve (use 'filter' for global filters, or custom names for stock groups)")
 	@PathVariable
 	String topic)
 	{
@@ -225,29 +400,29 @@ public class StocksController
 	}
 
 
-	@Operation(summary = "Aktienchart-Bild abrufen", description = "Lädt ein PNG-Bild eines Aktiencharts")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Bild erfolgreich abgerufen", content = @Content(mediaType = "image/png")),
-							@ApiResponse(responseCode = "404", description = "Bild nicht gefunden"),
-							@ApiResponse(responseCode = "500", description = "Serverfehler")})
+	@Operation(summary = "Generate Stock Chart Image", description = "**Use Case:** Visual chart generation for reports, dashboards, or quick visual analysis. Returns pre-generated PNG chart images for specific stocks and timeframes. **When to use:** For embedding charts in documents, creating visual reports, thumbnail generation, or when lightweight image-based charts are preferred over interactive charts. **Customization:** Configurable dimensions and time periods. **Performance:** Fast delivery of cached chart images.")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Chart image successfully generated and returned as PNG", content = @Content(mediaType = "image/png")),
+							@ApiResponse(responseCode = "404", description = "Chart not available - invalid ISIN or image not generated yet"),
+							@ApiResponse(responseCode = "500", description = "Image generation or file system error")})
 	@GetMapping(path = "/stock/image", produces = MediaType.IMAGE_PNG_VALUE)
-	public ResponseEntity<byte[]> getStockImage(@Parameter(description = "ISIN der Aktie")
+	public ResponseEntity<byte[]> getStockImage(@Parameter(description = "ISIN code of the stock for chart generation")
 	@RequestParam
 	String isin,
-											@Parameter(description = "Startzeit (Timestamp)")
-											@RequestParam(value = "start_time", required = false)
-											Long start,
-											@Parameter(description = "Endzeit (Timestamp)")
-											@RequestParam(value = "end_time", required = false)
-											Long end,
-											@Parameter(description = "Bildbreite")
-											@RequestParam(required = false, defaultValue = "64")
-											Integer width,
-											@Parameter(description = "Bildhöhe")
-											@RequestParam(required = false, defaultValue = "48")
-											Integer height,
-											@Parameter(description = "Pfad für Chart-Zeitraum")
-											@RequestParam(required = false, defaultValue = "365")
-											String path)
+												@Parameter(description = "Start timestamp in milliseconds for chart time range. Optional - uses reasonable default if not provided.", schema = @Schema(type = "integer", format = "int64"))
+												@RequestParam(value = "start_time", required = false)
+												Long start,
+												@Parameter(description = "End timestamp in milliseconds for chart time range. Optional - uses current time if not provided.", schema = @Schema(type = "integer", format = "int64"))
+												@RequestParam(value = "end_time", required = false)
+												Long end,
+												@Parameter(description = "Chart image width in pixels. Default: 64px. Affects image file size and detail level.")
+												@RequestParam(required = false, defaultValue = "64")
+												Integer width,
+												@Parameter(description = "Chart image height in pixels. Default: 48px. Affects image file size and detail level.")
+												@RequestParam(required = false, defaultValue = "48")
+												Integer height,
+												@Parameter(description = "Time period path for chart data ('365'=1 year, '28'=1 month, '1M'=1 month, '1Y'=1 year). Determines data granularity and time span.")
+												@RequestParam(required = false, defaultValue = "365")
+												String path)
 	{
 		try
 		{
