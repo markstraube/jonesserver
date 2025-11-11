@@ -15,7 +15,7 @@ public class TableDataResponse
 
     public TableDataResponse()
     {
-        this.headers = List.of("isin", "name", "date", "date-long", "value");
+        this.headers = List.of("isin", "date", "date-long", "value");
         this.rows = new ArrayList<>();
     }
 
@@ -44,9 +44,9 @@ public class TableDataResponse
     }
 
 
-    public void addRow(String isin, String name, String date, Long dateLong, Double value)
+    public void addRow(String isin, String date, Long dateLong, Double value)
     {
-        rows.add(new TableRow(isin, name, date, dateLong, value));
+        rows.add(new TableRow(isin, date, dateLong, value));
     }
 
     public void addLines(List<String> lines, long fromDate, long toDate, int type)
@@ -55,17 +55,16 @@ public class TableDataResponse
         for (String line : lines) {
             if (line != null && !line.trim().isEmpty()) {
                 String[] parts = line.split(",");
-                if (parts.length >= 5) {
+                if (parts.length >= 4) {
                     try {
                         String isin = parts[0].trim();
-                        String name = parts[1].trim();
-                        String date = parts[2].trim();
-                        Long dateLong = Long.parseLong(parts[3].trim());
-                        Double value = Double.parseDouble(parts[4].trim());
+                        String date = parts[1].trim();
+                        Long dateLong = Long.parseLong(parts[2].trim());
+                        Double value = Double.parseDouble(parts[3].trim());
                         
                         // Datum-Filter anwenden
                         if (dateLong >= fromDate && dateLong <= toDate) {
-                            addRow(isin, name, date, dateLong, value);
+                            addRow(isin, date, dateLong, value);
                         }
                     } catch (NumberFormatException e) {
                         // Ignoriere fehlerhafte Zeilen
@@ -91,7 +90,6 @@ public class TableDataResponse
         for (TableRow row : rows) {
             List<Object> dataRow = new ArrayList<>();
             dataRow.add(new FieldValue(row.getIsin()));
-            dataRow.add(new FieldValue(row.getName()));
             dataRow.add(new FieldValue(row.getDate()));
             dataRow.add(new FieldValue(row.getDateLong()));
             dataRow.add(new FieldValue(row.getValue()));
@@ -124,9 +122,6 @@ public class TableDataResponse
         @JsonProperty("isin")
         private String isin;
 
-        @JsonProperty("name")
-        private String name;
-
         @JsonProperty("date")
         private String date;
 
@@ -140,10 +135,9 @@ public class TableDataResponse
         {}
 
 
-        public TableRow(String isin, String name, String date, Long dateLong, Double value)
+        public TableRow(String isin, String date, Long dateLong, Double value)
         {
             this.isin = isin;
-            this.name = name;
             this.date = date;
             this.dateLong = dateLong;
             this.value = value;
@@ -160,18 +154,6 @@ public class TableDataResponse
         public void setIsin(String isin)
         {
             this.isin = isin;
-        }
-
-
-        public String getName()
-        {
-            return name;
-        }
-
-
-        public void setName(String name)
-        {
-            this.name = name;
         }
 
 

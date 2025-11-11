@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.straube.jones.cmd.db.DBConnection;
+import com.straube.jones.db.DBConnection;
 
 public class StocksLoader
 {

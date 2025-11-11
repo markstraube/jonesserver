@@ -15,8 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.straube.jones.cmd.ariva.ArivaHistoricData;
-import com.straube.jones.cmd.db.DBConnection;
+import com.straube.jones.db.DBConnection;
 import com.straube.jones.dto.TableDataResponse;
 
 public class StockPointLoader
@@ -31,14 +30,52 @@ public class StockPointLoader
     {
         TableDataResponse data = new TableDataResponse();
 
-        long fromDate = start;
-        long toDate = System.currentTimeMillis();
+        if (isins == null || isins.isEmpty())
+        {
+            return data;
+        }
 
-        isins.forEach(isin -> {
-            ArivaHistoricData ariva = new ArivaHistoricData(DATA_FOLDER);
-            List<String> lines = ariva.getData(isin);
-            data.addLines(lines, fromDate, toDate, type);
-        });
+        // SQL-Query vorbereiten mit Platzhaltern für ISINs
+        StringBuilder queryBuilder = new StringBuilder();
+        queryBuilder.append("SELECT cIsin, cLast, cDateLong, cDate FROM tStocks WHERE cIsin IN (");
+        for (int i = 0; i < isins.size(); i++)
+        {
+            queryBuilder.append("?");
+            if (i < isins.size() - 1)
+            {
+                queryBuilder.append(",");
+            }
+        }
+        queryBuilder.append(") AND cDateLong >= ? ORDER BY cIsin, cDateLong ASC");
+
+        try (Connection connection = DBConnection.getStocksConnection();
+             PreparedStatement ps = connection.prepareStatement(queryBuilder.toString()))
+        {
+            // Parameter setzen
+            int paramIndex = 1;
+            for (String isin : isins)
+            {
+                ps.setString(paramIndex++, isin);
+            }
+            ps.setLong(paramIndex, start);
+
+            // Query ausführen
+            ResultSet rs = ps.executeQuery();
+            while (rs.next())
+            {
+                String isin = rs.getString("cIsin");
+                Double last = rs.getDouble("cLast");
+                Long dateLong = rs.getLong("cDateLong");
+                String date = rs.getString("cDate");
+
+                data.addRow(isin, date, dateLong, last);
+            }
+        }
+        catch (Exception exc)
+        {
+            exc.printStackTrace();
+        }
+
         return data;
     }
 
