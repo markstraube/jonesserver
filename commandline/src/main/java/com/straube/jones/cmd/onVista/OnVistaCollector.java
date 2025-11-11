@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +20,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
@@ -29,13 +32,38 @@ import org.jsoup.select.Elements;
 
 import com.straube.jones.cmd.db.Column;
 import com.straube.jones.cmd.db.DBConnection;
+import com.straube.jones.cmd.currencies.CurrencyDB;
+import com.straube.jones.cmd.db.StockCounterDB;
 import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.html.HttpTools;
 
 public class OnVistaCollector
 {
-	private File ONVISTA_ROOT;
-	private File ONVISTA_FINDER;
+	private static final Logger LOGGER = Logger.getLogger(OnVistaCollector.class.getName());
+
+	static
+	{
+		try
+		{
+			File logDir = new File("./log");
+			if (!logDir.exists())
+			{
+				logDir.mkdirs();
+			}
+			java.util.logging.FileHandler fileHandler = new java.util.logging.FileHandler(	"./log/commandline.log",
+																							true);
+			fileHandler.setFormatter(new java.util.logging.SimpleFormatter());
+			LOGGER.addHandler(fileHandler);
+			LOGGER.setUseParentHandlers(false);
+		}
+		catch (Exception e)
+		{
+			System.err.println("Fehler beim Konfigurieren des Loggers: " + e.getMessage());
+		}
+	}
+
+	private File onvistaRoot;
+	private File onvistaFinder;
 
 	private static final String CONTINENT_NORDAMERIKA = "289";
 	private static final String CONTINENT_EUROPA = "258";
@@ -52,10 +80,10 @@ public class OnVistaCollector
 
 	public OnVistaCollector(String dataRoot)
 	{
-		ONVISTA_ROOT = new File(dataRoot, "onVista");
-		ONVISTA_ROOT.mkdirs();
-		ONVISTA_FINDER = new File(ONVISTA_ROOT, "finder2");
-		ONVISTA_FINDER.mkdirs();
+		onvistaRoot = new File(dataRoot, "onVista");
+		onvistaRoot.mkdirs();
+		onvistaFinder = new File(onvistaRoot, "finder2");
+		onvistaFinder.mkdirs();
 	}
 
 
@@ -64,10 +92,10 @@ public class OnVistaCollector
 		final LocalDate date = LocalDate.now().minusDays(1);
 		final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 		final String baseName = date.format(dtf);
-		final File targetFolder = new File(ONVISTA_FINDER, baseName);
+		final File targetFolder = new File(onvistaFinder, baseName);
 		targetFolder.mkdirs();
 
-		OnVistaParser.init(ONVISTA_ROOT);
+		OnVistaParser.init(onvistaRoot);
 
 		AtomicInteger cnt = new AtomicInteger();
 		Arrays.asList(QUERIES).forEach(query -> {
@@ -92,32 +120,45 @@ public class OnVistaCollector
 		final String onVistaUrl = onVistaQueryUrl.toString();
 		try
 		{
-			for (int page = 0; page < 10; page++ )
+			boolean stop = false; // Kein break/continue -> Lint-konform
+			for (int page = 0; page < 10 && !stop; page++ )
 			{
 				File jsonFile = new File(folder, String.format("%s-%02d.json", prefix, page));
-				File htmlFile = new File(folder, String.format("%s-%02d.html", prefix, page));
 				if (!jsonFile.exists())
 				{
-					String htmlString = HttpTools.downloadFromWebToFile(onVistaUrl.replace("${PAGE}", String.valueOf(page)), htmlFile, false);
+					File htmlFile = new File(folder, String.format("%s-%02d.html", prefix, page));
+					String htmlString = HttpTools.downloadFromWebToFile(onVistaUrl.replace(	"${PAGE}",
+																							String.valueOf(page)),
+																		htmlFile,
+																		false);
 					if (htmlString == null)
 					{
-						break;
+						LOGGER.log(Level.FINE, () -> "Keine weiteren Seiten (htmlString == null) - Ende");
+						stop = true;
 					}
-					JSONObject jo = parseHtml(htmlString);
-					if (jo == null)
+					else
 					{
-						break;
+						JSONObject jo = parseHtml(htmlString);
+						if (jo == null)
+						{
+							LOGGER.log(Level.FINE, () -> "Parser lieferte null - Ende");
+							stop = true;
+						}
+						else
+						{
+							try (FileWriter writer = new FileWriter(jsonFile, StandardCharsets.UTF_8))
+							{
+								jo.write(writer, 4, 4);
+							}
+						}
 					}
-					try (FileWriter writer = new FileWriter(jsonFile, StandardCharsets.UTF_8))
-					{
-						jo.write(writer, 4, 4);
-					}
+					// Falls jsonFile existiert -> keine Aktion, nächste Iteration
 				}
-			}
-		}
+			} // end for
+		} // end try
 		catch (Exception e)
 		{
-			e.printStackTrace();
+			LOGGER.log(Level.SEVERE, "Fehler beim Ausführen der Query", e);
 		}
 	}
 
@@ -125,21 +166,20 @@ public class OnVistaCollector
 	private JSONObject parseHtml(String htmlString)
 	{
 		Document doc = Jsoup.parse(htmlString);
-		// get Header
+		// Header extrahieren
 		List<String> lHeaders = new ArrayList<>();
 		Elements elHeaders = doc.select("#finderResults > thead > tr > th");
 		if (elHeaders.isEmpty())
 		{ return null; }
 		elHeaders.forEach(header -> {
 			Elements e = header.select("span:nth-child(1)");
-			if (e.text() == null || e.text().length() == 0)
+			if (e.text() == null || e.text().isEmpty())
 			{
 				e = header.select("span:nth-child(2)");
 			}
 			lHeaders.add(e.text());
 		});
-
-		// get Values
+		// Werte extrahieren
 		List<List<Object>> lValues = new ArrayList<>();
 		Elements elRows = doc.select("#finderResults > tbody > tr");
 		if (elRows != null)
@@ -150,18 +190,12 @@ public class OnVistaCollector
 				{
 					lValues.add(lRow);
 				}
-				else
-				{
-//      			System.out.println("### Invalid record: ---------------------------------------------------------------------------");
-//					System.out.println(row.toString());
-//					System.out.println("### Invalid record: ---------------------------------------------------------------------------");
-				}
+				// Ungültige Zeilen werden ignoriert
 			});
 		}
 		Map<String, Object> m = new HashMap<>();
 		m.put("cols", lHeaders);
 		m.put("values", lValues);
-
 		return new JSONObject(m);
 	}
 
@@ -169,6 +203,29 @@ public class OnVistaCollector
 	public void updateFinderJsonToOnVistaTable(File targetFolder)
 		throws SQLException
 	{
+		// Zusätzlich: Aktuellen Kurs je ISIN als Zeitreihen-Eintrag in tStocks speichern.
+		// Zeitstempel gemäß Folder-Namen (yyyy-MM-dd) analog StocksParser (06:00:00Z)
+		String folderName = targetFolder.getName();
+		java.time.Instant timeStamp;
+		java.sql.Timestamp sqlTimestamp;
+		long timeStampLong;
+		try
+		{
+			timeStamp = java.time.Instant.parse(folderName + "T06:00:00.00Z");
+			java.time.ZonedDateTime zonedDate = timeStamp.atZone(java.time.ZoneId.systemDefault());
+			java.time.DayOfWeek dow = zonedDate.getDayOfWeek();
+			if (dow.equals(java.time.DayOfWeek.SATURDAY) || dow.equals(java.time.DayOfWeek.SUNDAY))
+			{
+				LOGGER.log(Level.INFO, "Skipping tStocks update due to weekend folder: {0}", folderName);
+				return; // Keine Aktualisierung am Wochenende
+			}
+			sqlTimestamp = java.sql.Timestamp.valueOf(zonedDate.toLocalDateTime());
+			timeStampLong = timeStamp.toEpochMilli();
+		}
+		catch (Exception ex)
+		{
+			throw new SQLException("Ungültiger Ordnername für Zeitstempel: " + folderName, ex);
+		}
 		DirectoryStream.Filter<Path> filter = file -> {
 			final String fileName = file.toFile().getName();
 			return (fileName.endsWith(".json"));
@@ -176,77 +233,271 @@ public class OnVistaCollector
 
 		Path dirName = targetFolder.toPath();
 
-		StringBuilder onVistaColumns = new StringBuilder();
-		StringBuilder onVistaValues = new StringBuilder();
-		OnVistaModel.getModel().forEach(col -> {
-			onVistaColumns.append(col.colName).append(",");
-			onVistaValues.append("?,");
-		});
-		onVistaColumns.trimToSize();
-		onVistaColumns.deleteCharAt(onVistaColumns.length() - 1).trimToSize();
-		onVistaValues.trimToSize();
-		onVistaValues.deleteCharAt(onVistaValues.length() - 1).trimToSize();
-
 		try (final Connection connection = DBConnection.getStocksConnection())
 		{
-			try (final PreparedStatement psTruncate = connection.prepareStatement("TRUNCATE TABLE tOnVista;"))
+			// PHASE 1: tOnVista Tabelle aktualisieren
+			LOGGER.log(Level.INFO, "Phase 1: Aktualisiere tOnVista Tabelle");
+			
+			StringBuilder updateSql = new StringBuilder("UPDATE tOnVista SET ");
+			List<Column> model = OnVistaModel.getModel();
+			for (int i = 1; i < model.size(); i++)
 			{
-				psTruncate.executeQuery();
-				connection.commit();
+				Column c = model.get(i);
+				if (!"cIsin".equalsIgnoreCase(c.colName))
+				{
+					updateSql.append(c.colName).append("=?,");
+				}
 			}
+			updateSql.deleteCharAt(updateSql.length() - 1);
+			updateSql.append(" WHERE cIsin=?");
+
+			AtomicInteger totalUpdates = new AtomicInteger(0);
 			try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
 			{
-				paths.forEach((path) -> {
-					try(final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tOnVista (" + onVistaColumns.toString() + ") VALUES(" + onVistaValues + ")"))
+				for (Path path : paths)
+				{
+					try (final PreparedStatement psUpdate = connection.prepareStatement(updateSql.toString()))
 					{
-						String jsonString = FileUtils.readFileToString(path.toFile(), "UTF-8");
+						String jsonString = FileUtils.readFileToString(path.toFile(), StandardCharsets.UTF_8);
 						JSONObject jo = new JSONObject(jsonString);
 						JSONArray ar = jo.getJSONArray("values");
+						
 						ar.forEach(e -> {
 							try
 							{
-								if (e instanceof JSONArray)
+								if (e instanceof JSONArray jsonarray)
 								{
-									List<Object> list = ((JSONArray)e).toList();
+									List<Object> list = jsonarray.toList();
 									if (accepted(list))
 									{
-										OnVistaParser.setParams(psInsert, list);
-
-										psInsert.addBatch();
+										setParamsForUpdate(psUpdate, list);
+										psUpdate.addBatch();
 									}
 								}
 							}
 							catch (Exception e2)
 							{
-								e2.printStackTrace();
+								LOGGER.log(Level.WARNING, "Fehler beim Vorbereiten des Updates", e2);
 							}
 						});
-						psInsert.executeBatch();
+						
+						int[] updateResults = psUpdate.executeBatch();
 						connection.commit();
-					}				
+						totalUpdates.addAndGet(updateResults.length);
+						
+						long skipped = java.util.Arrays.stream(updateResults).filter(r -> r == 0).count();
+						if (skipped > 0)
+						{
+							LOGGER.log(Level.FINE, () -> "Skipped (no existing ISIN) OnVista records: " + skipped);
+						}
+					}
 					catch (Exception e1)
 					{
-						e1.printStackTrace();
+						LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tOnVista", e1);
 					}
-				});
+				}
 			}
+			LOGGER.log(Level.INFO, () -> "Phase 1 abgeschlossen: " + totalUpdates.get() + " Updates verarbeitet");
+
+			// PHASE 2: ISINs aus tOnVista in Map laden
+			LOGGER.log(Level.INFO, "Phase 2: Lade vorhandene ISINs aus tOnVista");
+			
+			Map<String, Boolean> isinMap = new HashMap<>();
+			try (final PreparedStatement psLoadIsins = connection.prepareStatement("SELECT cIsin FROM tOnVista");
+				 final java.sql.ResultSet rs = psLoadIsins.executeQuery())
+			{
+				while (rs.next())
+				{
+					isinMap.put(rs.getString("cIsin"), Boolean.TRUE);
+				}
+			}
+			LOGGER.log(Level.INFO, () -> "Phase 2 abgeschlossen: " + isinMap.size() + " ISINs geladen");
+
+			// PHASE 3: tStocks Tabelle aktualisieren (nur für ISINs in der Map)
+			LOGGER.log(Level.INFO, "Phase 3: Aktualisiere tStocks Tabelle");
+			
+			AtomicInteger totalStockInserts = new AtomicInteger(0);
+			try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
+			{
+				for (Path path : paths)
+				{
+					try (final PreparedStatement psCheckStock = connection.prepareStatement("SELECT 1 FROM tStocks WHERE cIsin=? AND cDateLong=?");
+						 final PreparedStatement psInsertStock = connection.prepareStatement("INSERT INTO tStocks (cID,cIsin,cLast,cCurrency,cDateLong,cDate) VALUES(?,?,?,?,?,?)"))
+					{
+						String jsonString = FileUtils.readFileToString(path.toFile(), StandardCharsets.UTF_8);
+						JSONObject jo = new JSONObject(jsonString);
+						JSONArray ar = jo.getJSONArray("values");
+						
+						ar.forEach(e -> {
+							try
+							{
+								if (e instanceof JSONArray jsonarray)
+								{
+									List<Object> list = jsonarray.toList();
+									if (accepted(list))
+									{
+										String isin = String.valueOf(list.get(0));
+										
+										// Nur verarbeiten wenn ISIN in Map vorhanden ist
+										if (isinMap.containsKey(isin))
+										{
+											double rawQuote = OnVistaParser.makeDouble(list.get(7));
+											String curr = String.valueOf(list.get(10));
+											double euroQuote = CurrencyDB.getAsEuro(curr, rawQuote, timeStampLong);
+
+											// Prüfen ob bereits in tStocks vorhanden
+											psCheckStock.setString(1, isin);
+											psCheckStock.setLong(2, timeStampLong);
+											try (java.sql.ResultSet rs = psCheckStock.executeQuery())
+											{
+												if (!rs.next())
+												{
+													// Insert vorbereiten
+													psInsertStock.setString(1, java.util.UUID.randomUUID().toString());
+													psInsertStock.setString(2, isin);
+													psInsertStock.setDouble(3, euroQuote);
+													psInsertStock.setString(4, "EUR");
+													psInsertStock.setLong(5, timeStampLong);
+													psInsertStock.setTimestamp(6, sqlTimestamp);
+													psInsertStock.addBatch();
+												}
+											}
+										}
+									}
+								}
+							}
+							catch (Exception e2)
+							{
+								LOGGER.log(Level.WARNING, "Fehler beim Verarbeiten von tStocks Eintrag", e2);
+							}
+						});
+						
+						int[] stockResults = psInsertStock.executeBatch();
+						connection.commit();
+						totalStockInserts.addAndGet(stockResults.length);
+					}
+					catch (Exception e1)
+					{
+						LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tStocks", e1);
+					}
+				}
+			}
+			LOGGER.log(Level.INFO, () -> "Phase 3 abgeschlossen: " + totalStockInserts.get() + " neue tStocks Records eingefügt");
 		}
 		catch (Exception e)
 		{
-			e.printStackTrace();
+			LOGGER.log(Level.SEVERE, "Fehler im Update-Prozess", e);
+			throw new SQLException("Update-Prozess fehlgeschlagen", e);
 		}
 	}
 
-	private boolean accepted(List<Object> list) {
-		if (list.size() < 3 || !(list.get(2) instanceof String)) {
-			return false;
+
+	/**
+	 * Setzt die Parameter für das UPDATE Statement. Reihenfolge: Alle Nicht-PK Spalten in der in OnVistaModel
+	 * definierten Reihenfolge (cRef..cUpdated) gefolgt von cIsin im WHERE.
+	 */
+	private void setParamsForUpdate(PreparedStatement stmnt, List<Object> params)
+		throws SQLException
+	{
+		try
+		{
+			// Original Indizes aus parseRow:
+			// 0 ISIN, 1 ref, 2 name, 3 WKN, 4 branch, 5 sector, 6 country,
+			// 7 quote, 8 exchange, 9 dateLong, 10 currency, 11 performance,
+			// 12 perfW52, 13 perfM6, 14 perfW4, 15 divYield, 16 dividend,
+			// 17 capitalization, 18 risk, 19 employees, 20 turnover
+
+			String isin = String.valueOf(params.get(0));
+			Double quote = OnVistaParser.makeDouble(params.get(7));
+			String currency = String.valueOf(params.get(10));
+			Double capitalization = OnVistaParser.makeDouble(params.get(17));
+			capitalization = recalcCapitalization(isin, quote, currency, capitalization);
+
+			int idx = 1;
+			stmnt.setString(idx++ , String.valueOf(params.get(1))); // cRef
+			stmnt.setString(idx++ , String.valueOf(params.get(2))); // cName
+			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cNsin (WKN)
+			stmnt.setString(idx++ , String.valueOf(params.get(4))); // cBranch
+			stmnt.setString(idx++ , String.valueOf(params.get(5))); // cSector
+			stmnt.setString(idx++ , String.valueOf(params.get(6))); // cCountryCode
+			stmnt.setDouble(idx++ , quote); // cLast
+			stmnt.setString(idx++ , String.valueOf(params.get(8))); // cExchange
+			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(9))); // cDateLong
+			stmnt.setString(idx++ , currency); // cCurrency
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(11))); // cPerformance
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(12))); // cPerf1Year
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(13))); // cPerf6Months
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(14))); // cPerf4Weeks
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(15))); // cDividendYield
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(16))); // cDividend
+			stmnt.setDouble(idx++ , capitalization); // cMarketCapitalization
+			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(18))); // cRiskRating
+			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(19))); // cEmployees
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(20))); // cTurnover
+			stmnt.setTimestamp(idx++ , new Timestamp(System.currentTimeMillis())); // cUpdated
+
+			// WHERE cIsin
+			stmnt.setString(idx, isin); // letzter Parameter (WHERE cIsin) ohne unnötige idx-Erhöhung
 		}
-		String name = list.get(2).toString();
-		final List<String> tokens = Arrays.asList("ADR", "CDR", "RMB", "NVDR", "GDR", "YC1", "YC 1"); 
-		for (String token : tokens) {
-			if (name.contains(token)) {
-				return false;
+		catch (Exception ex)
+		{
+			throw new SQLException("Fehler beim Setzen der Update-Parameter", ex);
+		}
+	}
+
+
+	private Double recalcCapitalization(String isin, Double quote, String currency, Double fallBack)
+	{
+		double result = fallBack == null ? 0d : fallBack;
+		long stockCount = StockCounterDB.getStockCounter(isin);
+		if (stockCount != 0)
+		{
+			try
+			{
+				if ("GBP".equalsIgnoreCase(currency))
+				{
+					result = CurrencyDB.getAsEuro(	currency,
+													stockCount * quote / 100,
+													System.currentTimeMillis());
+					if (result == 0)
+					{
+						result = CurrencyDB.getAsEuro(	currency,
+														(fallBack == null ? 0d : fallBack) / 100,
+														System.currentTimeMillis());
+					}
+				}
+				else
+				{
+					result = CurrencyDB.getAsEuro(currency, stockCount * quote, System.currentTimeMillis());
+					if (result == 0 && fallBack != null)
+					{
+						result = fallBack;
+					}
+				}
 			}
+			catch (Exception ignore)
+			{
+				LOGGER.log(Level.FINE, () -> "Fehler bei Kapitalisierungsberechnung für ISIN=" + isin); // Stacktrace
+																										// auf
+																										// FINE
+																										// Ebene
+																										// optional
+			}
+		}
+		return result;
+	}
+
+
+	private boolean accepted(List<Object> list)
+	{
+		if (list.size() < 3 || !(list.get(2) instanceof String))
+		{ return false; }
+		String name = list.get(2).toString();
+		final List<String> tokens = Arrays.asList("ADR", "CDR", "RMB", "NVDR", "GDR", "YC1", "YC 1");
+		for (String token : tokens)
+		{
+			if (name.contains(token))
+			{ return false; }
 		}
 		return true;
 	}
