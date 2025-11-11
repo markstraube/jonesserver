@@ -43,13 +43,6 @@ public class StockPointLoader
     }
 
 
-    public static boolean prefetchIsin(String isin)
-    {
-        ArivaHistoricData ariva = new ArivaHistoricData(DATA_FOLDER);
-        return ariva.preFetch(isin) != null;
-    }
-
-
     public static Map<Long, Double> loadRawForBranch(String branch, String country, Long start)
     {
         Map<String, Map<Long, Double>> values = new HashMap<>();

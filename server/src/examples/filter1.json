@@ -1,0 +1,40 @@
+[
+	{
+		"id": 1017,
+		"onVistaLink": "<a class=\"onvista\" href=\"https://www.onvista.de/aktien/Microsoft-Aktie-US5949181045\" target=\"_blank\">US5949181045</a>",
+		"name": "Microsoft",
+		"finanzNetLink": "<a class=\"finanzen-net\" href=\"https://www.finanzen.net/suchergebnis.asp?strSuchString=US5949181045\" target=\"_blank\"><img src=\"https://charts.onvista.de/images/onvista/plain/rw-mini-area.png?&chart.colorPlot=009900&chart.colorFill=dfeacc&key.isin=US5949181045&timeSpan=1Y&expires=3600\" class=\"table-chart-image\"/></a>",
+		"shortUrl": "Microsoft-Aktie-US5949181045",
+		"arivaLink": "<a class=\"onvista\" href=\"https://www.onvista.de/aktien/Microsoft-Aktie-US5949181045\" target=\"_blank\"><img src=\"https://charts.onvista.de/images/onvista/plain/rw-mini-area.png?&chart.colorPlot=009900&chart.colorFill=dfeacc&key.isin=US5949181045&timeSpan=1M&expires=3600\" class=\"table-chart-image\"/ style=></a>",
+		"countryCode": "USA",
+		"capitalization": 2889832850795,
+		"industry": "Standardsoftware",
+		"perf4": "3.5",
+		"perf26": "35.1",
+		"perf52": "50.3",
+		"last": "421.43",
+		"currency": "USD",
+		"turnover": 194285579235,
+		"dividendYield": 0.686910495489354,
+		"isin": "US5949181045"
+	},
+	{
+		"id": 1106,
+		"onVistaLink": "<a class=\"onvista\" href=\"https://www.onvista.de/aktien/Nvidia-Aktie-US67066G1040\" target=\"_blank\">US67066G1040</a>",
+		"name": "Nvidia",
+		"finanzNetLink": "<a class=\"finanzen-net\" href=\"https://www.finanzen.net/suchergebnis.asp?strSuchString=US67066G1040\" target=\"_blank\"><img src=\"https://charts.onvista.de/images/onvista/plain/rw-mini-area.png?&chart.colorPlot=009900&chart.colorFill=dfeacc&key.isin=US67066G1040&timeSpan=1Y&expires=3600\" class=\"table-chart-image\"/></a>",
+		"shortUrl": "Nvidia-Aktie-US67066G1040",
+		"arivaLink": "<a class=\"onvista\" href=\"https://www.onvista.de/aktien/Nvidia-Aktie-US67066G1040\" target=\"_blank\"><img src=\"https://charts.onvista.de/images/onvista/plain/rw-mini-area.png?&chart.colorPlot=009900&chart.colorFill=dfeacc&key.isin=US67066G1040&timeSpan=1M&expires=3600\" class=\"table-chart-image\"/ style=></a>",
+		"countryCode": "USA",
+		"capitalization": 2588922941554,
+		"industry": "Spezialsoftware",
+		"perf4": "33.6",
+		"perf26": "122.9",
+		"perf52": "248.6",
+		"last": "1140.59",
+		"currency": "USD",
+		"turnover": 24840221730,
+		"dividendYield": 0.0150270354465195,
+		"isin": "US67066G1040"
+	}
+]
