@@ -1,4 +1,4 @@
-package com.straube.jones.cmd.yahoo;
+package com.straube.jones.cmd.finnhub;
 
 
 import java.io.BufferedReader;
@@ -19,14 +19,14 @@ import java.util.logging.Logger;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
 
-public class FinHubFundamentals
+public class FinnHubFundamentals
 {
-    private static final Logger LOGGER = Logger.getLogger(FinHubFundamentals.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(FinnHubFundamentals.class.getName());
     private static final String FINNHUB_API_KEY = System.getenv("FINHUB_API_KEY");
 
     private File rootFolder;
 
-    public FinHubFundamentals(String rootFolder)
+    public FinnHubFundamentals(String rootFolder)
     {
         this.rootFolder = new File(rootFolder, "yahoo");
         this.rootFolder.mkdirs();
@@ -491,7 +491,7 @@ public class FinHubFundamentals
     public static void main(String[] args)
     {
         String rootFolder = args.length > 0 ? args[0] : "./data";
-        FinHubFundamentals downloader = new FinHubFundamentals(rootFolder);
+        FinnHubFundamentals downloader = new FinnHubFundamentals(rootFolder);
 
         // Lade auch Fundamental-Daten
         boolean fundamentalSuccess = downloader.fetchFundamentalData(true, false);
