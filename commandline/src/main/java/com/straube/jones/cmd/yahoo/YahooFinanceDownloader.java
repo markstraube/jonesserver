@@ -20,18 +20,18 @@ import org.json.JSONObject;
 public class YahooFinanceDownloader
 {
     private static final Logger LOGGER = Logger.getLogger(YahooFinanceDownloader.class.getName());
-    
+
     private File rootFolder;
-    
+
     public YahooFinanceDownloader(String rootFolder)
     {
         this.rootFolder = new File(rootFolder, "yahoo");
         this.rootFolder.mkdirs();
     }
-    
-    public enum OutputFormat {
-        CSV,
-        JSON
+
+    public enum OutputFormat
+    {
+        CSV, JSON
     }
 
     /**
@@ -42,11 +42,14 @@ public class YahooFinanceDownloader
      * @param format Output-Format (CSV oder JSON)
      * @return Daten als String im gewählten Format
      */
-    public static String downloadHistoricalData(String symbol, LocalDate startDate, LocalDate endDate, OutputFormat format)
+    public static String downloadHistoricalData(String symbol,
+                                                LocalDate startDate,
+                                                LocalDate endDate,
+                                                OutputFormat format)
         throws IOException
     {
         String jsonString = downloadRawJson(symbol, startDate, endDate);
-        
+
         if (format == OutputFormat.JSON)
         {
             return convertToStructuredJson(jsonString);
@@ -56,6 +59,7 @@ public class YahooFinanceDownloader
             return convertJsonToCsv(jsonString);
         }
     }
+
 
     /**
      * Lädt historische Kursdaten von Yahoo Finance über die Chart-API (benötigt keine Authentifizierung)
@@ -70,6 +74,7 @@ public class YahooFinanceDownloader
     {
         return downloadHistoricalData(symbol, startDate, endDate, OutputFormat.CSV);
     }
+
 
     /**
      * Lädt die rohen JSON-Daten von Yahoo Finance
@@ -86,7 +91,7 @@ public class YahooFinanceDownloader
                                          URLEncoder.encode(symbol, StandardCharsets.UTF_8),
                                          period1,
                                          period2);
-        
+
         LOGGER.log(Level.FINE, () -> "Download URL: " + urlString);
 
         URL url = new URL(urlString);
@@ -103,9 +108,7 @@ public class YahooFinanceDownloader
 
             int responseCode = conn.getResponseCode();
             if (responseCode != 200)
-            {
-                throw new IOException("HTTP Error Code: " + responseCode);
-            }
+            { throw new IOException("HTTP Error Code: " + responseCode); }
 
             // Lese JSON Response
             StringBuilder jsonResponse = new StringBuilder();
@@ -128,6 +131,7 @@ public class YahooFinanceDownloader
         }
     }
 
+
     /**
      * Konvertiert die JSON-Response von Yahoo Finance zu CSV-Format
      */
@@ -137,29 +141,25 @@ public class YahooFinanceDownloader
         JSONObject json = new JSONObject(jsonString);
         JSONObject chart = json.getJSONObject("chart");
         JSONArray results = chart.getJSONArray("result");
-        
+
         if (results.length() == 0)
-        {
-            throw new IOException("Keine Daten in der Response gefunden");
-        }
+        { throw new IOException("Keine Daten in der Response gefunden"); }
 
         JSONObject result = results.getJSONObject(0);
         JSONArray timestamps = result.getJSONArray("timestamp");
         JSONObject indicators = result.getJSONObject("indicators");
         JSONArray quotes = indicators.getJSONArray("quote");
-        
+
         if (quotes.length() == 0)
-        {
-            throw new IOException("Keine Quote-Daten gefunden");
-        }
-        
+        { throw new IOException("Keine Quote-Daten gefunden"); }
+
         JSONObject quote = quotes.getJSONObject(0);
         JSONArray opens = quote.getJSONArray("open");
         JSONArray highs = quote.getJSONArray("high");
         JSONArray lows = quote.getJSONArray("low");
         JSONArray closes = quote.getJSONArray("close");
         JSONArray volumes = quote.getJSONArray("volume");
-        
+
         // Hole Adjusted Close falls vorhanden
         JSONArray adjCloses = null;
         if (indicators.has("adjclose"))
@@ -176,12 +176,12 @@ public class YahooFinanceDownloader
         csv.append("Date,Open,High,Low,Close,Adj Close,Volume\n");
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        
-        for (int i = 0; i < timestamps.length(); i++)
+
+        for (int i = 0; i < timestamps.length(); i++ )
         {
             long timestamp = timestamps.getLong(i);
             LocalDate date = Instant.ofEpochSecond(timestamp).atZone(ZoneId.systemDefault()).toLocalDate();
-            
+
             Object open = opens.isNull(i) ? "null" : opens.get(i);
             Object high = highs.isNull(i) ? "null" : highs.get(i);
             Object low = lows.isNull(i) ? "null" : lows.get(i);
@@ -190,17 +190,18 @@ public class YahooFinanceDownloader
             Object adjClose = (adjCloses != null && !adjCloses.isNull(i)) ? adjCloses.get(i) : close;
 
             csv.append(String.format("%s,%s,%s,%s,%s,%s,%s\n",
-                                    date.format(formatter),
-                                    open,
-                                    high,
-                                    low,
-                                    close,
-                                    adjClose,
-                                    volume));
+                                     date.format(formatter),
+                                     open,
+                                     high,
+                                     low,
+                                     close,
+                                     adjClose,
+                                     volume));
         }
 
         return csv.toString();
     }
+
 
     /**
      * Konvertiert die JSON-Response von Yahoo Finance zu strukturiertem JSON-Format
@@ -212,34 +213,30 @@ public class YahooFinanceDownloader
         JSONObject json = new JSONObject(jsonString);
         JSONObject chart = json.getJSONObject("chart");
         JSONArray results = chart.getJSONArray("result");
-        
+
         if (results.length() == 0)
-        {
-            throw new IOException("Keine Daten in der Response gefunden");
-        }
+        { throw new IOException("Keine Daten in der Response gefunden"); }
 
         JSONObject result = results.getJSONObject(0);
-        
+
         // Extrahiere Meta-Informationen
         JSONObject meta = result.getJSONObject("meta");
-        
+
         // Extrahiere Daten
         JSONArray timestamps = result.getJSONArray("timestamp");
         JSONObject indicators = result.getJSONObject("indicators");
         JSONArray quotes = indicators.getJSONArray("quote");
-        
+
         if (quotes.length() == 0)
-        {
-            throw new IOException("Keine Quote-Daten gefunden");
-        }
-        
+        { throw new IOException("Keine Quote-Daten gefunden"); }
+
         JSONObject quote = quotes.getJSONObject(0);
         JSONArray opens = quote.getJSONArray("open");
         JSONArray highs = quote.getJSONArray("high");
         JSONArray lows = quote.getJSONArray("low");
         JSONArray closes = quote.getJSONArray("close");
         JSONArray volumes = quote.getJSONArray("volume");
-        
+
         // Hole Adjusted Close falls vorhanden
         JSONArray adjCloses = null;
         if (indicators.has("adjclose"))
@@ -254,12 +251,12 @@ public class YahooFinanceDownloader
         // Baue strukturiertes JSON mit garantierter Reihenfolge
         StringBuilder jsonOutput = new StringBuilder();
         jsonOutput.append("{\n");
-        
+
         // 1. Meta-Informationen (als erstes)
         jsonOutput.append("  \"meta\": ");
         jsonOutput.append(meta.toString(2).replace("\n", "\n  "));
         jsonOutput.append(",\n");
-        
+
         // 2. Spaltennamen (als zweites)
         jsonOutput.append("  \"columns\": [\n");
         jsonOutput.append("    \"date\",\n");
@@ -270,16 +267,16 @@ public class YahooFinanceDownloader
         jsonOutput.append("    \"adjClose\",\n");
         jsonOutput.append("    \"volume\"\n");
         jsonOutput.append("  ],\n");
-        
+
         // 3. Daten-Records (als letztes)
         jsonOutput.append("  \"data\": [\n");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        
-        for (int i = 0; i < timestamps.length(); i++)
+
+        for (int i = 0; i < timestamps.length(); i++ )
         {
             long timestamp = timestamps.getLong(i);
             LocalDate date = Instant.ofEpochSecond(timestamp).atZone(ZoneId.systemDefault()).toLocalDate();
-            
+
             // Baue Record manuell
             if (i > 0)
             {
@@ -291,7 +288,7 @@ public class YahooFinanceDownloader
             jsonOutput.append("      \"high\": ").append(formatJsonValue(highs, i)).append(",\n");
             jsonOutput.append("      \"low\": ").append(formatJsonValue(lows, i)).append(",\n");
             jsonOutput.append("      \"close\": ").append(formatJsonValue(closes, i)).append(",\n");
-            
+
             // Adjusted Close
             if (adjCloses != null && !adjCloses.isNull(i))
             {
@@ -305,28 +302,28 @@ public class YahooFinanceDownloader
             {
                 jsonOutput.append("      \"adjClose\": null,\n");
             }
-            
+
             jsonOutput.append("      \"volume\": ").append(formatJsonValue(volumes, i)).append("\n");
             jsonOutput.append("    }");
         }
-        
+
         jsonOutput.append("\n  ]\n");
         jsonOutput.append("}");
-        
+
         return jsonOutput.toString();
     }
-    
+
+
     /**
      * Hilfsmethode zum Formatieren von JSON-Werten (null oder Zahl)
      */
     private static String formatJsonValue(JSONArray array, int index)
     {
         if (array.isNull(index))
-        {
-            return "null";
-        }
+        { return "null"; }
         return String.valueOf(array.get(index));
     }
+
 
     /**
      * Lädt historische Kursdaten für alle Aktien aus StocksCode.json
@@ -334,12 +331,15 @@ public class YahooFinanceDownloader
      * @param daysBack Anzahl Tage zurück (z.B. 365 für 1 Jahr)
      * @return true wenn erfolgreich
      */
-    public boolean fetchHistoricalData(OutputFormat format, int daysBack)
+    public boolean fetchHistoricalData(OutputFormat format,
+                                       int daysBack,
+                                       boolean skipExisting,
+                                       boolean reportMissing)
     {
         try
         {
             LOGGER.log(Level.INFO, "Loading StocksCode.json from classpath");
-            
+
             // Lade StocksCode.json aus dem Classpath
             InputStream inputStream = getClass().getClassLoader().getResourceAsStream("StocksCode.json");
             if (inputStream == null)
@@ -347,48 +347,57 @@ public class YahooFinanceDownloader
                 LOGGER.log(Level.SEVERE, "StocksCode.json not found in classpath");
                 return false;
             }
-            
+
             String jsonString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
             JSONObject stocksData = new JSONObject(jsonString);
-            
+
             LOGGER.log(Level.INFO, () -> stocksData.length() + " stocks loaded");
-            
+
             // Erstelle historic Unterordner
             File historicFolder = new File(rootFolder, "historic");
             historicFolder.mkdirs();
-            
+
             // Berechne Zeitraum
             LocalDate endDate = LocalDate.now();
             LocalDate startDate = endDate.minusDays(daysBack);
-            
+
             int count = 0;
             int errors = 0;
-            
+
             // Iteriere über alle ISIN-Einträge
             for (String isin : stocksData.keySet())
             {
                 JSONObject stockInfo = stocksData.getJSONObject(isin);
                 String code = stockInfo.getString("code");
-                
+
                 // Erstelle Dateinamen: <ISIN>_<code>.<format>
                 String extension = format == OutputFormat.CSV ? "csv" : "json";
                 File outputFile = new File(historicFolder, isin + "_" + code + "." + extension);
-                if (outputFile.exists())
+                if (outputFile.exists() && skipExisting)
                 {
-                    LOGGER.log(Level.INFO, () -> "File already exists, skipping: " + outputFile.getAbsolutePath());
+                    if (!reportMissing)
+                    {
+                        LOGGER.log(Level.INFO,
+                                   () -> "File already exists, skipping: " + outputFile.getAbsolutePath());
+                    }
                     continue;
-                }                
+                }
+                else if (reportMissing)
+                {
+                    System.out.println("nothing found for code: " + code + stockInfo.toString());
+                    continue;
+                }
                 try
                 {
                     LOGGER.log(Level.INFO, () -> "Fetching data for " + code + " (ISIN: " + isin + ")");
-                    
+
                     // Lade die Daten
                     String data = downloadHistoricalData(code, startDate, endDate, format);
-                    
+
                     // Speichere in Datei
                     Files.write(outputFile.toPath(), data.getBytes(StandardCharsets.UTF_8));
-                    
-                    count++;
+
+                    count++ ;
                     if (count % 10 == 0)
                     {
                         final int currentCount = count;
@@ -398,16 +407,26 @@ public class YahooFinanceDownloader
                 }
                 catch (Exception e)
                 {
-                    errors++;
-                    LOGGER.log(Level.WARNING, () -> "Error fetching data for " + code + " (ISIN: " + isin + "): " + e.getMessage());
+                    errors++ ;
+                    LOGGER.log(Level.WARNING,
+                               () -> "Error fetching data for " + code
+                                               + " (ISIN: "
+                                               + isin
+                                               + "): "
+                                               + e.getMessage());
                 }
             }
-            
+
             final int finalCount = count;
             final int finalErrors = errors;
-            LOGGER.log(Level.INFO, () -> "Done! " + finalCount + " stocks saved to " + historicFolder.getAbsolutePath() + 
-                                        " (" + finalErrors + " errors)");
-            
+            LOGGER.log(Level.INFO,
+                       () -> "Done! " + finalCount
+                                       + " stocks saved to "
+                                       + historicFolder.getAbsolutePath()
+                                       + " ("
+                                       + finalErrors
+                                       + " errors)");
+
             return true;
         }
         catch (Exception e)
@@ -417,6 +436,7 @@ public class YahooFinanceDownloader
         }
     }
 
+
     /**
      * Beispiel-Verwendung
      */
@@ -424,10 +444,10 @@ public class YahooFinanceDownloader
     {
         String rootFolder = args.length > 0 ? args[0] : "./data";
         YahooFinanceDownloader downloader = new YahooFinanceDownloader(rootFolder);
-        
+
         // Lade Daten für die letzten 365 Tage im CSV-Format
-        boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365);
-        
+        boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
+
         System.exit(success ? 0 : 1);
     }
 }
