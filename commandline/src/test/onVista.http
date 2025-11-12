@@ -15,3 +15,13 @@ Content-Type: application/octet-stream
 
 < C:\Dev\__GIT\jonesserver\data\body.txt
 
+
+###
+POST https://aktienkatalog.de/api/convert-ticker-isin-wkn?type=isin&search=GB00B1YW4409
+Accept: application/json
+Content-Type: application/x-www-form-urlencoded
+
+type=isin&search=GB00B1YW4409
+
+###
+GET https://aktienkatalog.de/api-docs
