@@ -7,16 +7,28 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class YahooFinanceDownloader
 {
+    private static final Logger LOGGER = Logger.getLogger(YahooFinanceDownloader.class.getName());
+    
+    private File rootFolder;
+    
+    public YahooFinanceDownloader(String rootFolder)
+    {
+        this.rootFolder = new File(rootFolder, "yahoo");
+        this.rootFolder.mkdirs();
+    }
+    
     public enum OutputFormat {
         CSV,
         JSON
@@ -75,7 +87,7 @@ public class YahooFinanceDownloader
                                          period1,
                                          period2);
         
-        System.out.println("Download URL: " + urlString);
+        LOGGER.log(Level.FINE, () -> "Download URL: " + urlString);
 
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection)url.openConnection();
@@ -316,62 +328,106 @@ public class YahooFinanceDownloader
         return String.valueOf(array.get(index));
     }
 
-
     /**
-     * Speichert die Daten in eine CSV-Datei
+     * Lädt historische Kursdaten für alle Aktien aus StocksCode.json
+     * @param format Output-Format (CSV oder JSON)
+     * @param daysBack Anzahl Tage zurück (z.B. 365 für 1 Jahr)
+     * @return true wenn erfolgreich
      */
-    public static void saveToFile(String data, String filename)
-        throws IOException
+    public boolean fetchHistoricalData(OutputFormat format, int daysBack)
     {
-        Files.write(Paths.get(filename), data.getBytes(StandardCharsets.UTF_8));
-        System.out.println("Daten gespeichert in: " + filename);
+        try
+        {
+            LOGGER.log(Level.INFO, "Loading StocksCode.json from classpath");
+            
+            // Lade StocksCode.json aus dem Classpath
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("StocksCode.json");
+            if (inputStream == null)
+            {
+                LOGGER.log(Level.SEVERE, "StocksCode.json not found in classpath");
+                return false;
+            }
+            
+            String jsonString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+            JSONObject stocksData = new JSONObject(jsonString);
+            
+            LOGGER.log(Level.INFO, () -> stocksData.length() + " stocks loaded");
+            
+            // Erstelle historic Unterordner
+            File historicFolder = new File(rootFolder, "historic");
+            historicFolder.mkdirs();
+            
+            // Berechne Zeitraum
+            LocalDate endDate = LocalDate.now();
+            LocalDate startDate = endDate.minusDays(daysBack);
+            
+            int count = 0;
+            int errors = 0;
+            
+            // Iteriere über alle ISIN-Einträge
+            for (String isin : stocksData.keySet())
+            {
+                JSONObject stockInfo = stocksData.getJSONObject(isin);
+                String code = stockInfo.getString("code");
+                
+                // Erstelle Dateinamen: <ISIN>_<code>.<format>
+                String extension = format == OutputFormat.CSV ? "csv" : "json";
+                File outputFile = new File(historicFolder, isin + "_" + code + "." + extension);
+                if (outputFile.exists())
+                {
+                    LOGGER.log(Level.INFO, () -> "File already exists, skipping: " + outputFile.getAbsolutePath());
+                    continue;
+                }                
+                try
+                {
+                    LOGGER.log(Level.INFO, () -> "Fetching data for " + code + " (ISIN: " + isin + ")");
+                    
+                    // Lade die Daten
+                    String data = downloadHistoricalData(code, startDate, endDate, format);
+                    
+                    // Speichere in Datei
+                    Files.write(outputFile.toPath(), data.getBytes(StandardCharsets.UTF_8));
+                    
+                    count++;
+                    if (count % 10 == 0)
+                    {
+                        final int currentCount = count;
+                        final int totalStocks = stocksData.length();
+                        LOGGER.log(Level.INFO, () -> currentCount + " of " + totalStocks + " stocks fetched");
+                    }
+                }
+                catch (Exception e)
+                {
+                    errors++;
+                    LOGGER.log(Level.WARNING, () -> "Error fetching data for " + code + " (ISIN: " + isin + "): " + e.getMessage());
+                }
+            }
+            
+            final int finalCount = count;
+            final int finalErrors = errors;
+            LOGGER.log(Level.INFO, () -> "Done! " + finalCount + " stocks saved to " + historicFolder.getAbsolutePath() + 
+                                        " (" + finalErrors + " errors)");
+            
+            return true;
+        }
+        catch (Exception e)
+        {
+            LOGGER.log(Level.SEVERE, "Error fetching historical data", e);
+            return false;
+        }
     }
-
 
     /**
      * Beispiel-Verwendung
      */
     public static void main(String[] args)
     {
-        try
-        {
-            String symbol = "MTB";
-            LocalDate startDate = LocalDate.now().minusYears(1);  // 1 Jahr zurück
-            LocalDate endDate = LocalDate.now();
-
-            // Option 1: CSV-Format (Standard)
-            System.out.println("Lade Kursdaten für " + symbol + " als CSV...");
-            String csvData = downloadHistoricalData(symbol, startDate, endDate, OutputFormat.CSV);
-
-            // Speichere CSV in Datei
-            String csvFilename = symbol + "_historical_data.csv";
-            saveToFile(csvData, csvFilename);
-
-            // Zeige erste Zeilen CSV
-            String[] lines = csvData.split("\n");
-            System.out.println("\nErste 5 Zeilen (CSV):");
-            for (int i = 0; i < Math.min(5, lines.length); i++ )
-            {
-                System.out.println(lines[i]);
-            }
-
-            // Option 2: JSON-Format
-            System.out.println("\n\nLade Kursdaten für " + symbol + " als JSON...");
-            String jsonData = downloadHistoricalData(symbol, startDate, endDate, OutputFormat.JSON);
-
-            // Speichere JSON in Datei
-            String jsonFilename = symbol + "_historical_data.json";
-            saveToFile(jsonData, jsonFilename);
-
-            // Zeige Anfang des JSON
-            System.out.println("\nErste 500 Zeichen (JSON):");
-            System.out.println(jsonData.substring(0, Math.min(500, jsonData.length())) + "...");
-
-        }
-        catch (IOException e)
-        {
-            System.err.println("Fehler beim Laden der Daten: " + e.getMessage());
-            e.printStackTrace();
-        }
+        String rootFolder = args.length > 0 ? args[0] : "./data";
+        YahooFinanceDownloader downloader = new YahooFinanceDownloader(rootFolder);
+        
+        // Lade Daten für die letzten 365 Tage im CSV-Format
+        boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365);
+        
+        System.exit(success ? 0 : 1);
     }
 }
