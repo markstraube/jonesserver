@@ -42,14 +42,14 @@
     "isin": "US8334451098"
   },
   "US42250P1030": {
-    "code": "PEAK",
+    "code": "DOC, PEAK",
     "name": "Healthpeak Properties Inc",
     "logo": "./assets/img/logos/PEAK.svg",
     "wkn": "A2N5NP",
     "isin": "US42250P1030"
   },
   "CA5503721063": {
-    "code": "LUNMF",
+    "code": "LUN.TO, LUNMF",
     "name": "Lundin Mining Corporation",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A0B7XJ",
@@ -567,7 +567,7 @@
     "isin": "GB0004052071"
   },
   "US88023U1016": {
-    "code": "TPX",
+    "code": "SGI, TPX",
     "name": "Tempur Sealy International Inc",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A0BLAA",
@@ -1070,13 +1070,6 @@
     "wkn": "A2JPDX",
     "isin": "US05550J1016"
   },
-  "US1651677353": {
-    "code": "CHK",
-    "name": "Chesapeake Energy Corp",
-    "logo": "./assets/img/logos/CHK.svg",
-    "wkn": "A2QPFF",
-    "isin": "US1651677353"
-  },
   "NL0000395903": {
     "code": "0NMU.L, WOSB.DE",
     "name": "Wolters Kluwers Nv",
@@ -1239,7 +1232,7 @@
     "isin": "NO0003054108"
   },
   "US15677J1088": {
-    "code": "CDAY",
+    "code": "DAY, CDAY",
     "name": "Ceridian HCM Holding Inc",
     "logo": "./assets/img/logos/CDAY.png",
     "wkn": "A2JHZH",
@@ -3556,7 +3549,7 @@
     "isin": "MX01WA000038"
   },
   "NL0010545661": {
-    "code": "CNHI, 0QGU.L",
+    "code": "CNH, CNHI, 0QGU.L",
     "name": "CNH Industrial N.V.",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A1W599",
@@ -3570,7 +3563,7 @@
     "isin": "FR0000121964"
   },
   "KYG970081173": {
-    "code": "WXIBF",
+    "code": "2269.HK, WXIBF",
     "name": "WuXi Biologics",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A2QJCN",
@@ -4123,7 +4116,7 @@
     "isin": "DE0005220008"
   },
   "US8522341036": {
-    "code": "SQ, SQ3.DE, SQU.DE",
+    "code": "XYZ, SQ, SQ3.DE, SQU.DE",
     "name": "Vinci S. A.",
     "logo": "./assets/img/logos/SQ.png",
     "wkn": "A143D6",
@@ -4508,14 +4501,14 @@
     "isin": "DE000UNSE026"
   },
   "DK0062498333": {
-    "code": "0QIU.L, NOV.DE",
+    "code": "NOVO-B.CO, 0QIU.L, NOV.DE",
     "name": "Novo Nordisk A/S",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A3EU6F",
     "isin": "DK0062498333"
   },
   "IT0004810054": {
-    "code": "0Q6M.L",
+    "code": "UNI.MI, 0Q6M.L",
     "name": "Unipol Gruppo Finanziario Spa",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A1JWCF",
@@ -5208,8 +5201,8 @@
     "isin": "US55354G1004"
   },
   "FR0013258662": {
-    "code": "ALD.PA",
-    "name": "ALD S.A",
+    "code": "AYV.PA, ALD.PA",
+    "name": "AYVENS",
     "logo": "./assets/img/placeholder.png",
     "wkn": "A2DSXM",
     "isin": "FR0013258662"

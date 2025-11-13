@@ -321,8 +321,7 @@ public class OnVistaCollector
 			{
 				for (Path path : paths)
 				{
-					try (final PreparedStatement psCheckStock = connection.prepareStatement("SELECT 1 FROM tStocks WHERE cIsin=? AND cDateLong=?");
-						 final PreparedStatement psInsertStock = connection.prepareStatement("INSERT INTO tStocks (cID,cIsin,cLast,cCurrency,cDateLong,cDate) VALUES(?,?,?,?,?,?)"))
+					try (final PreparedStatement psInsertStock = connection.prepareStatement("INSERT INTO tStocks (cID,cIsin,cLast,cCurrency,cDateLong,cDate) VALUES(?,?,?,?,?,?)"))
 					{
 						String jsonString = FileUtils.readFileToString(path.toFile(), StandardCharsets.UTF_8);
 						JSONObject jo = new JSONObject(jsonString);
@@ -345,23 +344,14 @@ public class OnVistaCollector
 											String curr = String.valueOf(list.get(10));
 											double euroQuote = CurrencyDB.getAsEuro(curr, rawQuote, timeStampLong);
 
-											// Prüfen ob bereits in tStocks vorhanden
-											psCheckStock.setString(1, isin);
-											psCheckStock.setLong(2, timeStampLong);
-											try (java.sql.ResultSet rs = psCheckStock.executeQuery())
-											{
-												if (!rs.next())
-												{
-													// Insert vorbereiten
-													psInsertStock.setString(1, java.util.UUID.randomUUID().toString());
-													psInsertStock.setString(2, isin);
-													psInsertStock.setDouble(3, euroQuote);
-													psInsertStock.setString(4, "EUR");
-													psInsertStock.setLong(5, timeStampLong);
-													psInsertStock.setTimestamp(6, sqlTimestamp);
-													psInsertStock.addBatch();
-												}
-											}
+											// Insert vorbereiten
+											psInsertStock.setString(1, java.util.UUID.randomUUID().toString());
+											psInsertStock.setString(2, isin);
+											psInsertStock.setDouble(3, euroQuote);
+											psInsertStock.setString(4, "EUR");
+											psInsertStock.setLong(5, timeStampLong);
+											psInsertStock.setTimestamp(6, sqlTimestamp);
+											psInsertStock.addBatch();
 										}
 									}
 								}

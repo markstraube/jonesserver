@@ -1,7 +1,11 @@
 package com.straube.jones.cmd.yahoo;
 
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -11,8 +15,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -336,6 +342,7 @@ public class YahooFinanceDownloader
                                        boolean skipExisting,
                                        boolean reportMissing)
     {
+        AtomicInteger codeIndex = new AtomicInteger(0);
         try
         {
             LOGGER.log(Level.INFO, "Loading StocksCode.json from classpath");
@@ -368,7 +375,14 @@ public class YahooFinanceDownloader
             for (String isin : stocksData.keySet())
             {
                 JSONObject stockInfo = stocksData.getJSONObject(isin);
-                String code = stockInfo.getString("code");
+                String[] codes = stockInfo.getString("code").split(",");
+                if (codeIndex.get() >= codes.length)
+                {
+                    LOGGER.log(Level.WARNING, () -> "No code available for ISIN: " + isin);
+                    codeIndex.set(0);
+                    continue;
+                }
+                String code = codes[codeIndex.get()].trim();
 
                 // Erstelle Dateinamen: <ISIN>_<code>.<format>
                 String extension = format == OutputFormat.CSV ? "csv" : "json";
@@ -377,22 +391,25 @@ public class YahooFinanceDownloader
                 {
                     if (!reportMissing)
                     {
-                        LOGGER.log(Level.INFO,
+                        LOGGER.log(Level.FINER,
                                    () -> "File already exists, skipping: " + outputFile.getAbsolutePath());
                     }
+                    codeIndex.set(0);
                     continue;
                 }
                 else if (reportMissing)
                 {
                     System.out.println("nothing found for code: " + code + stockInfo.toString());
+                    codeIndex.set(0);
                     continue;
                 }
                 try
                 {
-                    LOGGER.log(Level.INFO, () -> "Fetching data for " + code + " (ISIN: " + isin + ")");
+                    LOGGER.log(Level.FINER, () -> "Fetching data for " + code + " (ISIN: " + isin + ")");
 
                     // Lade die Daten
                     String data = downloadHistoricalData(code, startDate, endDate, format);
+                    codeIndex.set(0);
 
                     // Speichere in Datei
                     Files.write(outputFile.toPath(), data.getBytes(StandardCharsets.UTF_8));
@@ -402,14 +419,16 @@ public class YahooFinanceDownloader
                     {
                         final int currentCount = count;
                         final int totalStocks = stocksData.length();
-                        LOGGER.log(Level.INFO, () -> currentCount + " of " + totalStocks + " stocks fetched");
+                        LOGGER.log(Level.FINER,
+                                   () -> currentCount + " of " + totalStocks + " stocks fetched");
                     }
                 }
                 catch (Exception e)
                 {
                     errors++ ;
+                    codeIndex.incrementAndGet();
                     LOGGER.log(Level.WARNING,
-                               () -> "Error fetching data for " + code
+                               () -> "Failed fetching data for " + code
                                                + " (ISIN: "
                                                + isin
                                                + "): "
@@ -435,7 +454,6 @@ public class YahooFinanceDownloader
             return false;
         }
     }
-
 
     /**
      * Beispiel-Verwendung
