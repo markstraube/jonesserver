@@ -5,7 +5,7 @@ public class Column
 {
     public enum UNITS
     {
-        EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY, AUTO, LONG, CURRENCY, DATE, TIMESTAMP
+        EURO, USD, PERCENT, TEXT, NUMBER, RISK, PRIMARY, AUTO, LONG, CURRENCY, DATE, TIMESTAMP, UNSIGNED
     }
 
     public String id;

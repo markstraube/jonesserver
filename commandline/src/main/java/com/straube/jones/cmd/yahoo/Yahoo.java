@@ -1,13 +1,16 @@
 package com.straube.jones.cmd.yahoo;
 
 
+import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 
 import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
@@ -33,14 +36,15 @@ public class Yahoo
                 }
             }
         }
-        InputStream inputStream = YahooFinanceDownloader.class.getClassLoader()
-                                                              .getResourceAsStream("StocksCode.json");
-        if (inputStream == null)
+        File rootFolder = new File("./data", "yahoo");
+        // Lade YahooCodes.json aus dem yahoo Ordner
+        File yahooCodesFile = new File(rootFolder, "YahooCodes.json");
+        if (!yahooCodesFile.exists())
         {
-            System.err.println("StocksCode.json not found in classpath");
+            System.err.println("YahooCodes.json not found at: " + yahooCodesFile.getAbsolutePath());
             return;
         }
-        String jsonString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        String jsonString = new String(Files.readAllBytes(yahooCodesFile.toPath()), StandardCharsets.UTF_8);
         JSONObject stocksData = new JSONObject(jsonString);
 
         System.out.println(stocksData.length() + " stocks loaded");

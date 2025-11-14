@@ -76,7 +76,7 @@ public class YahooCodeResolver
 
 
     /**
-     * Lädt ISINs aus tOnVista, fragt Yahoo Search API ab und speichert Codes
+     * Lädt ISINs aus tOnVista, fragt Yahoo Search API ab und speichert YahooCodes.json
      */
     public void resolve()
         throws Exception
@@ -154,7 +154,7 @@ public class YahooCodeResolver
         }
 
         // 4. Speichere Ergebnisse in Codes.json
-        File outputFile = new File(rootFolder, "Codes.json");
+        File outputFile = new File(rootFolder, "YahooCodes.json");
         Files.write(outputFile.toPath(), codesMap.toString(2).getBytes(StandardCharsets.UTF_8));
 
         final int finalCount = count;

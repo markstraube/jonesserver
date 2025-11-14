@@ -31,6 +31,9 @@ public class StocksModel
 
         col = new Column("date", "Date", Column.UNITS.TIMESTAMP, "cDate");
         columns.add(col);
+
+        col = new Column("sequence", "Sequence", Column.UNITS.UNSIGNED, "cSequence");
+        columns.add(col);
     }
 
     public static List<Column> getModel()

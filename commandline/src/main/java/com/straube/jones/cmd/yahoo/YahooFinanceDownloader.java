@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -332,7 +332,7 @@ public class YahooFinanceDownloader
 
 
     /**
-     * Lädt historische Kursdaten für alle Aktien aus StocksCode.json
+     * Lädt historische Kursdaten für alle Aktien aus YahooCodes.json
      * @param format Output-Format (CSV oder JSON)
      * @param daysBack Anzahl Tage zurück (z.B. 365 für 1 Jahr)
      * @return true wenn erfolgreich
@@ -342,20 +342,18 @@ public class YahooFinanceDownloader
                                        boolean skipExisting,
                                        boolean reportMissing)
     {
-        AtomicInteger codeIndex = new AtomicInteger(0);
         try
         {
-            LOGGER.log(Level.INFO, "Loading StocksCode.json from classpath");
+            LOGGER.log(Level.INFO, "Loading YahooCodes.json");
 
-            // Lade StocksCode.json aus dem Classpath
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("StocksCode.json");
-            if (inputStream == null)
+            // Lade YahooCodes.json aus dem yahoo Ordner
+            File yahooCodesFile = new File(rootFolder, "YahooCodes.json");
+            if (!yahooCodesFile.exists())
             {
-                LOGGER.log(Level.SEVERE, "StocksCode.json not found in classpath");
+                LOGGER.log(Level.SEVERE, () -> "YahooCodes.json not found at: " + yahooCodesFile.getAbsolutePath());
                 return false;
             }
-
-            String jsonString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+            String jsonString = new String(Files.readAllBytes(yahooCodesFile.toPath()), StandardCharsets.UTF_8);
             JSONObject stocksData = new JSONObject(jsonString);
 
             LOGGER.log(Level.INFO, () -> stocksData.length() + " stocks loaded");
@@ -370,46 +368,56 @@ public class YahooFinanceDownloader
 
             int count = 0;
             int errors = 0;
+            int skipped = 0;
 
             // Iteriere über alle ISIN-Einträge
             for (String isin : stocksData.keySet())
             {
-                JSONObject stockInfo = stocksData.getJSONObject(isin);
-                String[] codes = stockInfo.getString("code").split(",");
-                if (codeIndex.get() >= codes.length)
+                // Überspringe ISINs mit Underscore (das sind zusätzliche Quotes)
+                if (isin.contains("_"))
                 {
-                    LOGGER.log(Level.WARNING, () -> "No code available for ISIN: " + isin);
-                    codeIndex.set(0);
+                    skipped++ ;
+                    LOGGER.log(Level.FINE, () -> "Skipping additional quote: " + isin);
                     continue;
                 }
-                String code = codes[codeIndex.get()].trim();
+
+                JSONObject stockInfo = stocksData.getJSONObject(isin);
+
+                // Hole Symbol aus dem Quote-Objekt
+                if (!stockInfo.has("symbol"))
+                {
+                    LOGGER.log(Level.WARNING, () -> "No symbol found for ISIN: " + isin);
+                    continue;
+                }
+
+                String code = stockInfo.getString("symbol");
 
                 // Erstelle Dateinamen: <ISIN>_<code>.<format>
                 String extension = format == OutputFormat.CSV ? "csv" : "json";
                 File outputFile = new File(historicFolder, isin + "_" + code + "." + extension);
+
                 if (outputFile.exists() && skipExisting)
                 {
                     if (!reportMissing)
                     {
-                        LOGGER.log(Level.FINER,
+                        LOGGER.log(Level.FINE,
                                    () -> "File already exists, skipping: " + outputFile.getAbsolutePath());
                     }
-                    codeIndex.set(0);
                     continue;
                 }
                 else if (reportMissing)
                 {
-                    System.out.println("nothing found for code: " + code + stockInfo.toString());
-                    codeIndex.set(0);
+                    LOGGER.log(Level.INFO,
+                               () -> "Nothing found for code: " + code + " " + stockInfo.toString());
                     continue;
                 }
+
                 try
                 {
-                    LOGGER.log(Level.FINER, () -> "Fetching data for " + code + " (ISIN: " + isin + ")");
+                    LOGGER.log(Level.INFO, () -> "Fetching data for " + code + " (ISIN: " + isin + ")");
 
                     // Lade die Daten
                     String data = downloadHistoricalData(code, startDate, endDate, format);
-                    codeIndex.set(0);
 
                     // Speichere in Datei
                     Files.write(outputFile.toPath(), data.getBytes(StandardCharsets.UTF_8));
@@ -418,15 +426,16 @@ public class YahooFinanceDownloader
                     if (count % 10 == 0)
                     {
                         final int currentCount = count;
-                        final int totalStocks = stocksData.length();
-                        LOGGER.log(Level.FINER,
-                                   () -> currentCount + " of " + totalStocks + " stocks fetched");
+                        final int totalStocks = stocksData.length() - skipped;
+                        LOGGER.log(Level.INFO, () -> currentCount + " of " + totalStocks + " stocks fetched");
                     }
+
+                    // Rate limiting
+                    Thread.sleep(500);
                 }
                 catch (Exception e)
                 {
                     errors++ ;
-                    codeIndex.incrementAndGet();
                     LOGGER.log(Level.WARNING,
                                () -> "Failed fetching data for " + code
                                                + " (ISIN: "
@@ -456,6 +465,74 @@ public class YahooFinanceDownloader
     }
 
     /**
+     * Lädt historische Kursdaten für die übergebenen Codes/Symbole
+     * @param codes Liste von Yahoo-Symbolen (z.B. "MTB", "AAPL", "BBNI.JK")
+     * @param format Output-Format (CSV oder JSON)
+     * @param daysBack Anzahl Tage zurück (z.B. 365 für 1 Jahr)
+     * @return Anzahl erfolgreich geladener Datensätze
+     */
+    public int updateHistoricalData(List<String> codes, OutputFormat format, int daysBack)
+    {
+        if (codes == null || codes.isEmpty())
+        {
+            LOGGER.log(Level.WARNING, "No codes provided for update");
+            return 0;
+        }
+
+        LOGGER.log(Level.INFO, () -> "Updating historical data for " + codes.size() + " codes");
+
+        // Erstelle historic Unterordner
+        File historicFolder = new File(rootFolder, "historic");
+        historicFolder.mkdirs();
+
+        // Berechne Zeitraum
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(daysBack);
+
+        int count = 0;
+        int errors = 0;
+
+        for (String code : codes)
+        {
+            try
+            {
+                LOGGER.log(Level.INFO, () -> "Fetching data for " + code);
+
+                // Lade die Daten
+                String data = downloadHistoricalData(code, startDate, endDate, format);
+
+                // Erstelle Dateinamen: <code>.<format>
+                String extension = format == OutputFormat.CSV ? "csv" : "json";
+                File outputFile = new File(historicFolder, code + "." + extension);
+
+                // Speichere in Datei
+                Files.write(outputFile.toPath(), data.getBytes(StandardCharsets.UTF_8));
+
+                count++;
+                LOGGER.log(Level.INFO, () -> "Saved data for " + code + " to " + outputFile.getAbsolutePath());
+
+                // Rate limiting
+                Thread.sleep(500);
+            }
+            catch (Exception e)
+            {
+                errors++;
+                LOGGER.log(Level.WARNING, () -> "Failed fetching data for " + code + ": " + e.getMessage());
+            }
+        }
+
+        final int finalCount = count;
+        final int finalErrors = errors;
+        LOGGER.log(Level.INFO,
+                   () -> "Update completed: " + finalCount
+                                   + " stocks saved, "
+                                   + finalErrors
+                                   + " errors");
+
+        return count;
+    }
+
+    /**
      * Beispiel-Verwendung
      */
     public static void main(String[] args)
@@ -464,8 +541,10 @@ public class YahooFinanceDownloader
         YahooFinanceDownloader downloader = new YahooFinanceDownloader(rootFolder);
 
         // Lade Daten für die letzten 365 Tage im CSV-Format
-        boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
+        //boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
+        List<String> codes = List.of("GWO.TO", "LUN.TO", "PPL.TO");
+        int updatedCount = downloader.updateHistoricalData(codes, OutputFormat.JSON, 365);
 
-        System.exit(success ? 0 : 1);
+        //System.exit(success ? 0 : 1);
     }
 }

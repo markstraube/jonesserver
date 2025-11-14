@@ -491,4 +491,104 @@ public class OnVistaCollector
 		}
 		return true;
 	}
+
+	/**
+	 * Berechnet die Anzahl der Tage seit dem 1.1.2000
+	 * @param timestamp Unix-Timestamp in Millisekunden
+	 * @return Anzahl der Tage seit 1.1.2000, oder Integer.MAX_VALUE bei ungültigem/zu frühem Timestamp
+	 */
+	public static int getDayOfCentury(long timestamp)
+	{
+		// Referenzdatum: 1.1.2000 00:00:00 UTC
+		LocalDate referenceDate = LocalDate.of(2000, 1, 1);
+		long referenceDateMillis = referenceDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+		
+		// Prüfe ob Timestamp ungültig oder vor 1.1.2000
+		if (timestamp < referenceDateMillis)
+		{
+			return Integer.MAX_VALUE;
+		}
+		
+		// Konvertiere Timestamp zu LocalDate
+		LocalDate date = java.time.Instant.ofEpochMilli(timestamp)
+			.atZone(java.time.ZoneId.systemDefault())
+			.toLocalDate();
+		
+		// Berechne Tage zwischen Referenzdatum und gegebenem Datum
+		long days = java.time.temporal.ChronoUnit.DAYS.between(referenceDate, date);
+		
+		// Prüfe auf Overflow
+		if (days > Integer.MAX_VALUE)
+		{
+			return Integer.MAX_VALUE;
+		}
+		
+		return (int) days;
+	}
+
+	public static void main(String[] args)
+	{
+		LOGGER.log(Level.INFO, "Starting cSequence update in tStocks table");
+		
+		try (Connection connection = DBConnection.getStocksConnection())
+		{
+			// Hole alle unterschiedlichen Zeitstempel
+			String selectQuery = "SELECT DISTINCT cDateLong FROM tStocks";
+			String updateQuery = "UPDATE tStocks SET cSequence = ? WHERE cDateLong = ?";
+			
+			int updatedCount = 0;
+			int errorCount = 0;
+			
+			try (PreparedStatement selectStmt = connection.prepareStatement(selectQuery);
+			     PreparedStatement updateStmt = connection.prepareStatement(updateQuery))
+			{
+				var resultSet = selectStmt.executeQuery();
+				
+				while (resultSet.next())
+				{
+					long dateLong = resultSet.getLong("cDateLong");
+					
+					// Berechne day of century
+					int dayOfCentury = getDayOfCentury(dateLong);
+					
+					if (dayOfCentury == Integer.MAX_VALUE)
+					{
+						LOGGER.log(Level.WARNING, 
+							() -> "Invalid timestamp, cDateLong: " + dateLong);
+						errorCount++;
+						continue;
+					}
+					
+					// Update alle Records mit diesem cDateLong
+					updateStmt.setInt(1, dayOfCentury);
+					updateStmt.setLong(2, dateLong);
+					int affectedRows = updateStmt.executeUpdate();
+					
+					updatedCount++;
+					
+					LOGGER.log(Level.FINE, 
+						() -> "Updated " + affectedRows + " records for cDateLong " + dateLong + " -> dayOfCentury " + dayOfCentury);
+					
+					if (updatedCount % 100 == 0)
+					{
+						final int count = updatedCount;
+						LOGGER.log(Level.INFO, () -> count + " distinct timestamps processed");
+						connection.commit();
+					}
+				}
+				
+				// Final commit
+				connection.commit();
+				
+				final int finalUpdated = updatedCount;
+				final int finalErrors = errorCount;
+				LOGGER.log(Level.INFO, 
+					() -> "Update completed: " + finalUpdated + " distinct timestamps processed, " + finalErrors + " errors");
+			}
+		}
+		catch (Exception e)
+		{
+			LOGGER.log(Level.SEVERE, "Error updating cSequence in tStocks", e);
+		}
+	}
 }

@@ -45,6 +45,10 @@ public class OnVistaDB
             {
                 ddl.append("`").append(col.colName).append("` timestamp DEFAULT current_timestamp(),");
             }
+            else if (col.unit == UNITS.UNSIGNED)
+            {
+                ddl.append("`").append(col.colName).append("` unsigned DEFAULT 0,");
+            }            
             else
             {
                 ddl.append("`").append(col.colName).append("` varchar(100) DEFAULT NULL,");
