@@ -206,12 +206,9 @@ public class OnVistaCollector
 		// Zusätzlich: Aktuellen Kurs je ISIN als Zeitreihen-Eintrag in tStocks speichern.
 		// Zeitstempel gemäß Folder-Namen (yyyy-MM-dd) analog StocksParser (06:00:00Z)
 		String folderName = targetFolder.getName();
-		java.time.Instant timeStamp;
-		java.sql.Timestamp sqlTimestamp;
-		long timeStampLong;
 		try
 		{
-			timeStamp = java.time.Instant.parse(folderName + "T06:00:00.00Z");
+			java.time.Instant timeStamp = java.time.Instant.parse(folderName + "T06:00:00.00Z");
 			java.time.ZonedDateTime zonedDate = timeStamp.atZone(java.time.ZoneId.systemDefault());
 			java.time.DayOfWeek dow = zonedDate.getDayOfWeek();
 			if (dow.equals(java.time.DayOfWeek.SATURDAY) || dow.equals(java.time.DayOfWeek.SUNDAY))
@@ -219,8 +216,6 @@ public class OnVistaCollector
 				LOGGER.log(Level.INFO, "Skipping tStocks update due to weekend folder: {0}", folderName);
 				return; // Keine Aktualisierung am Wochenende
 			}
-			sqlTimestamp = java.sql.Timestamp.valueOf(zonedDate.toLocalDateTime());
-			timeStampLong = timeStamp.toEpochMilli();
 		}
 		catch (Exception ex)
 		{
@@ -299,80 +294,84 @@ public class OnVistaCollector
 			}
 			LOGGER.log(Level.INFO, () -> "Phase 1 abgeschlossen: " + totalUpdates.get() + " Updates verarbeitet");
 
-			// PHASE 2: ISINs aus tOnVista in Map laden
-			LOGGER.log(Level.INFO, "Phase 2: Lade vorhandene ISINs aus tOnVista");
+			// PHASE 2: tStocks Tabelle aktualisieren - Daten aus tOnVista laden und übertragen
+			LOGGER.log(Level.INFO, "Phase 2: Aktualisiere tStocks Tabelle aus tOnVista");
 			
-			Map<String, Boolean> isinMap = new HashMap<>();
-			try (final PreparedStatement psLoadIsins = connection.prepareStatement("SELECT cIsin FROM tOnVista");
-				 final java.sql.ResultSet rs = psLoadIsins.executeQuery())
+			AtomicInteger totalStockInserts = new AtomicInteger(0);
+			
+			try (final PreparedStatement psLoadOnVista = connection.prepareStatement("SELECT cIsin, cLast, cCurrency, cDateLong FROM tOnVista");
+				 final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tStocks WHERE cIsin = ? AND cSequence = ?");
+				 final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tStocks (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)");
+				 final java.sql.ResultSet rs = psLoadOnVista.executeQuery())
 			{
 				while (rs.next())
 				{
-					isinMap.put(rs.getString("cIsin"), Boolean.TRUE);
+					try
+					{
+						String isin = rs.getString("cIsin");
+						double last = rs.getDouble("cLast");
+						String currency = "EUR";
+						long dateLong = rs.getLong("cDateLong");
+						
+						// Berechne dayOfCentury
+						int dayOfCentury = getDayOfCentury(dateLong);
+						
+						if (dayOfCentury == Integer.MAX_VALUE)
+						{
+							LOGGER.log(Level.WARNING, () -> "Ungültiger Timestamp für ISIN " + isin + ", cDateLong: " + dateLong);
+							continue;
+						}
+						
+						// Berechne cDate (SQL Timestamp) aus cDateLong
+						java.sql.Timestamp cDate = new java.sql.Timestamp(dateLong);
+						
+						// Delete-Statement zum Batch hinzufügen
+						psDelete.setString(1, isin);
+						psDelete.setInt(2, dayOfCentury);
+						psDelete.addBatch();
+						
+						// Insert-Statement zum Batch hinzufügen
+						psInsert.setString(1, java.util.UUID.randomUUID().toString());
+						psInsert.setString(2, isin);
+						psInsert.setDouble(3, last);
+						psInsert.setString(4, currency);
+						psInsert.setLong(5, dateLong);
+						psInsert.setTimestamp(6, cDate);
+						psInsert.setInt(7, dayOfCentury);
+						psInsert.addBatch();
+						
+						totalStockInserts.incrementAndGet();
+						
+						// Batch alle 100 Einträge ausführen
+						if (totalStockInserts.get() % 100 == 0)
+						{
+							psDelete.executeBatch();
+							psInsert.executeBatch();
+							connection.commit();
+							
+							final int count = totalStockInserts.get();
+							LOGGER.log(Level.INFO, () -> count + " tStocks Records verarbeitet");
+						}
+					}
+					catch (Exception e2)
+					{
+						LOGGER.log(Level.WARNING, "Fehler beim Verarbeiten eines tOnVista Records", e2);
+					}
 				}
+				
+				// Verbleibende Batch-Einträge ausführen
+				psDelete.executeBatch();
+				psInsert.executeBatch();
+				connection.commit();
+				LOGGER.log(Level.INFO, () -> totalStockInserts.get() + " tStocks Records verarbeitet");
 			}
-			LOGGER.log(Level.INFO, () -> "Phase 2 abgeschlossen: " + isinMap.size() + " ISINs geladen");
-
-			// PHASE 3: tStocks Tabelle aktualisieren (nur für ISINs in der Map)
-			LOGGER.log(Level.INFO, "Phase 3: Aktualisiere tStocks Tabelle");
-			
-			AtomicInteger totalStockInserts = new AtomicInteger(0);
-			try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
+			catch (Exception e1)
 			{
-				for (Path path : paths)
-				{
-					try (final PreparedStatement psInsertStock = connection.prepareStatement("INSERT INTO tStocks (cID,cIsin,cLast,cCurrency,cDateLong,cDate) VALUES(?,?,?,?,?,?)"))
-					{
-						String jsonString = FileUtils.readFileToString(path.toFile(), StandardCharsets.UTF_8);
-						JSONObject jo = new JSONObject(jsonString);
-						JSONArray ar = jo.getJSONArray("values");
-						
-						ar.forEach(e -> {
-							try
-							{
-								if (e instanceof JSONArray jsonarray)
-								{
-									List<Object> list = jsonarray.toList();
-									if (accepted(list))
-									{
-										String isin = String.valueOf(list.get(0));
-										
-										// Nur verarbeiten wenn ISIN in Map vorhanden ist
-										if (isinMap.containsKey(isin))
-										{
-											double rawQuote = OnVistaParser.makeDouble(list.get(7));
-											String curr = String.valueOf(list.get(10));
-											double euroQuote = CurrencyDB.getAsEuro(curr, rawQuote, timeStampLong);
-
-											// Insert vorbereiten
-											psInsertStock.setString(1, java.util.UUID.randomUUID().toString());
-											psInsertStock.setString(2, isin);
-											psInsertStock.setDouble(3, euroQuote);
-											psInsertStock.setString(4, "EUR");
-											psInsertStock.setLong(5, timeStampLong);
-											psInsertStock.setTimestamp(6, sqlTimestamp);
-											psInsertStock.addBatch();
-										}
-									}
-								}
-							}
-							catch (Exception e2)
-							{
-								LOGGER.log(Level.WARNING, "Fehler beim Verarbeiten von tStocks Eintrag", e2);
-							}
-						});
-						
-						int[] stockResults = psInsertStock.executeBatch();
-						connection.commit();
-						totalStockInserts.addAndGet(stockResults.length);
-					}
-					catch (Exception e1)
-					{
-						LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tStocks", e1);
-					}
-				}
+				LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tStocks aus tOnVista", e1);
+				throw e1;
 			}
-			LOGGER.log(Level.INFO, () -> "Phase 3 abgeschlossen: " + totalStockInserts.get() + " neue tStocks Records eingefügt");
+			
+			LOGGER.log(Level.INFO, () -> "Phase 2 abgeschlossen: " + totalStockInserts.get() + " tStocks Records aktualisiert");
 		}
 		catch (Exception e)
 		{
