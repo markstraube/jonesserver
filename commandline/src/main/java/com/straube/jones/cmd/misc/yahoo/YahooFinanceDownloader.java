@@ -4,24 +4,31 @@ package com.straube.jones.cmd.misc.yahoo;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import com.straube.jones.cmd.currencies.CurrencyDB;
+import com.straube.jones.cmd.db.DBConnection;
 
 public class YahooFinanceDownloader
 {
@@ -533,18 +540,246 @@ public class YahooFinanceDownloader
     }
 
     /**
-     * Beispiel-Verwendung
+     * Lädt historische Kursdaten aus ./data/yahoo/historic in die Tabelle tYahoo
+     * Die Dateinamen enthalten die ISIN vor dem Underscore (z.B. CZ0005112300_0NZF.L.json)
+     * Die Metadaten enthalten die Währung, die mit CurrencyDB.getAsEuro umgerechnet wird
+     * Alle historischen Daten je ISIN werden in tYahoo eingetragen
+     * @throws SQLException wenn ein Datenbankfehler auftritt
      */
-    public static void main(String[] args)
+    public void uploadToDB() throws SQLException
+    {
+        LOGGER.log(Level.INFO, "Starte Upload von Yahoo historischen Daten in tYahoo Tabelle");
+        
+        // Definiere den historic Ordner
+        File historicFolder = new File(rootFolder, "historic");
+        if (!historicFolder.exists())
+        {
+            LOGGER.log(Level.SEVERE, () -> "Historic Ordner existiert nicht: " + historicFolder.getAbsolutePath());
+            return;
+        }
+        
+        // Filter für JSON-Dateien
+        DirectoryStream.Filter<Path> filter = file -> {
+            final String fileName = file.toFile().getName();
+            return fileName.endsWith(".json");
+        };
+        
+        Path dirName = historicFolder.toPath();
+        AtomicInteger totalInserts = new AtomicInteger(0);
+        AtomicInteger totalFiles = new AtomicInteger(0);
+        AtomicInteger errorFiles = new AtomicInteger(0);
+        
+        try (final Connection connection = DBConnection.getStocksConnection())
+        {
+            try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
+            {
+                for (Path path : paths)
+                {
+                    totalFiles.incrementAndGet();
+                    try
+                    {
+                        // Extrahiere ISIN aus dem Dateinamen (vor dem Underscore)
+                        String fileName = path.getFileName().toString();
+                        int underscorePos = fileName.indexOf('_');
+                        if (underscorePos == -1)
+                        {
+                            LOGGER.log(Level.WARNING, () -> "Dateiname enthält keinen Underscore, überspringe: " + fileName);
+                            continue;
+                        }
+                        String isin = fileName.substring(0, underscorePos);
+                        
+                        // Lade und parse JSON-Datei
+                        String jsonString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+                        JSONObject jsonObject = new JSONObject(jsonString);
+                        
+                        // Extrahiere Währung aus Metadaten
+                        if (!jsonObject.has("meta"))
+                        {
+                            LOGGER.log(Level.WARNING, () -> "Keine Meta-Daten in Datei: " + fileName);
+                            continue;
+                        }
+                        JSONObject meta = jsonObject.getJSONObject("meta");
+                        if (!meta.has("currency"))
+                        {
+                            LOGGER.log(Level.WARNING, () -> "Keine Währung in Meta-Daten: " + fileName);
+                            continue;
+                        }
+                        String currency = meta.getString("currency");
+                        
+                        // Extrahiere Daten-Array
+                        if (!jsonObject.has("data"))
+                        {
+                            LOGGER.log(Level.WARNING, () -> "Keine Daten in Datei: " + fileName);
+                            continue;
+                        }
+                        JSONArray dataArray = jsonObject.getJSONArray("data");
+                        
+                        // Batch-Statements vorbereiten
+                        try (final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tYahoo WHERE cIsin = ? AND cSequence = ?");
+                             final PreparedStatement psInsert = connection.prepareStatement(
+                                 "INSERT INTO tYahoo (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)"))
+                        {
+                            int recordsInBatch = 0;
+                            
+                            // Iteriere über alle Datenpunkte
+                            for (int i = 0; i < dataArray.length(); i++)
+                            {
+                                try
+                                {
+                                    JSONObject dataPoint = dataArray.getJSONObject(i);
+                                    
+                                    // Extrahiere Datum
+                                    if (!dataPoint.has("date"))
+                                    {
+                                        continue;
+                                    }
+                                    String dateStr = dataPoint.getString("date");
+                                    LocalDate localDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                                    long dateLong = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                                    
+                                    // Extrahiere Close-Preis (oder adjClose falls vorhanden)
+                                    Double close = null;
+                                    if (dataPoint.has("adjClose") && !dataPoint.isNull("adjClose"))
+                                    {
+                                        close = dataPoint.getDouble("adjClose");
+                                    }
+                                    else if (dataPoint.has("close") && !dataPoint.isNull("close"))
+                                    {
+                                        close = dataPoint.getDouble("close");
+                                    }
+                                    
+                                    if (close == null)
+                                    {
+                                        continue; // Überspringe Datenpunkte ohne Preis
+                                    }
+                                    
+                                    // Konvertiere zu Euro
+                                    Double closeInEuro = CurrencyDB.getAsEuro(currency, close, dateLong);
+                                    
+                                    // Berechne dayOfCentury (cSequence)
+                                    int dayOfCentury = getDayOfCentury(dateLong);
+                                    
+                                    if (dayOfCentury == Integer.MAX_VALUE)
+                                    {
+                                        LOGGER.log(Level.WARNING, () -> "Ungültiger Timestamp für ISIN " + isin + ", Datum: " + dateStr);
+                                        continue;
+                                    }
+                                    
+                                    // Berechne cDate (SQL Timestamp)
+                                    java.sql.Timestamp cDate = new java.sql.Timestamp(dateLong);
+                                    
+                                    // Delete-Statement zum Batch hinzufügen
+                                    psDelete.setString(1, isin);
+                                    psDelete.setInt(2, dayOfCentury);
+                                    psDelete.addBatch();
+                                    
+                                    // Insert-Statement zum Batch hinzufügen
+                                    psInsert.setString(1, java.util.UUID.randomUUID().toString());
+                                    psInsert.setString(2, isin);
+                                    psInsert.setDouble(3, closeInEuro);
+                                    psInsert.setString(4, "EUR"); // Immer EUR nach Konvertierung
+                                    psInsert.setLong(5, dateLong);
+                                    psInsert.setTimestamp(6, cDate);
+                                    psInsert.setInt(7, dayOfCentury);
+                                    psInsert.addBatch();
+                                    
+                                    recordsInBatch++;
+                                    totalInserts.incrementAndGet();
+                                    
+                                    // Batch alle 100 Einträge ausführen
+                                    if (recordsInBatch >= 100)
+                                    {
+                                        psDelete.executeBatch();
+                                        psInsert.executeBatch();
+                                        connection.commit();
+                                        recordsInBatch = 0;
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    LOGGER.log(Level.WARNING, () -> "Fehler beim Verarbeiten eines Datenpunkts in " + fileName + ": " + e.getMessage());
+                                }
+                            }
+                            
+                            // Verbleibende Batch-Einträge ausführen
+                            if (recordsInBatch > 0)
+                            {
+                                psDelete.executeBatch();
+                                psInsert.executeBatch();
+                                connection.commit();
+                            }
+                            
+                            LOGGER.log(Level.INFO, () -> "Datei " + fileName + " verarbeitet, " + dataArray.length() + " Datenpunkte");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        errorFiles.incrementAndGet();
+                        LOGGER.log(Level.WARNING, () -> "Fehler beim Verarbeiten der Datei " + path.getFileName() + ": " + e.getMessage());
+                    }
+                }
+            }
+            
+            LOGGER.log(Level.INFO, () -> "Upload abgeschlossen: " 
+                + totalFiles.get() + " Dateien verarbeitet, "
+                + totalInserts.get() + " Records eingefügt, "
+                + errorFiles.get() + " Fehler");
+        }
+        catch (IOException e)
+        {
+            LOGGER.log(Level.SEVERE, "Fehler beim Lesen des historic Ordners", e);
+            throw new SQLException("Fehler beim Lesen des historic Ordners", e);
+        }
+    }
+    
+    /**
+     * Berechnet die Anzahl der Tage seit dem 1.1.2000
+     * @param timestamp Unix-Timestamp in Millisekunden
+     * @return Anzahl der Tage seit 1.1.2000, oder Integer.MAX_VALUE bei ungültigem/zu frühem Timestamp
+     */
+    private static int getDayOfCentury(long timestamp)
+    {
+        // Referenzdatum: 1.1.2000 00:00:00 UTC
+        LocalDate referenceDate = LocalDate.of(2000, 1, 1);
+        long referenceDateMillis = referenceDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        
+        // Prüfe ob Timestamp ungültig oder vor 1.1.2000
+        if (timestamp < referenceDateMillis)
+        {
+            return Integer.MAX_VALUE;
+        }
+        
+        // Konvertiere Timestamp zu LocalDate
+        LocalDate date = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate();
+        
+        // Berechne Tage zwischen Referenzdatum und gegebenem Datum
+        long days = java.time.temporal.ChronoUnit.DAYS.between(referenceDate, date);
+        
+        // Prüfe auf Overflow
+        if (days > Integer.MAX_VALUE)
+        {
+            return Integer.MAX_VALUE;
+        }
+        
+        return (int) days;
+    }
+
+    /**
+     * Beispiel-Verwendung
+     * @throws SQLException 
+     */
+    public static void main(String[] args) throws SQLException
     {
         String rootFolder = args.length > 0 ? args[0] : "./data";
         YahooFinanceDownloader downloader = new YahooFinanceDownloader(rootFolder);
 
         // Lade Daten für die letzten 365 Tage im CSV-Format
         //boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
-        List<String> codes = List.of("GWO.TO", "LUN.TO", "PPL.TO");
-        int updatedCount = downloader.updateHistoricalData(codes, OutputFormat.JSON, 365);
-
+        //List<String> codes = List.of("GWO.TO", "LUN.TO", "PPL.TO");
+        //int updatedCount = downloader.updateHistoricalData(codes, OutputFormat.JSON, 365);
+        downloader.uploadToDB();
         //System.exit(success ? 0 : 1);
     }
 }
