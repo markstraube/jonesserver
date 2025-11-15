@@ -35,7 +35,7 @@ public class StocksLoader
      * @param isins Liste von ISINs, kann leer sein (liefert dann alle ISINs im Zeitbereich)
      * @return Map von ISIN auf Liste von StockDataPoint
      */
-    public static Map<String, List<StockDataPoint>> loadFromDB(long start, long end, String[] isins)
+    private static Map<String, List<StockDataPoint>> loadFromDB(long start, long end, String[] isins)
     {
         Map<String, List<StockDataPoint>> result = new HashMap<>();
         try (Connection conn = DBConnection.getStocksConnection())

@@ -1,4 +1,4 @@
-package com.straube.jones.cmd.finnhub;
+package com.straube.jones.cmd.misc.finnhub;
 
 
 import java.io.BufferedReader;

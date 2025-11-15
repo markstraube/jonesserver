@@ -1,4 +1,4 @@
-package com.straube.jones.cmd.ariva;
+package com.straube.jones.cmd.misc.ariva;
 
 
 import java.io.File;

@@ -1,4 +1,4 @@
-package com.straube.jones.cmd.aktienkatalog;
+package com.straube.jones.cmd.misc.aktienkatalog;
 
 
 import java.io.File;

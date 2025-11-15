@@ -1,4 +1,4 @@
-package com.straube.jones.cmd.yahoo;
+package com.straube.jones.cmd.misc.yahoo;
 
 
 import java.io.File;
