@@ -300,8 +300,8 @@ public class OnVistaCollector
 			AtomicInteger totalStockInserts = new AtomicInteger(0);
 			
 			try (final PreparedStatement psLoadOnVista = connection.prepareStatement("SELECT cIsin, cLast, cCurrency, cDateLong FROM tOnVista");
-				 final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tStocks WHERE cIsin = ? AND cSequence = ?");
-				 final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tStocks (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)");
+				 final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tYahoo WHERE cIsin = ? AND cSequence = ?");
+				 final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tYahoo (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)");
 				 final java.sql.ResultSet rs = psLoadOnVista.executeQuery())
 			{
 				while (rs.next())

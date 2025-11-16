@@ -94,33 +94,7 @@ public class StocksController
 		return OnVistaReportResponse.notFound(shortUrl);
 	}
 
-
-	@Operation(summary = "Get Industry Sector Data", description = "**Use Case:** Sector analysis and industry comparison. Retrieves aggregated market data for specific industry sectors with optional geographic filtering. **When to use:** For sector rotation strategies, industry performance analysis, comparative sector studies, or market trend analysis by geography. **Data:** Time-series data with timestamps and values for sector performance metrics. **Default timeframe:** 6 months historical data.")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Sector data successfully retrieved with timestamp-value pairs")})
-	@GetMapping(path = "/stock/branch/data", produces = "application/json")
-	public BranchDataResponse getRawDataForBranch(@Parameter(description = "Industry sector name (e.g., 'Technology', 'Healthcare', 'Finance')")
-	@RequestParam(required = false)
-	String branch,
-													@Parameter(description = "Country filter for geographic analysis (use '%' for all countries, specific country codes like 'DE', 'US', etc.)")
-													@RequestParam(required = false)
-													String country,
-													@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago if not specified.", schema = @Schema(type = "integer", format = "int64"))
-													@RequestParam(value = "start_time", required = false)
-													Long start)
-	{
-		if (start == null)
-		{
-			start = System.currentTimeMillis() - 1 * 30 * 24 * 60 * 60 * 1000L; // ~1 Month back
-		}
-		if (country == null)
-		{
-			country = "%";
-		}
-		Map<Long, Double> rawData = StockPointLoader.loadRawForBranch(branch, country, start);
-		return new BranchDataResponse(branch, country, start, rawData);
-	}
-
-
+	
 	@Operation(summary = "Get Historical Stock Data", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock data successfully retrieved in tabular format")})
 	@GetMapping(path = "/stock/data", produces = "application/json")
