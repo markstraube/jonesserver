@@ -203,7 +203,7 @@ public class OnVistaCollector
 	public void updateFinderJsonToOnVistaTable(File targetFolder)
 		throws SQLException
 	{
-		// Zusätzlich: Aktuellen Kurs je ISIN als Zeitreihen-Eintrag in tStocks speichern.
+		// Zusätzlich: Aktuellen Kurs je ISIN als Zeitreihen-Eintrag in tYahoo speichern.
 		// Zeitstempel gemäß Folder-Namen (yyyy-MM-dd) analog StocksParser (06:00:00Z)
 		String folderName = targetFolder.getName();
 		try
@@ -213,7 +213,7 @@ public class OnVistaCollector
 			java.time.DayOfWeek dow = zonedDate.getDayOfWeek();
 			if (dow.equals(java.time.DayOfWeek.SATURDAY) || dow.equals(java.time.DayOfWeek.SUNDAY))
 			{
-				LOGGER.log(Level.INFO, "Skipping tStocks update due to weekend folder: {0}", folderName);
+				LOGGER.log(Level.INFO, "Skipping tYahoo update due to weekend folder: {0}", folderName);
 				return; // Keine Aktualisierung am Wochenende
 			}
 		}
@@ -294,8 +294,8 @@ public class OnVistaCollector
 			}
 			LOGGER.log(Level.INFO, () -> "Phase 1 abgeschlossen: " + totalUpdates.get() + " Updates verarbeitet");
 
-			// PHASE 2: tStocks Tabelle aktualisieren - Daten aus tOnVista laden und übertragen
-			LOGGER.log(Level.INFO, "Phase 2: Aktualisiere tStocks Tabelle aus tOnVista");
+			// PHASE 2: tYahoo Tabelle aktualisieren - Daten aus tOnVista laden und übertragen
+			LOGGER.log(Level.INFO, "Phase 2: Aktualisiere tYahoo Tabelle aus tOnVista");
 			
 			AtomicInteger totalStockInserts = new AtomicInteger(0);
 			
@@ -350,7 +350,7 @@ public class OnVistaCollector
 							connection.commit();
 							
 							final int count = totalStockInserts.get();
-							LOGGER.log(Level.INFO, () -> count + " tStocks Records verarbeitet");
+							LOGGER.log(Level.INFO, () -> count + " tYahoo Records verarbeitet");
 						}
 					}
 					catch (Exception e2)
@@ -363,15 +363,15 @@ public class OnVistaCollector
 				psDelete.executeBatch();
 				psInsert.executeBatch();
 				connection.commit();
-				LOGGER.log(Level.INFO, () -> totalStockInserts.get() + " tStocks Records verarbeitet");
+				LOGGER.log(Level.INFO, () -> totalStockInserts.get() + " tYahoo Records verarbeitet");
 			}
 			catch (Exception e1)
 			{
-				LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tStocks aus tOnVista", e1);
+				LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tYahoo aus tOnVista", e1);
 				throw e1;
 			}
 			
-			LOGGER.log(Level.INFO, () -> "Phase 2 abgeschlossen: " + totalStockInserts.get() + " tStocks Records aktualisiert");
+			LOGGER.log(Level.INFO, () -> "Phase 2 abgeschlossen: " + totalStockInserts.get() + " tYahoo Records aktualisiert");
 		}
 		catch (Exception e)
 		{
@@ -527,13 +527,13 @@ public class OnVistaCollector
 
 	public static void main(String[] args)
 	{
-		LOGGER.log(Level.INFO, "Starting cSequence update in tStocks table");
+		LOGGER.log(Level.INFO, "Starting cSequence update in tYahoo table");
 		
 		try (Connection connection = DBConnection.getStocksConnection())
 		{
 			// Hole alle unterschiedlichen Zeitstempel
-			String selectQuery = "SELECT DISTINCT cDateLong FROM tStocks";
-			String updateQuery = "UPDATE tStocks SET cSequence = ? WHERE cDateLong = ?";
+			String selectQuery = "SELECT DISTINCT cDateLong FROM tYahoo";
+			String updateQuery = "UPDATE tYahoo SET cSequence = ? WHERE cDateLong = ?";
 			
 			int updatedCount = 0;
 			int errorCount = 0;
@@ -587,7 +587,7 @@ public class OnVistaCollector
 		}
 		catch (Exception e)
 		{
-			LOGGER.log(Level.SEVERE, "Error updating cSequence in tStocks", e);
+			LOGGER.log(Level.SEVERE, "Error updating cSequence in tYahoo", e);
 		}
 	}
 }

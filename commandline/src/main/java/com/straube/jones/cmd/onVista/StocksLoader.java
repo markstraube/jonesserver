@@ -28,7 +28,7 @@ public class StocksLoader
 
 
     /**
-     * Liest die Tabelle tStocks aus und liefert ein Map<String, List<StockDataPoint>>.
+     * Liest die Tabelle tYahoo aus und liefert ein Map<String, List<StockDataPoint>>.
      * 
      * @param start Zeitstempel (Millis), default = now - 7 Tage
      * @param end Zeitstempel (Millis), default = now
@@ -40,7 +40,7 @@ public class StocksLoader
         Map<String, List<StockDataPoint>> result = new HashMap<>();
         try (Connection conn = DBConnection.getStocksConnection())
         {
-            StringBuilder sql = new StringBuilder("SELECT cIsin, cDateLong, cLast FROM tStocks WHERE cDateLong >= ? AND cDateLong <= ?");
+            StringBuilder sql = new StringBuilder("SELECT cIsin, cDateLong, cLast FROM tYahoo WHERE cDateLong >= ? AND cDateLong <= ?");
             if (isins != null && isins.length > 0)
             {
                 sql.append(" AND cIsin IN (");

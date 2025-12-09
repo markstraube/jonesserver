@@ -8,7 +8,7 @@ import java.util.List;
 public class StocksModel
 {
     public final static List<Column> columns = new ArrayList<>();
-    public final static String TABLENAME = "tStocks";
+    public final static String TABLENAME = "tYahoo";
 
     /**
      */
