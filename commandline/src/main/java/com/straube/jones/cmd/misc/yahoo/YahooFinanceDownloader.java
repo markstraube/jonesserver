@@ -653,9 +653,6 @@ public class YahooFinanceDownloader
                                         continue; // Überspringe Datenpunkte ohne Preis
                                     }
                                     
-                                    // Konvertiere zu Euro
-                                    Double closeInEuro = CurrencyDB.getAsEuro(currency, close, dateLong);
-                                    
                                     // Berechne dayOfCentury (cSequence)
                                     int dayOfCentury = getDayOfCentury(dateLong);
                                     
@@ -676,8 +673,8 @@ public class YahooFinanceDownloader
                                     // Insert-Statement zum Batch hinzufügen
                                     psInsert.setString(1, java.util.UUID.randomUUID().toString());
                                     psInsert.setString(2, isin);
-                                    psInsert.setDouble(3, closeInEuro);
-                                    psInsert.setString(4, "EUR"); // Immer EUR nach Konvertierung
+                                    psInsert.setDouble(3, close);
+                                    psInsert.setString(4, currency);
                                     psInsert.setLong(5, dateLong);
                                     psInsert.setTimestamp(6, cDate);
                                     psInsert.setInt(7, dayOfCentury);

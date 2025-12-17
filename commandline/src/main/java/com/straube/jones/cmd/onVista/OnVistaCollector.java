@@ -310,7 +310,7 @@ public class OnVistaCollector
 					{
 						String isin = rs.getString("cIsin");
 						double last = rs.getDouble("cLast");
-						String currency = "EUR";
+						String currency = rs.getString("cCurrency");
 						long dateLong = rs.getLong("cDateLong");
 						
 						// Berechne dayOfCentury
