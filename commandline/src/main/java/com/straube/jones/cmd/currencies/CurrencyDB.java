@@ -83,6 +83,62 @@ public class CurrencyDB
         return value / rate;
     }
 
+    public static Double convert(String currencyFrom, String currencyTo, Double value, long dateMillis)
+    {
+        if (currencyFrom.toUpperCase().equals(currencyTo.toUpperCase()))
+        { return value; }
+
+        double rate = 1;
+        long time = dateMillis;
+        if (currencyDB.has(currencyFrom.toUpperCase()) && currencyDB.has(currencyTo.toUpperCase()))
+        {
+            double rateFrom = 1;
+            while (true)
+            {
+                Instant timeStamp = Instant.ofEpochMilli(time);
+                ZonedDateTime zonedDate = timeStamp.atZone(ZoneId.systemDefault());
+                DayOfWeek dayOfWeek = zonedDate.getDayOfWeek();
+                if (dayOfWeek.equals(DayOfWeek.SUNDAY) || dayOfWeek.equals(DayOfWeek.SATURDAY))
+                {
+                    time = time - OneDayMillis;
+                    continue;
+                }
+                String date = zonedDate.format(DF);
+                if (!currencyDB.getJSONObject(currencyFrom.toUpperCase()).has(date))
+                {
+                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyFrom.toUpperCase()));
+                    time = time - OneDayMillis;
+                    continue;
+                }
+                rateFrom = currencyDB.getJSONObject(currencyFrom.toUpperCase()).getDouble(date);
+                break;
+            }
+            time = dateMillis;
+            double rateTo = 1;
+            while (true)
+            {
+                Instant timeStamp = Instant.ofEpochMilli(time);
+                ZonedDateTime zonedDate = timeStamp.atZone(ZoneId.systemDefault());
+                DayOfWeek dayOfWeek = zonedDate.getDayOfWeek();
+                if (dayOfWeek.equals(DayOfWeek.SUNDAY) || dayOfWeek.equals(DayOfWeek.SATURDAY))
+                {
+                    time = time - OneDayMillis;
+                    continue;
+                }
+                String date = zonedDate.format(DF);
+                if (!currencyDB.getJSONObject(currencyTo.toUpperCase()).has(date))
+                {
+                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyTo.toUpperCase()));
+                    time = time - OneDayMillis;
+                    continue;
+                }
+                rateTo = currencyDB.getJSONObject(currencyTo.toUpperCase()).getDouble(date);
+                break;
+            }
+            rate = rateFrom / rateTo;
+        }
+        return value / rate;        
+    }
 
     public static void update(long dateMillis, Map<String, Double> rates)
         throws JSONException,

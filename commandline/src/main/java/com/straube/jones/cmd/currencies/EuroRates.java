@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Locale;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -37,11 +38,11 @@ public class EuroRates
     {
         Map<String, Double> rates = new HashMap<>();
         String baseURL = "https://wechselkurse-euro.de/";
-        
+
         long timestamp = System.currentTimeMillis();
         Date d = new Date(timestamp);
         String filename = ISO.format(d) + ".html";
-        File htmlFile = new File(this.cacheFolder,filename);
+        File htmlFile = new File(this.cacheFolder, filename);
         try
         {
             String response = HttpTools.downloadFromWebToFile(baseURL, htmlFile, false);
@@ -63,6 +64,113 @@ public class EuroRates
             ignore.printStackTrace();
         }
         return timestamp;
+    }
+
+
+    public long loadFromOeNB()
+    {
+        Map<String, Double> rates = new HashMap<>();
+        String baseURL = "https://www.oenb.at/isawebstat/stabfrage/createReport?lang=DE&original=true&report=2.14.9";
+
+        long timestamp = System.currentTimeMillis();
+        Date d = new Date(timestamp);
+        String filename = ISO.format(d) + ".html";
+        File htmlFile = new File(this.cacheFolder, filename);
+        try
+        {
+            String response = HttpTools.downloadFromWebToFile(baseURL, htmlFile, false);
+            Document doc = Jsoup.parse(response);
+            Elements htmlTable = doc.select("#dataTable");
+            updateFromOeNB(htmlTable.get(0).html());
+        }
+        catch (Exception ignore)
+        {
+            ignore.printStackTrace();
+        }
+        return timestamp;
+    }
+
+
+    private void updateFromOeNB(String html)
+    {
+        Map<String, Double> rates = new HashMap<>();
+        try
+        {
+            Document doc = Jsoup.parse(html);
+            // Kopfzeile: letzte Datumsspalte ist der jüngste Kurs
+            Elements headerSpans = doc.select("table#dataTable thead tr").first().select("th span");
+            // Erwartet: Land, ISO-Code, Währung, dann Datumsspalten
+            if (headerSpans.size() < 4)
+            { return; }
+
+            String lastDate = headerSpans.get(headerSpans.size() - 1).text().trim();
+            long timestamp = parseOeNbDate(lastDate);
+
+            NumberFormat nfGerman = NumberFormat.getInstance(Locale.GERMANY);
+
+            Elements rows = doc.select("table#dataTable tbody tr");
+            for (Element row : rows)
+            {
+                Elements headerCols = row.select("th");
+                if (headerCols.size() < 2)
+                {
+                    continue;
+                }
+
+                String currency = headerCols.get(1).text().trim();
+                if (currency.isEmpty())
+                {
+                    continue;
+                }
+
+                Elements cols = row.select("td");
+                if (cols.isEmpty())
+                {
+                    continue;
+                }
+
+                // Letzte Spalte = aktuellster Kurs
+                String rateText = cols.get(cols.size() - 1).text().trim();
+                if (rateText.isEmpty() || "-".equals(rateText))
+                {
+                    continue;
+                }
+
+                Number nRate = nfGerman.parse(rateText);
+                rates.put(currency, nRate.doubleValue());
+            }
+
+            CurrencyDB.update(timestamp, rates);
+        }
+        catch (Exception ignore)
+        {
+            ignore.printStackTrace();
+        }
+    }
+
+
+    private long parseOeNbDate(String dateText)
+    {
+        try
+        {
+            // OeNB liefert dd.MM.yy, z.B. 17.12.25
+            SimpleDateFormat dfShort = new SimpleDateFormat("dd.MM.yy");
+            Date d = dfShort.parse(dateText);
+            return d.getTime();
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                Date d = DF.parse(dateText);
+                return d.getTime();
+            }
+            catch (Exception ignore)
+            {
+                // ignore
+            }
+        }
+        return 0;
     }
 
 

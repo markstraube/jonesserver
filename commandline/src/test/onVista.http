@@ -25,3 +25,6 @@ type=isin&search=GB00B1YW4409
 
 ###
 GET https://aktienkatalog.de/api-docs
+
+###
+GET https://api.frankfurter.dev/v1/latest

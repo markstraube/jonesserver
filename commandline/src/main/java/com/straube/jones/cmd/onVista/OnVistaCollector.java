@@ -232,10 +232,10 @@ public class OnVistaCollector
 		{
 			// PHASE 1: tOnVista Tabelle aktualisieren
 			LOGGER.log(Level.INFO, "Phase 1: Aktualisiere tOnVista Tabelle");
-			
+
 			StringBuilder updateSql = new StringBuilder("UPDATE tOnVista SET ");
 			List<Column> model = OnVistaModel.getModel();
-			for (int i = 1; i < model.size(); i++)
+			for (int i = 1; i < model.size(); i++ )
 			{
 				Column c = model.get(i);
 				if (!"cIsin".equalsIgnoreCase(c.colName))
@@ -256,7 +256,7 @@ public class OnVistaCollector
 						String jsonString = FileUtils.readFileToString(path.toFile(), StandardCharsets.UTF_8);
 						JSONObject jo = new JSONObject(jsonString);
 						JSONArray ar = jo.getJSONArray("values");
-						
+
 						ar.forEach(e -> {
 							try
 							{
@@ -275,15 +275,16 @@ public class OnVistaCollector
 								LOGGER.log(Level.WARNING, "Fehler beim Vorbereiten des Updates", e2);
 							}
 						});
-						
+
 						int[] updateResults = psUpdate.executeBatch();
 						connection.commit();
 						totalUpdates.addAndGet(updateResults.length);
-						
+
 						long skipped = java.util.Arrays.stream(updateResults).filter(r -> r == 0).count();
 						if (skipped > 0)
 						{
-							LOGGER.log(Level.FINE, () -> "Skipped (no existing ISIN) OnVista records: " + skipped);
+							LOGGER.log(	Level.FINE,
+										() -> "Skipped (no existing ISIN) OnVista records: " + skipped);
 						}
 					}
 					catch (Exception e1)
@@ -292,17 +293,18 @@ public class OnVistaCollector
 					}
 				}
 			}
-			LOGGER.log(Level.INFO, () -> "Phase 1 abgeschlossen: " + totalUpdates.get() + " Updates verarbeitet");
+			LOGGER.log(	Level.INFO,
+						() -> "Phase 1 abgeschlossen: " + totalUpdates.get() + " Updates verarbeitet");
 
 			// PHASE 2: tYahoo Tabelle aktualisieren - Daten aus tOnVista laden und übertragen
 			LOGGER.log(Level.INFO, "Phase 2: Aktualisiere tYahoo Tabelle aus tOnVista");
-			
+
 			AtomicInteger totalStockInserts = new AtomicInteger(0);
-			
+
 			try (final PreparedStatement psLoadOnVista = connection.prepareStatement("SELECT cIsin, cLast, cCurrency, cDateLong FROM tOnVista");
-				 final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tYahoo WHERE cIsin = ? AND cSequence = ?");
-				 final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tYahoo (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)");
-				 final java.sql.ResultSet rs = psLoadOnVista.executeQuery())
+							final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tYahoo WHERE cIsin = ? AND cSequence = ?");
+							final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tYahoo (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)");
+							final java.sql.ResultSet rs = psLoadOnVista.executeQuery())
 			{
 				while (rs.next())
 				{
@@ -312,24 +314,27 @@ public class OnVistaCollector
 						double last = rs.getDouble("cLast");
 						String currency = rs.getString("cCurrency");
 						long dateLong = rs.getLong("cDateLong");
-						
+
 						// Berechne dayOfCentury
 						int dayOfCentury = getDayOfCentury(dateLong);
-						
+
 						if (dayOfCentury == Integer.MAX_VALUE)
 						{
-							LOGGER.log(Level.WARNING, () -> "Ungültiger Timestamp für ISIN " + isin + ", cDateLong: " + dateLong);
+							LOGGER.log(	Level.WARNING,
+										() -> "Ungültiger Timestamp für ISIN " + isin
+														+ ", cDateLong: "
+														+ dateLong);
 							continue;
 						}
-						
+
 						// Berechne cDate (SQL Timestamp) aus cDateLong
 						java.sql.Timestamp cDate = new java.sql.Timestamp(dateLong);
-						
+
 						// Delete-Statement zum Batch hinzufügen
 						psDelete.setString(1, isin);
 						psDelete.setInt(2, dayOfCentury);
 						psDelete.addBatch();
-						
+
 						// Insert-Statement zum Batch hinzufügen
 						psInsert.setString(1, java.util.UUID.randomUUID().toString());
 						psInsert.setString(2, isin);
@@ -339,16 +344,16 @@ public class OnVistaCollector
 						psInsert.setTimestamp(6, cDate);
 						psInsert.setInt(7, dayOfCentury);
 						psInsert.addBatch();
-						
+
 						totalStockInserts.incrementAndGet();
-						
+
 						// Batch alle 100 Einträge ausführen
 						if (totalStockInserts.get() % 100 == 0)
 						{
 							psDelete.executeBatch();
 							psInsert.executeBatch();
 							connection.commit();
-							
+
 							final int count = totalStockInserts.get();
 							LOGGER.log(Level.INFO, () -> count + " tYahoo Records verarbeitet");
 						}
@@ -358,7 +363,7 @@ public class OnVistaCollector
 						LOGGER.log(Level.WARNING, "Fehler beim Verarbeiten eines tOnVista Records", e2);
 					}
 				}
-				
+
 				// Verbleibende Batch-Einträge ausführen
 				psDelete.executeBatch();
 				psInsert.executeBatch();
@@ -370,8 +375,10 @@ public class OnVistaCollector
 				LOGGER.log(Level.SEVERE, "Fehler beim Aktualisieren von tYahoo aus tOnVista", e1);
 				throw e1;
 			}
-			
-			LOGGER.log(Level.INFO, () -> "Phase 2 abgeschlossen: " + totalStockInserts.get() + " tYahoo Records aktualisiert");
+
+			LOGGER.log(	Level.INFO,
+						() -> "Phase 2 abgeschlossen: " + totalStockInserts.get()
+										+ " tYahoo Records aktualisiert");
 		}
 		catch (Exception e)
 		{
@@ -399,6 +406,10 @@ public class OnVistaCollector
 			String isin = String.valueOf(params.get(0));
 			Double quote = OnVistaParser.makeDouble(params.get(7));
 			String currency = String.valueOf(params.get(10));
+			if (currency.equalsIgnoreCase("GBP"))
+			{
+				quote = quote / 100; // GBP Kurse sind in Pence angegeben
+			}
 			Double capitalization = OnVistaParser.makeDouble(params.get(17));
 			capitalization = recalcCapitalization(isin, quote, currency, capitalization);
 
@@ -443,25 +454,10 @@ public class OnVistaCollector
 		{
 			try
 			{
-				if ("GBP".equalsIgnoreCase(currency))
+				result = CurrencyDB.getAsEuro(currency, stockCount * quote, System.currentTimeMillis());
+				if (result == 0 && fallBack != null)
 				{
-					result = CurrencyDB.getAsEuro(	currency,
-													stockCount * quote / 100,
-													System.currentTimeMillis());
-					if (result == 0)
-					{
-						result = CurrencyDB.getAsEuro(	currency,
-														(fallBack == null ? 0d : fallBack) / 100,
-														System.currentTimeMillis());
-					}
-				}
-				else
-				{
-					result = CurrencyDB.getAsEuro(currency, stockCount * quote, System.currentTimeMillis());
-					if (result == 0 && fallBack != null)
-					{
-						result = fallBack;
-					}
+					result = fallBack;
 				}
 			}
 			catch (Exception ignore)
@@ -491,6 +487,7 @@ public class OnVistaCollector
 		return true;
 	}
 
+
 	/**
 	 * Berechnet die Anzahl der Tage seit dem 1.1.2000
 	 * @param timestamp Unix-Timestamp in Millisekunden
@@ -500,74 +497,76 @@ public class OnVistaCollector
 	{
 		// Referenzdatum: 1.1.2000 00:00:00 UTC
 		LocalDate referenceDate = LocalDate.of(2000, 1, 1);
-		long referenceDateMillis = referenceDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-		
+		long referenceDateMillis = referenceDate.atStartOfDay(java.time.ZoneId.systemDefault())
+												.toInstant()
+												.toEpochMilli();
+
 		// Prüfe ob Timestamp ungültig oder vor 1.1.2000
 		if (timestamp < referenceDateMillis)
-		{
-			return Integer.MAX_VALUE;
-		}
-		
+		{ return Integer.MAX_VALUE; }
+
 		// Konvertiere Timestamp zu LocalDate
-		LocalDate date = java.time.Instant.ofEpochMilli(timestamp)
-			.atZone(java.time.ZoneId.systemDefault())
-			.toLocalDate();
-		
+		LocalDate date = java.time.Instant	.ofEpochMilli(timestamp)
+											.atZone(java.time.ZoneId.systemDefault())
+											.toLocalDate();
+
 		// Berechne Tage zwischen Referenzdatum und gegebenem Datum
 		long days = java.time.temporal.ChronoUnit.DAYS.between(referenceDate, date);
-		
+
 		// Prüfe auf Overflow
 		if (days > Integer.MAX_VALUE)
-		{
-			return Integer.MAX_VALUE;
-		}
-		
-		return (int) days;
+		{ return Integer.MAX_VALUE; }
+
+		return (int)days;
 	}
+
 
 	public static void main(String[] args)
 	{
 		LOGGER.log(Level.INFO, "Starting cSequence update in tYahoo table");
-		
+
 		try (Connection connection = DBConnection.getStocksConnection())
 		{
 			// Hole alle unterschiedlichen Zeitstempel
 			String selectQuery = "SELECT DISTINCT cDateLong FROM tYahoo";
 			String updateQuery = "UPDATE tYahoo SET cSequence = ? WHERE cDateLong = ?";
-			
+
 			int updatedCount = 0;
 			int errorCount = 0;
-			
+
 			try (PreparedStatement selectStmt = connection.prepareStatement(selectQuery);
-			     PreparedStatement updateStmt = connection.prepareStatement(updateQuery))
+							PreparedStatement updateStmt = connection.prepareStatement(updateQuery))
 			{
 				var resultSet = selectStmt.executeQuery();
-				
+
 				while (resultSet.next())
 				{
 					long dateLong = resultSet.getLong("cDateLong");
-					
+
 					// Berechne day of century
 					int dayOfCentury = getDayOfCentury(dateLong);
-					
+
 					if (dayOfCentury == Integer.MAX_VALUE)
 					{
-						LOGGER.log(Level.WARNING, 
-							() -> "Invalid timestamp, cDateLong: " + dateLong);
-						errorCount++;
+						LOGGER.log(Level.WARNING, () -> "Invalid timestamp, cDateLong: " + dateLong);
+						errorCount++ ;
 						continue;
 					}
-					
+
 					// Update alle Records mit diesem cDateLong
 					updateStmt.setInt(1, dayOfCentury);
 					updateStmt.setLong(2, dateLong);
 					int affectedRows = updateStmt.executeUpdate();
-					
-					updatedCount++;
-					
-					LOGGER.log(Level.FINE, 
-						() -> "Updated " + affectedRows + " records for cDateLong " + dateLong + " -> dayOfCentury " + dayOfCentury);
-					
+
+					updatedCount++ ;
+
+					LOGGER.log(	Level.FINE,
+								() -> "Updated " + affectedRows
+												+ " records for cDateLong "
+												+ dateLong
+												+ " -> dayOfCentury "
+												+ dayOfCentury);
+
 					if (updatedCount % 100 == 0)
 					{
 						final int count = updatedCount;
@@ -575,14 +574,17 @@ public class OnVistaCollector
 						connection.commit();
 					}
 				}
-				
+
 				// Final commit
 				connection.commit();
-				
+
 				final int finalUpdated = updatedCount;
 				final int finalErrors = errorCount;
-				LOGGER.log(Level.INFO, 
-					() -> "Update completed: " + finalUpdated + " distinct timestamps processed, " + finalErrors + " errors");
+				LOGGER.log(	Level.INFO,
+							() -> "Update completed: " + finalUpdated
+											+ " distinct timestamps processed, "
+											+ finalErrors
+											+ " errors");
 			}
 		}
 		catch (Exception e)

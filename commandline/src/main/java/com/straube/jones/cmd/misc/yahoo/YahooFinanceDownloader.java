@@ -19,7 +19,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -357,10 +359,12 @@ public class YahooFinanceDownloader
             File yahooCodesFile = new File(rootFolder, "YahooCodes.json");
             if (!yahooCodesFile.exists())
             {
-                LOGGER.log(Level.SEVERE, () -> "YahooCodes.json not found at: " + yahooCodesFile.getAbsolutePath());
+                LOGGER.log(Level.SEVERE,
+                           () -> "YahooCodes.json not found at: " + yahooCodesFile.getAbsolutePath());
                 return false;
             }
-            String jsonString = new String(Files.readAllBytes(yahooCodesFile.toPath()), StandardCharsets.UTF_8);
+            String jsonString = new String(Files.readAllBytes(yahooCodesFile.toPath()),
+                                           StandardCharsets.UTF_8);
             JSONObject stocksData = new JSONObject(jsonString);
 
             LOGGER.log(Level.INFO, () -> stocksData.length() + " stocks loaded");
@@ -471,6 +475,7 @@ public class YahooFinanceDownloader
         }
     }
 
+
     /**
      * Lädt historische Kursdaten für die übergebenen Codes/Symbole
      * @param codes Liste von Yahoo-Symbolen (z.B. "MTB", "AAPL", "BBNI.JK")
@@ -515,15 +520,16 @@ public class YahooFinanceDownloader
                 // Speichere in Datei
                 Files.write(outputFile.toPath(), data.getBytes(StandardCharsets.UTF_8));
 
-                count++;
-                LOGGER.log(Level.INFO, () -> "Saved data for " + code + " to " + outputFile.getAbsolutePath());
+                count++ ;
+                LOGGER.log(Level.INFO,
+                           () -> "Saved data for " + code + " to " + outputFile.getAbsolutePath());
 
                 // Rate limiting
                 Thread.sleep(500);
             }
             catch (Exception e)
             {
-                errors++;
+                errors++ ;
                 LOGGER.log(Level.WARNING, () -> "Failed fetching data for " + code + ": " + e.getMessage());
             }
         }
@@ -531,13 +537,11 @@ public class YahooFinanceDownloader
         final int finalCount = count;
         final int finalErrors = errors;
         LOGGER.log(Level.INFO,
-                   () -> "Update completed: " + finalCount
-                                   + " stocks saved, "
-                                   + finalErrors
-                                   + " errors");
+                   () -> "Update completed: " + finalCount + " stocks saved, " + finalErrors + " errors");
 
         return count;
     }
+
 
     /**
      * Lädt historische Kursdaten aus ./data/yahoo/historic in die Tabelle tYahoo
@@ -546,31 +550,47 @@ public class YahooFinanceDownloader
      * Alle historischen Daten je ISIN werden in tYahoo eingetragen
      * @throws SQLException wenn ein Datenbankfehler auftritt
      */
-    public void uploadToDB() throws SQLException
+    public void uploadToDB()
+        throws SQLException
     {
         LOGGER.log(Level.INFO, "Starte Upload von Yahoo historischen Daten in tYahoo Tabelle");
-        
+
         // Definiere den historic Ordner
         File historicFolder = new File(rootFolder, "historic");
         if (!historicFolder.exists())
         {
-            LOGGER.log(Level.SEVERE, () -> "Historic Ordner existiert nicht: " + historicFolder.getAbsolutePath());
+            LOGGER.log(Level.SEVERE,
+                       () -> "Historic Ordner existiert nicht: " + historicFolder.getAbsolutePath());
             return;
         }
-        
+
         // Filter für JSON-Dateien
         DirectoryStream.Filter<Path> filter = file -> {
             final String fileName = file.toFile().getName();
             return fileName.endsWith(".json");
         };
-        
+
         Path dirName = historicFolder.toPath();
         AtomicInteger totalInserts = new AtomicInteger(0);
         AtomicInteger totalFiles = new AtomicInteger(0);
         AtomicInteger errorFiles = new AtomicInteger(0);
-        
+
         try (final Connection connection = DBConnection.getStocksConnection())
         {
+            final Map<String, String> onVistaCurrencyForIsin = new HashMap<>();
+            try (final PreparedStatement psOnVista = connection.prepareStatement("SELECT cIsin, cCurrency from tOnVista"))
+            {
+                // Lade alle OnVista Währungen in den CurrencyDB Cache
+                try (final var rs = psOnVista.executeQuery())
+                {
+                    while (rs.next())
+                    {
+                        String isin = rs.getString("cIsin");
+                        String currency = rs.getString("cCurrency");
+                        onVistaCurrencyForIsin.put(isin, currency);
+                    }
+                }
+            }
             try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirName, filter))
             {
                 for (Path path : paths)
@@ -583,15 +603,16 @@ public class YahooFinanceDownloader
                         int underscorePos = fileName.indexOf('_');
                         if (underscorePos == -1)
                         {
-                            LOGGER.log(Level.WARNING, () -> "Dateiname enthält keinen Underscore, überspringe: " + fileName);
+                            LOGGER.log(Level.WARNING,
+                                       () -> "Dateiname enthält keinen Underscore, überspringe: " + fileName);
                             continue;
                         }
                         String isin = fileName.substring(0, underscorePos);
-                        
+
                         // Lade und parse JSON-Datei
                         String jsonString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
                         JSONObject jsonObject = new JSONObject(jsonString);
-                        
+
                         // Extrahiere Währung aus Metadaten
                         if (!jsonObject.has("meta"))
                         {
@@ -605,7 +626,7 @@ public class YahooFinanceDownloader
                             continue;
                         }
                         String currency = meta.getString("currency");
-                        
+
                         // Extrahiere Daten-Array
                         if (!jsonObject.has("data"))
                         {
@@ -613,30 +634,32 @@ public class YahooFinanceDownloader
                             continue;
                         }
                         JSONArray dataArray = jsonObject.getJSONArray("data");
-                        
+
                         // Batch-Statements vorbereiten
                         try (final PreparedStatement psDelete = connection.prepareStatement("DELETE FROM tYahoo WHERE cIsin = ? AND cSequence = ?");
-                             final PreparedStatement psInsert = connection.prepareStatement(
-                                 "INSERT INTO tYahoo (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)"))
+                                        final PreparedStatement psInsert = connection.prepareStatement("INSERT INTO tYahoo (cID, cIsin, cLast, cCurrency, cDateLong, cDate, cSequence) VALUES(?,?,?,?,?,?,?)"))
                         {
                             int recordsInBatch = 0;
-                            
+
                             // Iteriere über alle Datenpunkte
-                            for (int i = 0; i < dataArray.length(); i++)
+                            for (int i = 0; i < dataArray.length(); i++ )
                             {
                                 try
                                 {
                                     JSONObject dataPoint = dataArray.getJSONObject(i);
-                                    
+
                                     // Extrahiere Datum
                                     if (!dataPoint.has("date"))
                                     {
                                         continue;
                                     }
                                     String dateStr = dataPoint.getString("date");
-                                    LocalDate localDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-                                    long dateLong = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-                                    
+                                    LocalDate localDate = LocalDate.parse(dateStr,
+                                                                          DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                                    long dateLong = localDate.atStartOfDay(ZoneId.systemDefault())
+                                                             .toInstant()
+                                                             .toEpochMilli();
+
                                     // Extrahiere Close-Preis (oder adjClose falls vorhanden)
                                     Double close = null;
                                     if (dataPoint.has("adjClose") && !dataPoint.isNull("adjClose"))
@@ -647,42 +670,59 @@ public class YahooFinanceDownloader
                                     {
                                         close = dataPoint.getDouble("close");
                                     }
-                                    
+
                                     if (close == null)
                                     {
                                         continue; // Überspringe Datenpunkte ohne Preis
                                     }
-                                    
+                                    String onVistaCurrency = onVistaCurrencyForIsin.get(isin);
+                                    if (!onVistaCurrency.equalsIgnoreCase(currency))
+                                    {
+                                        if (!onVistaCurrency.equals("EUR"))
+                                        {
+                                            close = CurrencyDB.convert(currency,
+                                                                       onVistaCurrency,
+                                                                       close,
+                                                                       dateLong);
+                                        }
+                                        else
+                                        {
+                                            close = CurrencyDB.getAsEuro(currency, close, dateLong);
+                                        }
+                                    }
                                     // Berechne dayOfCentury (cSequence)
                                     int dayOfCentury = getDayOfCentury(dateLong);
-                                    
+
                                     if (dayOfCentury == Integer.MAX_VALUE)
                                     {
-                                        LOGGER.log(Level.WARNING, () -> "Ungültiger Timestamp für ISIN " + isin + ", Datum: " + dateStr);
+                                        LOGGER.log(Level.WARNING,
+                                                   () -> "Ungültiger Timestamp für ISIN " + isin
+                                                                   + ", Datum: "
+                                                                   + dateStr);
                                         continue;
                                     }
-                                    
+
                                     // Berechne cDate (SQL Timestamp)
                                     java.sql.Timestamp cDate = new java.sql.Timestamp(dateLong);
-                                    
+
                                     // Delete-Statement zum Batch hinzufügen
                                     psDelete.setString(1, isin);
                                     psDelete.setInt(2, dayOfCentury);
                                     psDelete.addBatch();
-                                    
+
                                     // Insert-Statement zum Batch hinzufügen
                                     psInsert.setString(1, java.util.UUID.randomUUID().toString());
                                     psInsert.setString(2, isin);
                                     psInsert.setDouble(3, close);
-                                    psInsert.setString(4, currency);
+                                    psInsert.setString(4, onVistaCurrency);
                                     psInsert.setLong(5, dateLong);
                                     psInsert.setTimestamp(6, cDate);
                                     psInsert.setInt(7, dayOfCentury);
                                     psInsert.addBatch();
-                                    
-                                    recordsInBatch++;
+
+                                    recordsInBatch++ ;
                                     totalInserts.incrementAndGet();
-                                    
+
                                     // Batch alle 100 Einträge ausführen
                                     if (recordsInBatch >= 100)
                                     {
@@ -694,10 +734,14 @@ public class YahooFinanceDownloader
                                 }
                                 catch (Exception e)
                                 {
-                                    LOGGER.log(Level.WARNING, () -> "Fehler beim Verarbeiten eines Datenpunkts in " + fileName + ": " + e.getMessage());
+                                    LOGGER.log(Level.WARNING,
+                                               () -> "Fehler beim Verarbeiten eines Datenpunkts in "
+                                                               + fileName
+                                                               + ": "
+                                                               + e.getMessage());
                                 }
                             }
-                            
+
                             // Verbleibende Batch-Einträge ausführen
                             if (recordsInBatch > 0)
                             {
@@ -705,22 +749,32 @@ public class YahooFinanceDownloader
                                 psInsert.executeBatch();
                                 connection.commit();
                             }
-                            
-                            LOGGER.log(Level.INFO, () -> "Datei " + fileName + " verarbeitet, " + dataArray.length() + " Datenpunkte");
+
+                            LOGGER.log(Level.INFO,
+                                       () -> "Datei " + fileName
+                                                       + " verarbeitet, "
+                                                       + dataArray.length()
+                                                       + " Datenpunkte");
                         }
                     }
                     catch (Exception e)
                     {
                         errorFiles.incrementAndGet();
-                        LOGGER.log(Level.WARNING, () -> "Fehler beim Verarbeiten der Datei " + path.getFileName() + ": " + e.getMessage());
+                        LOGGER.log(Level.WARNING,
+                                   () -> "Fehler beim Verarbeiten der Datei " + path.getFileName()
+                                                   + ": "
+                                                   + e.getMessage());
                     }
                 }
             }
-            
-            LOGGER.log(Level.INFO, () -> "Upload abgeschlossen: " 
-                + totalFiles.get() + " Dateien verarbeitet, "
-                + totalInserts.get() + " Records eingefügt, "
-                + errorFiles.get() + " Fehler");
+
+            LOGGER.log(Level.INFO,
+                       () -> "Upload abgeschlossen: " + totalFiles.get()
+                                       + " Dateien verarbeitet, "
+                                       + totalInserts.get()
+                                       + " Records eingefügt, "
+                                       + errorFiles.get()
+                                       + " Fehler");
         }
         catch (IOException e)
         {
@@ -728,7 +782,8 @@ public class YahooFinanceDownloader
             throw new SQLException("Fehler beim Lesen des historic Ordners", e);
         }
     }
-    
+
+
     /**
      * Berechnet die Anzahl der Tage seit dem 1.1.2000
      * @param timestamp Unix-Timestamp in Millisekunden
@@ -738,36 +793,34 @@ public class YahooFinanceDownloader
     {
         // Referenzdatum: 1.1.2000 00:00:00 UTC
         LocalDate referenceDate = LocalDate.of(2000, 1, 1);
-        long referenceDateMillis = referenceDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        
+        long referenceDateMillis = referenceDate.atStartOfDay(ZoneId.systemDefault())
+                                                .toInstant()
+                                                .toEpochMilli();
+
         // Prüfe ob Timestamp ungültig oder vor 1.1.2000
         if (timestamp < referenceDateMillis)
-        {
-            return Integer.MAX_VALUE;
-        }
-        
+        { return Integer.MAX_VALUE; }
+
         // Konvertiere Timestamp zu LocalDate
-        LocalDate date = Instant.ofEpochMilli(timestamp)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate();
-        
+        LocalDate date = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate();
+
         // Berechne Tage zwischen Referenzdatum und gegebenem Datum
         long days = java.time.temporal.ChronoUnit.DAYS.between(referenceDate, date);
-        
+
         // Prüfe auf Overflow
         if (days > Integer.MAX_VALUE)
-        {
-            return Integer.MAX_VALUE;
-        }
-        
-        return (int) days;
+        { return Integer.MAX_VALUE; }
+
+        return (int)days;
     }
+
 
     /**
      * Beispiel-Verwendung
      * @throws SQLException 
      */
-    public static void main(String[] args) throws SQLException
+    public static void main(String[] args)
+        throws SQLException
     {
         String rootFolder = args.length > 0 ? args[0] : "./data";
         YahooFinanceDownloader downloader = new YahooFinanceDownloader(rootFolder);
