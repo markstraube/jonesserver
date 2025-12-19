@@ -122,6 +122,29 @@ public class StocksController
 	}
 
 
+	@Operation(summary = "Get Single Stock Item", description = "**Use Case:** Retrieve detailed information for a specific stock by ISIN. Returns a single StockItem with comprehensive metadata. **When to use:** For displaying stock details, getting stock information for a known ISIN, or retrieving metadata for a specific security. **Performance:** Fast single-record lookup optimized for detail views.")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Stock item successfully retrieved"),
+							@ApiResponse(responseCode = "404", description = "Stock not found for the given ISIN")})
+	@GetMapping(path = "/stock/item", produces = "application/json")
+	public ResponseEntity<StockItem> getStockItem(@Parameter(description = "ISIN code of the stock to retrieve (e.g., 'US0378331005' for Apple)")
+	@RequestParam
+	String isin)
+	{
+		List<String> isinList = List.of(isin);
+		Map<String, List<StockItem>> result = StocksLoader.load(isinList);
+		List<StockItem> items = result.get("stockItems");
+		
+		if (items != null && !items.isEmpty())
+		{
+			return ResponseEntity.ok(items.get(0));
+		}
+		else
+		{
+			return ResponseEntity.notFound().build();
+		}
+	}
+
+
 	@Operation(summary = "Get Stock Universe Catalog", description = "**Use Case:** Stock discovery and universe definition. Returns comprehensive catalog of all available stocks with metadata. **When to use:** For portfolio construction, stock screening, building watchlists, or discovering investment opportunities. **Data structure:** Organized by categories with detailed stock information including symbols, names, sectors, and identifiers. **Performance note:** Large dataset - cache results when possible.")
 	@ApiResponse(responseCode = "200", description = "Complete stock catalog with metadata organized by categories")
 	@GetMapping(path = "/stock_items", produces = "application/json")

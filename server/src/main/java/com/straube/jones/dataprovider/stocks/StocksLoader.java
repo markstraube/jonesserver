@@ -24,16 +24,50 @@ public class StocksLoader
 
     public static Map<String, List<StockItem>> load()
     {
+        return load(null);
+    }
+
+
+    public static Map<String, List<StockItem>> load(List<String> isins)
+    {
         if (stockItems.size() > 0 && (System.currentTimeMillis() / REFRESH_CYCLE < nextRefresh))
-        { return stockItems; }
+        {
+            if (isins == null || isins.isEmpty())
+            {
+                return stockItems;
+            }
+            else
+            {
+                // Filter by ISINs
+                List<StockItem> filteredList = stockItems.get("stockItems").stream()
+                    .filter(item -> isins.contains(item.getISIN()))
+                    .collect(java.util.stream.Collectors.toList());
+                Map<String, List<StockItem>> result = new HashMap<>();
+                result.put("stockItems", filteredList);
+                return result;
+            }
+        }
         nextRefresh++ ;
 
-        String query = "SELECT * FROM tOnVista ORDER BY cName asc";
+        String query = "SELECT * FROM tOnVista";
+        if (isins != null && !isins.isEmpty())
+        {
+            String placeholders = String.join(",", java.util.Collections.nCopies(isins.size(), "?"));
+            query += " WHERE cIsin IN (" + placeholders + ")";
+        }
+        query += " ORDER BY cName asc";
 
         try(Connection connection = DBConnection.getStocksConnection())
         {            
             try (PreparedStatement ps = connection.prepareStatement(query))
             {
+                if (isins != null && !isins.isEmpty())
+                {
+                    for (int i = 0; i < isins.size(); i++)
+                    {
+                        ps.setString(i + 1, isins.get(i));
+                    }
+                }
                 ps.execute();
                 ResultSet rs = ps.getResultSet();
                 long id = 1;
@@ -44,13 +78,21 @@ public class StocksLoader
                     stockList.add(item);
                     id++ ;
                 }
-                stockItems.put("stockItems", stockList);
+                if (isins == null || isins.isEmpty())
+                {
+                    stockItems.put("stockItems", stockList);
+                }
+                Map<String, List<StockItem>> result = new HashMap<>();
+                result.put("stockItems", stockList);
+                return result;
             }
         }
         catch (Exception e)
         {
             e.printStackTrace();
         }
-        return stockItems;
+        Map<String, List<StockItem>> emptyResult = new HashMap<>();
+        emptyResult.put("stockItems", new ArrayList<>());
+        return emptyResult;
     }
 }
