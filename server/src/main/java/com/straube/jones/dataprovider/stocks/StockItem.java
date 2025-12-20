@@ -8,11 +8,11 @@ import java.util.Locale;
 import com.straube.jones.dataprovider.DataUtil;
 import com.straube.jones.dataprovider.DataUtil.TIMESPAN;
 
-
 public class StockItem
 {
     Long id;
     String ISIN;
+    Integer exchangeId;
     String onVistaLink;
     String name;
     String finanzNetLink;
@@ -33,6 +33,7 @@ public class StockItem
     {
         id = 0L;
         ISIN = "";
+        exchangeId = 1; // Default to Frankfurt
         onVistaLink = "";
         name = "";
         finanzNetLink = "";
@@ -55,7 +56,7 @@ public class StockItem
         throws SQLException
     {
         this.id = id;
-        ISIN = rs.getString("cIsin");
+        setISIN(rs.getString("cIsin"));
         name = rs.getString("cName");
         shortUrl = rs.getString("cRef");
         countryCode = rs.getString("cCountryCode");
@@ -99,6 +100,36 @@ public class StockItem
     public void setISIN(String iSIN)
     {
         ISIN = iSIN;
+        if (ISIN.startsWith("US"))
+        {
+            exchangeId = 15; // NYSE
+        }
+        else if (ISIN.startsWith("GB"))
+        {
+            exchangeId = 24; // London Stock Exchange
+        }
+        else
+        {
+            exchangeId = 5002; // Tradegate
+        }
+    }
+
+
+    /**
+     * @return the exchangeId
+     */
+    public Integer getExchangeId()
+    {
+        return exchangeId;
+    }
+
+
+    /**
+     * @param exchangeId the exchangeId to set
+     */
+    public void setExchangeId(Integer exchangeId)
+    {
+        this.exchangeId = exchangeId;
     }
 
 
