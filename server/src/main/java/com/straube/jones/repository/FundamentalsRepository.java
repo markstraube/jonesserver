@@ -18,6 +18,14 @@ import com.straube.jones.model.StockFundamentals;
  */
 public class FundamentalsRepository
 {
+    private static final String DATA_ROOT_FOLDER = System.getProperty(	"data.root",
+																		"/home/mark/Software/data");
+
+    private static final String FUNDAMENTALS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/fundamentals";
+	static
+	{
+		new File(FUNDAMENTALS_ROOT_FOLDER).mkdirs();
+	}
     private final String dataDirectory;
     private final ObjectMapper objectMapper;
     private final Map<String, StockFundamentals> cache;
@@ -27,7 +35,7 @@ public class FundamentalsRepository
      */
     public FundamentalsRepository()
     {
-        this("data/fundamentals");
+        this(FUNDAMENTALS_ROOT_FOLDER);
     }
 
     /**
