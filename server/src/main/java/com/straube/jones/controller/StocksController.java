@@ -4,6 +4,10 @@ package com.straube.jones.controller;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -27,7 +31,7 @@ import com.straube.jones.dataprovider.stocks.StockItem;
 import com.straube.jones.dataprovider.stocks.StockPointLoader;
 import com.straube.jones.dataprovider.stocks.StocksLoader;
 import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
-import com.straube.jones.dto.BranchDataResponse;
+import com.straube.jones.db.DBConnection;
 import com.straube.jones.dto.LastSharePriceResponse;
 import com.straube.jones.dto.OnVistaReportResponse;
 import com.straube.jones.dto.ServiceInfoResponse;
@@ -435,6 +439,106 @@ public class StocksController
 		{
 			e.printStackTrace();
 			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+
+	@Operation(summary = "Add or Update Stock", description = "**Use Case:** Add a new stock to the database or update an existing one. **When to use:** When you have new stock data to persist. **Input:** A StockItem object in the request body. **Output:** Success message.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Stock successfully added or updated"),
+			@ApiResponse(responseCode = "500", description = "Database error")
+	})
+	@PostMapping(path = "/stock/add", consumes = "application/json", produces = "application/json")
+	public ResponseEntity<String> addStock(
+			@Parameter(description = "StockItem object containing stock details", required = true, schema = @Schema(implementation = StockItem.class))
+			@RequestBody StockItem stockItem)
+	{
+
+		String checkQuery = "SELECT count(*) FROM tOnVista WHERE cIsin = ?";
+		String insertQuery = "INSERT INTO tOnVista (cIsin, cName, cRef, cCountryCode, cMarketCapitalization, cBranch, cPerf4Weeks, cPerf6Months, cPerf1Year, cLast, cCurrency, cDividendYield, cTurnover) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+		String updateQuery = "UPDATE tOnVista SET cName=?, cRef=?, cCountryCode=?, cMarketCapitalization=?, cBranch=?, cPerf4Weeks=?, cPerf6Months=?, cPerf1Year=?, cLast=?, cCurrency=?, cDividendYield=?, cTurnover=? WHERE cIsin=?";
+
+		try (Connection connection = DBConnection.getStocksConnection())
+		{
+			boolean exists = false;
+			try (PreparedStatement checkPs = connection.prepareStatement(checkQuery))
+			{
+				checkPs.setString(1, stockItem.getISIN());
+				try (ResultSet rs = checkPs.executeQuery())
+				{
+					if (rs.next() && rs.getInt(1) > 0)
+					{
+						exists = true;
+					}
+				}
+			}
+
+			if (exists)
+			{
+				try (PreparedStatement updatePs = connection.prepareStatement(updateQuery))
+				{
+					updatePs.setString(1, stockItem.getName());
+					updatePs.setString(2, stockItem.getShortUrl());
+					updatePs.setString(3, stockItem.getCountryCode());
+					updatePs.setDouble(4, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
+					updatePs.setString(5, stockItem.getIndustry());
+					updatePs.setDouble(6, parseDoubleSafe(stockItem.getPerf4()));
+					updatePs.setDouble(7, parseDoubleSafe(stockItem.getPerf26()));
+					updatePs.setDouble(8, parseDoubleSafe(stockItem.getPerf52()));
+					updatePs.setDouble(9, parseDoubleSafe(stockItem.getLast()));
+					updatePs.setString(10, stockItem.getCurrency());
+					updatePs.setDouble(11, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
+					updatePs.setDouble(12, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
+					updatePs.setString(13, stockItem.getISIN());
+					updatePs.executeUpdate();
+				}
+				connection.commit();
+				return ResponseEntity.ok("Stock updated successfully");
+			}
+			else
+			{
+				try (PreparedStatement insertPs = connection.prepareStatement(insertQuery))
+				{
+					insertPs.setString(1, stockItem.getISIN());
+					insertPs.setString(2, stockItem.getName());
+					insertPs.setString(3, stockItem.getShortUrl());
+					insertPs.setString(4, stockItem.getCountryCode());
+					insertPs.setDouble(5, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
+					insertPs.setString(6, stockItem.getIndustry());
+					insertPs.setDouble(7, parseDoubleSafe(stockItem.getPerf4()));
+					insertPs.setDouble(8, parseDoubleSafe(stockItem.getPerf26()));
+					insertPs.setDouble(9, parseDoubleSafe(stockItem.getPerf52()));
+					insertPs.setDouble(10, parseDoubleSafe(stockItem.getLast()));
+					insertPs.setString(11, stockItem.getCurrency());
+					insertPs.setDouble(12, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
+					insertPs.setDouble(13, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
+					insertPs.executeUpdate();
+				}
+				connection.commit();
+				return ResponseEntity.ok("Stock added successfully");
+			}
+		}
+		catch (SQLException e)
+		{
+			e.printStackTrace();
+			return ResponseEntity.internalServerError().body("Database error: " + e.getMessage());
+		}
+	}
+
+
+	private double parseDoubleSafe(String value)
+	{
+		if (value == null || value.trim().isEmpty())
+		{
+			return 0.0;
+		}
+		try
+		{
+			return Double.parseDouble(value.replace(",", "."));
+		}
+		catch (NumberFormatException e)
+		{
+			return 0.0;
 		}
 	}
 }
