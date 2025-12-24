@@ -48,7 +48,6 @@ public class OnVistaParser
                 return null;
             }
             lRow.add(isin);
-            lRow.add(Parser.parseShortUrl(entries.get(0)));
             lRow.add(Parser.parseName(entries.get(0)));
             lRow.add(Parser.parseWkn(entries.get(1)));
             lRow.add(Parser.parseBranch(entries.get(2)));
@@ -127,9 +126,9 @@ public class OnVistaParser
         try
         {
             String isin = String.valueOf(params.get(0));
-            Double quote = makeDouble(params.get(7));
-            String currency = String.valueOf(params.get(10));
-            Double capitalization = makeDouble((params.get(17)));
+            Double quote = makeDouble(params.get(6));
+            String currency = String.valueOf(params.get(9));
+            Double capitalization = makeDouble((params.get(16)));
             capitalization = calcCaptitalization(isin, quote, currency, capitalization);
 
             stmnt.setString(1, isin);
@@ -138,22 +137,21 @@ public class OnVistaParser
             stmnt.setString(4, String.valueOf(params.get(3)));
             stmnt.setString(5, String.valueOf(params.get(4)));
             stmnt.setString(6, String.valueOf(params.get(5)));
-            stmnt.setString(7, String.valueOf(params.get(6)));
-            stmnt.setDouble(8, quote);
-            stmnt.setString(9, String.valueOf(params.get(8)));
-            stmnt.setLong(10, makeLong(params.get(9)));
-            stmnt.setString(11, currency);
+            stmnt.setDouble(7, quote);
+            stmnt.setString(8, String.valueOf(params.get(7)));
+            stmnt.setLong(9, makeLong(params.get(8)));
+            stmnt.setString(10, currency);
+            stmnt.setDouble(11, makeDouble((params.get(10))));
             stmnt.setDouble(12, makeDouble((params.get(11))));
             stmnt.setDouble(13, makeDouble((params.get(12))));
             stmnt.setDouble(14, makeDouble((params.get(13))));
             stmnt.setDouble(15, makeDouble((params.get(14))));
             stmnt.setDouble(16, makeDouble((params.get(15))));
-            stmnt.setDouble(17, makeDouble((params.get(16))));
-            stmnt.setDouble(18, capitalization);
+            stmnt.setDouble(17, capitalization);
+            stmnt.setLong(18, makeLong(params.get(17)));
             stmnt.setLong(19, makeLong(params.get(18)));
-            stmnt.setLong(20, makeLong(params.get(19)));
-            stmnt.setDouble(21, makeDouble((params.get(20))));
-            stmnt.setTimestamp(22, new Timestamp(System.currentTimeMillis()));
+            stmnt.setDouble(20, makeDouble((params.get(19))));
+            stmnt.setTimestamp(21, new Timestamp(System.currentTimeMillis()));
         }
         catch (Exception e)
         {
@@ -372,13 +370,5 @@ class Parser
         }
         String title = e.attr("title");
         return title.split("·")[2].trim();
-    }
-
-
-    public static String parseShortUrl(Element element)
-    {
-        Element e = element.select("div > a").first();
-        String[] ref = e.attr("href").split("/");
-        return ref[ref.length - 1];
     }
 }

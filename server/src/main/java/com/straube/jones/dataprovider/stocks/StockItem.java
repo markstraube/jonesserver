@@ -5,19 +5,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Locale;
 
-import com.straube.jones.dataprovider.DataUtil;
-import com.straube.jones.dataprovider.DataUtil.TIMESPAN;
-
 public class StockItem
 {
     Long id;
     String ISIN;
     Integer exchangeId;
-    String onVistaLink;
     String name;
-    String finanzNetLink;
-    String shortUrl;
-    String arivaLink;
     String countryCode;
     Double capitalization;
     String industry;
@@ -34,11 +27,7 @@ public class StockItem
         id = 0L;
         ISIN = "";
         exchangeId = 1; // Default to Frankfurt
-        onVistaLink = "";
         name = "";
-        finanzNetLink = "";
-        shortUrl = "";
-        arivaLink = "";
         countryCode = "";
         capitalization = 0.0;
         industry = "";
@@ -58,7 +47,6 @@ public class StockItem
         this.id = id;
         setISIN(rs.getString("cIsin"));
         name = rs.getString("cName");
-        shortUrl = rs.getString("cRef");
         countryCode = rs.getString("cCountryCode");
         capitalization = Math.floor(rs.getDouble("cMarketCapitalization"));
         industry = rs.getString("cBranch");
@@ -70,9 +58,6 @@ public class StockItem
         currency = rs.getString("cCurrency");
         dividendYield = rs.getDouble("cDividendYield");
         turnover = Math.floor(rs.getDouble("cTurnover"));
-        onVistaLink = DataUtil.createOnVistaLink(ISIN, shortUrl);
-        finanzNetLink = DataUtil.getChartImageWithFinanzNetLink(ISIN, TIMESPAN.YEAR1);
-        arivaLink = DataUtil.getChartImageWithOnVistaLink(shortUrl, ISIN, TIMESPAN.MONTH1);
     }
 
 
@@ -133,22 +118,6 @@ public class StockItem
     }
 
 
-    /**
-     * @return the link
-     */
-    public String getOnVistaLink()
-    {
-        return onVistaLink;
-    }
-
-
-    /**
-     * @param link the link to set
-     */
-    public void setOnVistaLink(String link)
-    {
-        this.onVistaLink = link;
-    }
 
 
     /**
@@ -169,58 +138,10 @@ public class StockItem
     }
 
 
-    /**
-     * @return the name
-     */
-    public String getFinanzNetLink()
-    {
-        return finanzNetLink;
-    }
 
 
-    /**
-     * @param name the name to set
-     */
-    public void setFinanzNetLink(String name)
-    {
-        this.name = finanzNetLink;
-    }
 
 
-    /**
-     * @return the shortUrl
-     */
-    public String getShortUrl()
-    {
-        return shortUrl;
-    }
-
-
-    /**
-     * @param shortUrl the shortUrl to set
-     */
-    public void setShortUrl(String shortUrl)
-    {
-        this.shortUrl = shortUrl;
-    }
-
-
-    /**
-     * @return the image
-     */
-    public String getArivaLink()
-    {
-        return arivaLink;
-    }
-
-
-    /**
-     * @param image the image to set
-     */
-    public void setArivaLink(String link)
-    {
-        this.arivaLink = link;
-    }
 
 
     /**

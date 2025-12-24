@@ -16,9 +16,6 @@ public class OnVistaModel
         Column col = new Column("isin", "ISIN", Column.UNITS.PRIMARY, "cIsin");
         columns.add(col);
 
-        col = new Column("ref", "REF", Column.UNITS.TEXT, "cRef");
-        columns.add(col);
-
         col = new Column("instrument", "Name", Column.UNITS.TEXT, "cName");
         columns.add(col);
 

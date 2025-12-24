@@ -398,10 +398,10 @@ public class OnVistaCollector
 		try
 		{
 			// Original Indizes aus parseRow:
-			// 0 ISIN, 1 ref, 2 name, 3 WKN, 4 branch, 5 sector, 6 country,
-			// 7 quote, 8 exchange, 9 dateLong, 10 currency, 11 performance,
-			// 12 perfW52, 13 perfM6, 14 perfW4, 15 divYield, 16 dividend,
-			// 17 capitalization, 18 risk, 19 employees, 20 turnover
+			// 0 ISIN, 1 name, 2 WKN, 3 branch, 4 sector, 5 country,
+			// 6 quote, 7 exchange, 8 dateLong, 9 currency, 10 performance,
+			// 11 perfW52, 12 perfM6, 13 perfW4, 14 divYield, 15 dividend,
+			// 16 capitalization, 17 risk, 18 employees, 19 turnover
 
 			String isin = String.valueOf(params.get(0));
 			Double quote = OnVistaParser.makeDouble(params.get(7));
@@ -414,7 +414,6 @@ public class OnVistaCollector
 			capitalization = recalcCapitalization(isin, quote, currency, capitalization);
 
 			int idx = 1;
-			stmnt.setString(idx++ , String.valueOf(params.get(1))); // cRef
 			stmnt.setString(idx++ , String.valueOf(params.get(2))); // cName
 			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cNsin (WKN)
 			stmnt.setString(idx++ , String.valueOf(params.get(4))); // cBranch

@@ -76,12 +76,6 @@ public class ShareSearchResponse
         @JsonProperty("dividend_yield")
         private Double dividendYield;
         
-        @JsonProperty("onvista_link")
-        private String onVistaLink;
-        
-        @JsonProperty("short_url")
-        private String shortUrl;
-        
         @JsonProperty("similarity_score")
         private Double similarityScore;
         
@@ -97,8 +91,6 @@ public class ShareSearchResponse
             this.currency = item.getCurrency();
             this.capitalization = item.getCapitalization();
             this.dividendYield = item.getDividendYield();
-            this.onVistaLink = item.getOnVistaLink();
-            this.shortUrl = item.getShortUrl();
             this.similarityScore = similarityScore;
         }
         
@@ -123,12 +115,6 @@ public class ShareSearchResponse
         
         public Double getDividendYield() { return dividendYield; }
         public void setDividendYield(Double dividendYield) { this.dividendYield = dividendYield; }
-        
-        public String getOnVistaLink() { return onVistaLink; }
-        public void setOnVistaLink(String onVistaLink) { this.onVistaLink = onVistaLink; }
-        
-        public String getShortUrl() { return shortUrl; }
-        public void setShortUrl(String shortUrl) { this.shortUrl = shortUrl; }
         
         public Double getSimilarityScore() { return similarityScore; }
         public void setSimilarityScore(Double similarityScore) { this.similarityScore = similarityScore; }

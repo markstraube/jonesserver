@@ -455,8 +455,8 @@ public class StocksController
 	{
 
 		String checkQuery = "SELECT count(*) FROM tOnVista WHERE cIsin = ?";
-		String insertQuery = "INSERT INTO tOnVista (cIsin, cName, cRef, cCountryCode, cMarketCapitalization, cBranch, cPerf4Weeks, cPerf6Months, cPerf1Year, cLast, cCurrency, cDividendYield, cTurnover) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-		String updateQuery = "UPDATE tOnVista SET cName=?, cRef=?, cCountryCode=?, cMarketCapitalization=?, cBranch=?, cPerf4Weeks=?, cPerf6Months=?, cPerf1Year=?, cLast=?, cCurrency=?, cDividendYield=?, cTurnover=? WHERE cIsin=?";
+		String insertQuery = "INSERT INTO tOnVista (cIsin, cName, cCountryCode, cMarketCapitalization, cBranch, cPerf4Weeks, cPerf6Months, cPerf1Year, cLast, cCurrency, cDividendYield, cTurnover) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+		String updateQuery = "UPDATE tOnVista SET cName=?, cCountryCode=?, cMarketCapitalization=?, cBranch=?, cPerf4Weeks=?, cPerf6Months=?, cPerf1Year=?, cLast=?, cCurrency=?, cDividendYield=?, cTurnover=? WHERE cIsin=?";
 
 		try (Connection connection = DBConnection.getStocksConnection())
 		{
@@ -478,18 +478,17 @@ public class StocksController
 				try (PreparedStatement updatePs = connection.prepareStatement(updateQuery))
 				{
 					updatePs.setString(1, stockItem.getName());
-					updatePs.setString(2, stockItem.getShortUrl());
-					updatePs.setString(3, stockItem.getCountryCode());
-					updatePs.setDouble(4, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
-					updatePs.setString(5, stockItem.getIndustry());
-					updatePs.setDouble(6, parseDoubleSafe(stockItem.getPerf4()));
-					updatePs.setDouble(7, parseDoubleSafe(stockItem.getPerf26()));
-					updatePs.setDouble(8, parseDoubleSafe(stockItem.getPerf52()));
-					updatePs.setDouble(9, parseDoubleSafe(stockItem.getLast()));
-					updatePs.setString(10, stockItem.getCurrency());
-					updatePs.setDouble(11, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
-					updatePs.setDouble(12, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
-					updatePs.setString(13, stockItem.getISIN());
+					updatePs.setString(2, stockItem.getCountryCode());
+					updatePs.setDouble(3, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
+					updatePs.setString(4, stockItem.getIndustry());
+					updatePs.setDouble(5, parseDoubleSafe(stockItem.getPerf4()));
+					updatePs.setDouble(6, parseDoubleSafe(stockItem.getPerf26()));
+					updatePs.setDouble(7, parseDoubleSafe(stockItem.getPerf52()));
+					updatePs.setDouble(8, parseDoubleSafe(stockItem.getLast()));
+					updatePs.setString(9, stockItem.getCurrency());
+					updatePs.setDouble(10, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
+					updatePs.setDouble(11, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
+					updatePs.setString(12, stockItem.getISIN());
 					updatePs.executeUpdate();
 				}
 				connection.commit();
@@ -501,17 +500,16 @@ public class StocksController
 				{
 					insertPs.setString(1, stockItem.getISIN());
 					insertPs.setString(2, stockItem.getName());
-					insertPs.setString(3, stockItem.getShortUrl());
-					insertPs.setString(4, stockItem.getCountryCode());
-					insertPs.setDouble(5, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
-					insertPs.setString(6, stockItem.getIndustry());
-					insertPs.setDouble(7, parseDoubleSafe(stockItem.getPerf4()));
-					insertPs.setDouble(8, parseDoubleSafe(stockItem.getPerf26()));
-					insertPs.setDouble(9, parseDoubleSafe(stockItem.getPerf52()));
-					insertPs.setDouble(10, parseDoubleSafe(stockItem.getLast()));
-					insertPs.setString(11, stockItem.getCurrency());
-					insertPs.setDouble(12, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
-					insertPs.setDouble(13, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
+					insertPs.setString(3, stockItem.getCountryCode());
+					insertPs.setDouble(4, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
+					insertPs.setString(5, stockItem.getIndustry());
+					insertPs.setDouble(6, parseDoubleSafe(stockItem.getPerf4()));
+					insertPs.setDouble(7, parseDoubleSafe(stockItem.getPerf26()));
+					insertPs.setDouble(8, parseDoubleSafe(stockItem.getPerf52()));
+					insertPs.setDouble(9, parseDoubleSafe(stockItem.getLast()));
+					insertPs.setString(10, stockItem.getCurrency());
+					insertPs.setDouble(11, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
+					insertPs.setDouble(12, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
 					insertPs.executeUpdate();
 				}
 				connection.commit();
