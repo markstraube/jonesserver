@@ -8,74 +8,83 @@ import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.ResponseCreateParams;
-import com.openai.models.responses.ResponseOutputText;
 import com.openai.models.responses.StructuredResponse;
 import com.openai.models.responses.StructuredResponseCreateParams;
+import com.openai.models.responses.Tool;
+import com.openai.models.responses.WebSearchTool;
+import com.openai.models.responses.WebSearchTool.Type;
 import com.straube.jones.model.StockFundamentals;
 import com.straube.jones.service.FundamentalsService;
 
 public class StocksAgent
 {
-    private final OpenAIClient openai = OpenAIOkHttpClient.fromEnv();
+    private static final OpenAIClient openai = OpenAIOkHttpClient.fromEnv();
 
-    /**
-     * 
-     * @param task
-     * @return
-     */
-    public StockFundamentals execute(String isin)
+    public static StockFundamentals execute(String isin)
     {
         String systemPrompt = """
-                           You are an autonomous AI research agent with access to the internet.
+                                You are an autonomous financial research agent.
 
-                           TASK:
-                           The user provides an ISIN. Identify the corresponding publicly traded company and collect up-to-date, reliable information about it. Explicitly include both German- and English-language financial, analytical, and news sources, with a strong emphasis on English-language sources.
+                                You have access to web search and may use it to verify information.
+                                Use web search whenever necessary to ensure correctness.
 
-                           SCOPE OF ANALYSIS:
-                           Retrieve only the information listed below.
+                                TASK
+                                You will be given exactly one ISIN.
+                                Identify the corresponding publicly traded company and collect
+                                current, reliably verifiable information about it.
 
-                           1) Identifiers
-                            "ISIN" : fill in the provided ISIN
-                            "WKN" : retrieve the WKN (Wertpapierkennnummer) for the company
-                            "SYMBOL" : fill in the stock ticker symbol
-                            "SYMBOL.YAHOO" : fill in the Yahoo Finance ticker symbol
-                            "SYMBOL.GOOGLE" : fill in the Google Finance ticker symbol
+                                STRICT PRINCIPLES (MUST FOLLOW)
+                                - Data correctness has higher priority than completeness.
+                                - Never approximate, infer, or guess values.
+                                - Never rely on memory alone for identifiers or tickers.
+                                - Use web search to verify each identifier.
+                                - If a value cannot be verified with high confidence, return null.
+                                - Do not fabricate sources, prices, identifiers, or company details.
 
-                           2) Company Basics
-                           - Company name
-                           - Company headquarters (city, country)
-                           - Core business: how the company primarily generates revenue
+                                ALLOWED SOURCES (NON-EXHAUSTIVE)
+                                - Official company website
+                                - Stock exchange websites
+                                - Yahoo Finance
+                                - Google Finance
+                                - Reputable financial data providers
+                                - Regulatory filings
 
-                           3) Stock Data
-                           - Current market capitalization (including currency)
-                           - Qualitative assessment of the stock price performance over the last 6 months
-                           (e.g. clearly rising, volatile sideways movement, clearly declining, including a short justification)
-                           - Short-term 5-day stock price outlook
-                           (qualitative forecast with reasoning based on recent data, news, and technical signals)
-                           - Current analyst opinions, not older than 3 months
-                           (summary of the prevailing sentiment, e.g. Buy / Hold / Sell, including overall tendency)
+                                DATA TO RETURN
 
-                           TECHNICAL REQUIREMENTS:
-                           - No explanatory text, no introductions, no disclaimers
-                           - Do not return any data outside the defined structure
-                           - Use `null` if a data point cannot be determined reliably
-                           - Information should be as current as possible
-                        """;
+                                1) IDENTIFIERS
+                                - isin: string (use the provided ISIN exactly)
+                                - wkn: string | null
+                                - symbol: string | null
+                                - symbolYahoo: string | null
+                                - symbolGoogle: string | null
 
-        String userPrompt = """
-                            Analyze the company and its stock based on the following ISIN.
+                                2) COMPANY BASICS
+                                - companyName: string | null
+                                - headquartersCity: string | null
+                                - headquartersCountry: string | null
+                                - coreBusiness: string | null
+                                (One concise sentence describing how the company primarily generates revenue. Not more than 40 words.)
 
-                            ISIN: %s
+                                OUTPUT RULES (CRITICAL)
+                                - Return data strictly matching the provided response schema.
+                                - Do not include explanations, comments, markdown, or free text.
+                                - Populate only fields defined in the schema.
+                                - Use null for every field that cannot be verified reliably.
+                                - Do not add or remove fields.
+                                - Do not return JSON text — return a structured object conforming to the schema.
 
-                            Process exactly one ISIN and return only valid JSON.
+                                INPUT
+                                ISIN:
+                                %s
                         """.formatted(isin);
 
+        Tool webTool = Tool.ofWebSearch(WebSearchTool.builder().type(Type.WEB_SEARCH).searchContextSize(WebSearchTool.SearchContextSize.MEDIUM).build());
         StructuredResponseCreateParams<StockFundamentals> params = ResponseCreateParams.builder()
-                                                                                       .model(ChatModel.of("gpt-5-2025-08-07"))
-                                                                                       .instructions(systemPrompt)
+                                                                                       .model(ChatModel.of("gpt-5-mini"))
+                                                                                       .input(systemPrompt)
                                                                                        .text(StockFundamentals.class)
-                                                                                       .input(userPrompt)
-                                                                                       .maxOutputTokens(5000)                                                                                       
+                                                                                       .tools(List.of(webTool))
+                                                                                       .maxOutputTokens(5000)
                                                                                        .build();
 
         StructuredResponse<StockFundamentals> response = openai.responses().create(params);
@@ -102,7 +111,7 @@ public class StocksAgent
      */
     public static void main(String[] args)
     {
-        String isin = "US5951121038"; 
+        String isin = "US5951121038";
         if (args.length > 0)
         {
             isin = args[0];
@@ -112,19 +121,11 @@ public class StocksAgent
 
         try
         {
-            StocksAgent agent = new StocksAgent();
-            StockFundamentals result = agent.execute(isin);
+            StockFundamentals result = StocksAgent.execute(isin);
             FundamentalsService fundamentalsService = new FundamentalsService();
-            if (fundamentalsService.exists(isin))
-            {
-                fundamentalsService.update(isin, result);
-                System.out.println("Updated existing fundamentals in the database.");
-            }
-            else
-            {
-                fundamentalsService.create(result);
-                System.out.println("Created new fundamentals in the database.");
-            }
+            fundamentalsService.upsert(result);
+            System.out.println("Analysis complete. Resulting Stock Fundamentals:");
+            System.out.println(result);
         }
         catch (Exception e)
         {

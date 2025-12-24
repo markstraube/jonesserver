@@ -1,5 +1,6 @@
 package com.straube.jones.repository;
 
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,7 +11,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.model.StockFundamentals;
+import com.straube.jones.service.FundamentalsService;
 
 /**
  * Repository für Fundamentaldaten von Aktien.
@@ -18,14 +21,14 @@ import com.straube.jones.model.StockFundamentals;
  */
 public class FundamentalsRepository
 {
-    private static final String DATA_ROOT_FOLDER = System.getProperty(	"data.root",
-																		"/home/mark/Software/data");
+    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
+                                                                      "/home/mark/Software/data");
 
     private static final String FUNDAMENTALS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/fundamentals";
-	static
-	{
-		new File(FUNDAMENTALS_ROOT_FOLDER).mkdirs();
-	}
+    static
+    {
+        new File(FUNDAMENTALS_ROOT_FOLDER).mkdirs();
+    }
     private final String dataDirectory;
     private final ObjectMapper objectMapper;
     private final Map<String, StockFundamentals> cache;
@@ -38,6 +41,7 @@ public class FundamentalsRepository
         this(FUNDAMENTALS_ROOT_FOLDER);
     }
 
+
     /**
      * Erstellt ein neues Repository mit einem benutzerdefinierten Datenverzeichnis.
      * 
@@ -48,7 +52,7 @@ public class FundamentalsRepository
         this.dataDirectory = dataDirectory;
         this.objectMapper = new ObjectMapper();
         this.cache = new HashMap<>();
-        
+
         // Stelle sicher, dass das Datenverzeichnis existiert
         try
         {
@@ -60,6 +64,7 @@ public class FundamentalsRepository
         }
     }
 
+
     /**
      * Speichert oder aktualisiert Fundamentaldaten für eine Aktie.
      * 
@@ -67,23 +72,22 @@ public class FundamentalsRepository
      * @throws IllegalArgumentException wenn ISIN null oder leer ist
      * @throws IOException bei Dateisystem-Fehlern
      */
-    public void save(StockFundamentals fundamentals) throws IOException
+    public void save(StockFundamentals fundamentals)
+        throws IOException
     {
         if (fundamentals.getIsin() == null || fundamentals.getIsin().trim().isEmpty())
-        {
-            throw new IllegalArgumentException("ISIN darf nicht null oder leer sein");
-        }
+        { throw new IllegalArgumentException("ISIN darf nicht null oder leer sein"); }
 
         String isin = fundamentals.getIsin();
         Path filePath = getFilePath(isin);
 
         // Schreibe Daten in Datei
-        objectMapper.writerWithDefaultPrettyPrinter()
-                   .writeValue(filePath.toFile(), fundamentals);
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(filePath.toFile(), fundamentals);
 
         // Aktualisiere Cache
         cache.put(isin, fundamentals);
     }
+
 
     /**
      * Lädt Fundamentaldaten für eine bestimmte ISIN.
@@ -92,33 +96,33 @@ public class FundamentalsRepository
      * @return Optional mit den Fundamentaldaten oder empty wenn nicht gefunden
      * @throws IOException bei Dateisystem-Fehlern
      */
-    public Optional<StockFundamentals> findByIsin(String isin) throws IOException
+    public Optional<StockFundamentals> findByIsin(String isin)
+        throws IOException
     {
         if (isin == null || isin.trim().isEmpty())
-        {
-            return Optional.empty();
-        }
+        { return Optional.empty(); }
 
         // Prüfe Cache zuerst
         if (cache.containsKey(isin))
-        {
-            return Optional.of(cache.get(isin));
-        }
+        { return Optional.of(cache.get(isin)); }
 
         // Lade von Datei
         Path filePath = getFilePath(isin);
         File file = filePath.toFile();
 
+        StockFundamentals fundamentals = null;
         if (!file.exists())
         {
-            return Optional.empty();
+                return Optional.empty();
         }
-
-        StockFundamentals fundamentals = objectMapper.readValue(file, StockFundamentals.class);
+        else
+        {
+            fundamentals = objectMapper.readValue(file, StockFundamentals.class);
+        }
         cache.put(isin, fundamentals);
-        
         return Optional.of(fundamentals);
     }
+
 
     /**
      * Löscht Fundamentaldaten für eine bestimmte ISIN.
@@ -127,12 +131,11 @@ public class FundamentalsRepository
      * @return true wenn Daten gelöscht wurden, false wenn keine Daten existierten
      * @throws IOException bei Dateisystem-Fehlern
      */
-    public boolean deleteByIsin(String isin) throws IOException
+    public boolean deleteByIsin(String isin)
+        throws IOException
     {
         if (isin == null || isin.trim().isEmpty())
-        {
-            return false;
-        }
+        { return false; }
 
         Path filePath = getFilePath(isin);
         File file = filePath.toFile();
@@ -142,12 +145,11 @@ public class FundamentalsRepository
 
         // Lösche Datei
         if (file.exists())
-        {
-            return Files.deleteIfExists(filePath);
-        }
+        { return Files.deleteIfExists(filePath); }
 
         return false;
     }
+
 
     /**
      * Prüft, ob Fundamentaldaten für eine ISIN existieren.
@@ -158,12 +160,11 @@ public class FundamentalsRepository
     public boolean exists(String isin)
     {
         if (isin == null || isin.trim().isEmpty())
-        {
-            return false;
-        }
+        { return false; }
 
         return cache.containsKey(isin) || getFilePath(isin).toFile().exists();
     }
+
 
     /**
      * Gibt den Dateipfad für eine bestimmte ISIN zurück.
@@ -176,6 +177,7 @@ public class FundamentalsRepository
         String fileName = isin + ".json";
         return Paths.get(dataDirectory, fileName);
     }
+
 
     /**
      * Leert den internen Cache.

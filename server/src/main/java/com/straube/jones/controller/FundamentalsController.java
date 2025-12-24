@@ -1,5 +1,6 @@
 package com.straube.jones.controller;
 
+
 import java.io.IOException;
 import java.util.Optional;
 
@@ -17,12 +18,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.straube.jones.model.StockFundamentals;
 import com.straube.jones.service.FundamentalsService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 /**
  * REST Controller für Fundamentaldaten von Aktien.
  * Bietet CRUD-Operationen über HTTP-Endpunkte.
  */
 @RestController
 @RequestMapping("/api/fundamentals")
+@Tag(name = "Fundamentals API", description = "Manages stock fundamentals data")
 public class FundamentalsController
 {
     private final FundamentalsService service;
@@ -35,6 +39,7 @@ public class FundamentalsController
         this.service = new FundamentalsService();
     }
 
+
     /**
      * Erstellt einen neuen Controller mit einem benutzerdefinierten Service.
      * 
@@ -45,6 +50,7 @@ public class FundamentalsController
         this.service = service;
     }
 
+
     /**
      * Erstellt neue Fundamentaldaten für eine Aktie.
      * 
@@ -54,7 +60,8 @@ public class FundamentalsController
      * @return ResponseEntity mit den erstellten Daten (201) oder Fehler (400, 409, 500)
      */
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody StockFundamentals fundamentals)
+    public ResponseEntity< ? > create(@RequestBody
+    StockFundamentals fundamentals)
     {
         try
         {
@@ -64,19 +71,17 @@ public class FundamentalsController
         catch (IllegalArgumentException e)
         {
             if (e.getMessage().contains("existieren bereits"))
-            {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                                   .body(new ErrorResponse(e.getMessage()));
-            }
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                               .body(new ErrorResponse(e.getMessage()));
+            { return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(e.getMessage())); }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         }
         catch (IOException e)
         {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                               .body(new ErrorResponse("Fehler beim Speichern der Daten: " + e.getMessage()));
+                                 .body(new ErrorResponse("Fehler beim Speichern der Daten: "
+                                                 + e.getMessage()));
         }
     }
+
 
     /**
      * Findet Fundamentaldaten für eine bestimmte ISIN.
@@ -87,12 +92,13 @@ public class FundamentalsController
      * @return ResponseEntity mit den Fundamentaldaten (200) oder Not Found (404)
      */
     @GetMapping("/{isin}")
-    public ResponseEntity<?> getByIsin(@PathVariable String isin)
+    public ResponseEntity< ? > getByIsin(@PathVariable
+    String isin)
     {
         try
         {
             Optional<StockFundamentals> fundamentals = service.findByIsin(isin);
-            
+
             if (fundamentals.isPresent())
             {
                 return ResponseEntity.ok(fundamentals.get());
@@ -100,15 +106,17 @@ public class FundamentalsController
             else
             {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                   .body(new ErrorResponse("Keine Fundamentaldaten für ISIN " + isin + " gefunden"));
+                                     .body(new ErrorResponse("Keine Fundamentaldaten für ISIN " + isin
+                                                     + " gefunden"));
             }
         }
         catch (IOException e)
         {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                               .body(new ErrorResponse("Fehler beim Laden der Daten: " + e.getMessage()));
+                                 .body(new ErrorResponse("Fehler beim Laden der Daten: " + e.getMessage()));
         }
     }
+
 
     /**
      * Aktualisiert Fundamentaldaten für eine bestimmte ISIN.
@@ -120,29 +128,29 @@ public class FundamentalsController
      * @return ResponseEntity mit den aktualisierten Daten (200) oder Fehler (400, 404, 500)
      */
     @PutMapping("/{isin}")
-    public ResponseEntity<?> update(@PathVariable String isin, @RequestBody StockFundamentals fundamentals)
+    public ResponseEntity< ? > update(@PathVariable
+    String isin, @RequestBody
+    StockFundamentals fundamentals)
     {
         try
         {
-            StockFundamentals updated = service.update(isin, fundamentals);
+            StockFundamentals updated = service.upsert(fundamentals);
             return ResponseEntity.ok(updated);
         }
         catch (IllegalArgumentException e)
         {
             if (e.getMessage().contains("existieren nicht"))
-            {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                   .body(new ErrorResponse(e.getMessage()));
-            }
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                               .body(new ErrorResponse(e.getMessage()));
+            { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(e.getMessage())); }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
         }
         catch (IOException e)
         {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                               .body(new ErrorResponse("Fehler beim Aktualisieren der Daten: " + e.getMessage()));
+                                 .body(new ErrorResponse("Fehler beim Aktualisieren der Daten: "
+                                                 + e.getMessage()));
         }
     }
+
 
     /**
      * Löscht Fundamentaldaten für eine bestimmte ISIN.
@@ -153,12 +161,13 @@ public class FundamentalsController
      * @return ResponseEntity mit No Content (204) oder Not Found (404)
      */
     @DeleteMapping("/{isin}")
-    public ResponseEntity<?> delete(@PathVariable String isin)
+    public ResponseEntity< ? > delete(@PathVariable
+    String isin)
     {
         try
         {
             boolean deleted = service.delete(isin);
-            
+
             if (deleted)
             {
                 return ResponseEntity.noContent().build();
@@ -166,15 +175,17 @@ public class FundamentalsController
             else
             {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                   .body(new ErrorResponse("Keine Fundamentaldaten für ISIN " + isin + " gefunden"));
+                                     .body(new ErrorResponse("Keine Fundamentaldaten für ISIN " + isin
+                                                     + " gefunden"));
             }
         }
         catch (IOException e)
         {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                               .body(new ErrorResponse("Fehler beim Löschen der Daten: " + e.getMessage()));
+                                 .body(new ErrorResponse("Fehler beim Löschen der Daten: " + e.getMessage()));
         }
     }
+
 
     /**
      * Prüft, ob Fundamentaldaten für eine ISIN existieren.
@@ -185,7 +196,8 @@ public class FundamentalsController
      * @return ResponseEntity mit boolean (200)
      */
     @GetMapping("/{isin}/exists")
-    public ResponseEntity<Boolean> exists(@PathVariable String isin)
+    public ResponseEntity<Boolean> exists(@PathVariable
+    String isin)
     {
         boolean exists = service.exists(isin);
         return ResponseEntity.ok(exists);
@@ -203,10 +215,12 @@ public class FundamentalsController
             this.message = message;
         }
 
+
         public String getMessage()
         {
             return message;
         }
+
 
         public void setMessage(String message)
         {
