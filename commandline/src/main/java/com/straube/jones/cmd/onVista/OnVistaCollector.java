@@ -163,6 +163,97 @@ public class OnVistaCollector
 	}
 
 
+	private JSONObject parseJson(String htmlString)
+	{
+		Document doc = Jsoup.parse(htmlString);
+		String json = doc.select("#__NEXT_DATA__").html();
+
+		JSONObject jo = new JSONObject(json);
+		JSONArray jarr = jo	.getJSONObject("props")
+							.getJSONObject("pageProps")
+							.getJSONObject("data")
+							.getJSONArray("list");
+		List<List<Object>> lValues = new ArrayList<>();
+
+		for (int i = 0; i < jarr.length(); i++ )
+		{
+			JSONObject entry = jarr.getJSONObject(i);
+			JSONObject instrument = entry.getJSONObject("instrument");
+			String isin = instrument.getString("isin");
+			String symbol = instrument.getString("homeSymbol");
+			String name = instrument.getString("tinyName");
+
+			if (entry.isNull("stocksFigure"))
+			{
+				continue;
+			}
+			JSONObject stocksFigure = entry.getJSONObject("stocksFigure");
+			if (stocksFigure.isNull("marketCapInstrument"))
+			{
+				continue;
+			}
+			Double marketCap = stocksFigure.getDouble("marketCapInstrument");
+			if (marketCap < 5000000000d)
+			{
+				continue;
+			}
+			JSONObject company = entry.getJSONObject("company");
+			String branchName = "";
+			String sectorName = "";
+			if (!company.isNull("branch"))
+			{
+				JSONObject branch = company.getJSONObject("branch");
+				if (!branch.isNull("name"))
+				{
+					branchName = branch.getString("name");
+					JSONObject sectorObj = branch.getJSONObject("sector");
+					if (!sectorObj.isNull("name"))
+					{
+						sectorName = sectorObj.getString("name");
+					}
+				}
+			}
+			String country = company.getString("nameCountry");
+
+			JSONObject quote = entry.getJSONObject("quote");
+			if (quote.isNull("last"))
+			{
+				continue;
+			}
+			double last = quote.getDouble("last");
+			String currency = quote.getString("isoCurrency");
+			String dateString = quote.getString("datetimeLast");
+			Long dateLong = java.time.Instant.parse(dateString).toEpochMilli();
+
+			List<Object> lRow = new ArrayList<>();
+			lRow.add(isin);
+			lRow.add(symbol);
+			lRow.add(name);
+			lRow.add(branchName);
+			lRow.add(sectorName);
+			lRow.add(country);
+			lRow.add(last);
+			lRow.add(currency);
+			lRow.add(dateLong);
+			lValues.add(lRow);
+		}
+		List<String> lHeaders = new ArrayList<>();
+		lHeaders.add("ISIN");
+		lHeaders.add("Symbol");
+		lHeaders.add("Name");
+		lHeaders.add("Branch");
+		lHeaders.add("Sector");
+		lHeaders.add("Country");
+		lHeaders.add("Last");
+		lHeaders.add("Currency");
+		lHeaders.add("DateLong");
+		Map<String, Object> m = new HashMap<>();
+		m.put("cols", lHeaders);
+		m.put("values", lValues);
+		return new JSONObject(m);
+	}
+
+
 	private JSONObject parseHtml(String htmlString)
 	{
 		Document doc = Jsoup.parse(htmlString);
@@ -397,12 +488,6 @@ public class OnVistaCollector
 	{
 		try
 		{
-			// Original Indizes aus parseRow:
-			// 0 ISIN, 1 name, 2 WKN, 3 branch, 4 sector, 5 country,
-			// 6 quote, 7 exchange, 8 dateLong, 9 currency, 10 performance,
-			// 11 perfW52, 12 perfM6, 13 perfW4, 14 divYield, 15 dividend,
-			// 16 capitalization, 17 risk, 18 employees, 19 turnover
-
 			String isin = String.valueOf(params.get(0));
 			Double quote = OnVistaParser.makeDouble(params.get(7));
 			String currency = String.valueOf(params.get(10));
@@ -415,7 +500,7 @@ public class OnVistaCollector
 
 			int idx = 1;
 			stmnt.setString(idx++ , String.valueOf(params.get(2))); // cName
-			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cNsin (WKN)
+			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cSymbol
 			stmnt.setString(idx++ , String.valueOf(params.get(4))); // cBranch
 			stmnt.setString(idx++ , String.valueOf(params.get(5))); // cSector
 			stmnt.setString(idx++ , String.valueOf(params.get(6))); // cCountryCode

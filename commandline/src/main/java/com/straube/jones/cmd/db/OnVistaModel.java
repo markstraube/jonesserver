@@ -19,7 +19,7 @@ public class OnVistaModel
         col = new Column("instrument", "Name", Column.UNITS.TEXT, "cName");
         columns.add(col);
 
-        col = new Column("instrument.wkn", "WKN", Column.UNITS.TEXT, "cNsin");
+        col = new Column("instrument.symbol", "SYMBOL", Column.UNITS.TEXT, "cSymbol");
         columns.add(col);
 
         col = new Column("company.branch.name", "Branche", Column.UNITS.TEXT, "cBranch");

@@ -49,7 +49,7 @@ public class OnVistaParser
             }
             lRow.add(isin);
             lRow.add(Parser.parseName(entries.get(0)));
-            lRow.add(Parser.parseWkn(entries.get(1)));
+            lRow.add(Parser.parseSymbol(entries.get(1)));
             lRow.add(Parser.parseBranch(entries.get(2)));
             lRow.add(Parser.parseSector(entries.get(3)));
             lRow.add(Parser.parseCountry(entries.get(4)));
@@ -341,7 +341,7 @@ class Parser
     }
 
 
-    public static String parseWkn(Element element)
+    public static String parseSymbol(Element element)
     {
         return element.text();
     }
