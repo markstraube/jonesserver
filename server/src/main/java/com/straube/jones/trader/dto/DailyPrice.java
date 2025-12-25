@@ -1,0 +1,76 @@
+package com.straube.jones.trader.dto;
+
+import java.time.LocalDate;
+
+/**
+ * Repräsentiert einen Handelstag einer Aktie.
+ * Diese Daten kommen direkt von der Börse / Marktdaten-API.
+ */
+public class DailyPrice {
+
+    /** Handelstag */
+    private LocalDate date;
+
+    /** Eröffnungskurs */
+    private double open;
+
+    /** Tageshoch */
+    private double high;
+
+    /** Tagestief */
+    private double low;
+
+    /** Schlusskurs */
+    private double close;
+
+    /** Gehandeltes Volumen (Stückzahl) */
+    private long volume;
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public void setDate(LocalDate date) {
+        this.date = date;
+    }
+
+    public double getOpen() {
+        return open;
+    }
+
+    public void setOpen(double open) {
+        this.open = open;
+    }
+
+    public double getHigh() {
+        return high;
+    }
+
+    public void setHigh(double high) {
+        this.high = high;
+    }
+
+    public double getLow() {
+        return low;
+    }
+
+    public void setLow(double low) {
+        this.low = low;
+    }
+
+    public double getClose() {
+        return close;
+    }
+
+    public void setClose(double close) {
+        this.close = close;
+    }
+
+    public long getVolume() {
+        return volume;
+    }
+
+    public void setVolume(long volume) {
+        this.volume = volume;
+    }
+}
