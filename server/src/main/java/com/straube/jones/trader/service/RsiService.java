@@ -20,11 +20,14 @@ public class RsiService {
      */
     public double calculateRSI(List<DailyPrice> prices, int period) {
 
-        double gains = 0;
+      double gains = 0;
         double losses = 0;
 
         for (int i = 0; i < period; i++) {
-            double change = prices.get(i).getClose() - prices.get(i + 1).getClose();
+            double change =
+                    prices.get(i).getAdjClose()
+                  - prices.get(i + 1).getAdjClose();
+
             if (change > 0) {
                 gains += change;
             } else {

@@ -26,6 +26,7 @@ public class MockMarketDataService {
             if (price < 10) price = 10;
 
             dp.setClose(price);
+            dp.setAdjClose(price); // Mock: adjClose = close
             dp.setOpen(price - (random.nextDouble() - 0.5));
             dp.setHigh(Math.max(dp.getOpen(), dp.getClose()) + random.nextDouble());
             dp.setLow(Math.min(dp.getOpen(), dp.getClose()) - random.nextDouble());

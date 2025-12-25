@@ -21,7 +21,7 @@ public class MovingAverageService {
     public double calculateSMA(List<DailyPrice> prices, int period) {
         return prices.stream()
                 .limit(period)
-                .mapToDouble(DailyPrice::getClose)
+                .mapToDouble(DailyPrice::getAdjClose)
                 .average()
                 .orElseThrow(() -> new IllegalArgumentException("Nicht genug Daten"));
     }
@@ -38,11 +38,11 @@ public class MovingAverageService {
      */
     public double calculateEMA(List<DailyPrice> prices, int period) {
         double k = 2.0 / (period + 1);
-        double ema = prices.get(period - 1).getClose();
+        double ema = prices.get(period - 1).getAdjClose();
 
         for (int i = period - 2; i >= 0; i--) {
-            double close = prices.get(i).getClose();
-            ema = close * k + ema * (1 - k);
+            double price = prices.get(i).getAdjClose();
+            ema = price * k + ema * (1 - k);
         }
         return ema;
     }

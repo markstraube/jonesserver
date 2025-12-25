@@ -26,6 +26,13 @@ public class DailyPrice {
     /** Gehandeltes Volumen (Stückzahl) */
     private long volume;
 
+    /**
+     * Adjustierter Schlusskurs.
+     * Berücksichtigt Dividenden, Splits usw.
+     * Wird für Indikatoren und Trendberechnungen verwendet.
+     */
+    private double adjClose;
+
     public LocalDate getDate() {
         return date;
     }
@@ -72,5 +79,13 @@ public class DailyPrice {
 
     public void setVolume(long volume) {
         this.volume = volume;
+    }
+
+    public double getAdjClose() {
+        return adjClose;
+    }
+
+    public void setAdjClose(double adjClose) {
+        this.adjClose = adjClose;
     }
 }

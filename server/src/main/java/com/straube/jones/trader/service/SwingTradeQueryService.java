@@ -14,12 +14,12 @@ import java.util.Optional;
 @Service
 public class SwingTradeQueryService {
 
-    private final MockMarketDataService marketDataService;
+    private final MarketDataService marketDataService;
     private final MockEventService eventService;
     private final MockCompanyService companyService;
     private final SwingTradeCandidateBuilder candidateBuilder;
 
-    public SwingTradeQueryService(MockMarketDataService marketDataService,
+    public SwingTradeQueryService(MarketDataService marketDataService,
                                   MockEventService eventService,
                                   MockCompanyService companyService) {
         this.marketDataService = marketDataService;
