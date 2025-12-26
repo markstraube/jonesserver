@@ -33,6 +33,18 @@ public class DailyPrice {
      */
     private double adjClose;
 
+    public DailyPrice() {
+    }
+
+    public DailyPrice(double open, double high, double low, double close, double adjClose, long volume) {
+        this.open = open;
+        this.high = high;
+        this.low = low;
+        this.close = close;
+        this.adjClose = adjClose;
+        this.volume = volume;
+    }
+
     public LocalDate getDate() {
         return date;
     }
