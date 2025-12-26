@@ -2,17 +2,34 @@ package com.straube.jones.trader.service;
 
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Random;
+import java.io.File;
+import java.io.IOException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import com.straube.jones.trader.dto.DailyPrice;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class TradingIndicatorService
 {
     private static final Logger logger = LoggerFactory.getLogger(TradingIndicatorService.class);
+
+    private final MarketDataService marketDataService;
+
+    public TradingIndicatorService(MarketDataService marketDataService)
+    {
+        this.marketDataService = marketDataService;
+    }
 
     /**
      * Trading-Signal Enum
@@ -42,35 +59,125 @@ public class TradingIndicatorService
         private boolean highVolume;
         private String reason;
 
-        public Signal getSignal() { return signal; }
-        public void setSignal(Signal signal) { this.signal = signal; }
+        public Signal getSignal()
+        {
+            return signal;
+        }
 
-        public double getRsi() { return rsi; }
-        public void setRsi(double rsi) { this.rsi = rsi; }
 
-        public double getMacdValue() { return macdValue; }
-        public void setMacdValue(double macdValue) { this.macdValue = macdValue; }
+        public void setSignal(Signal signal)
+        {
+            this.signal = signal;
+        }
 
-        public double getMacdSignal() { return macdSignal; }
-        public void setMacdSignal(double macdSignal) { this.macdSignal = macdSignal; }
 
-        public double getUpperBB() { return upperBB; }
-        public void setUpperBB(double upperBB) { this.upperBB = upperBB; }
+        public double getRsi()
+        {
+            return rsi;
+        }
 
-        public double getMiddleBB() { return middleBB; }
-        public void setMiddleBB(double middleBB) { this.middleBB = middleBB; }
 
-        public double getLowerBB() { return lowerBB; }
-        public void setLowerBB(double lowerBB) { this.lowerBB = lowerBB; }
+        public void setRsi(double rsi)
+        {
+            this.rsi = rsi;
+        }
 
-        public double getCurrentPrice() { return currentPrice; }
-        public void setCurrentPrice(double currentPrice) { this.currentPrice = currentPrice; }
 
-        public boolean isHighVolume() { return highVolume; }
-        public void setHighVolume(boolean highVolume) { this.highVolume = highVolume; }
+        public double getMacdValue()
+        {
+            return macdValue;
+        }
 
-        public String getReason() { return reason; }
-        public void setReason(String reason) { this.reason = reason; }
+
+        public void setMacdValue(double macdValue)
+        {
+            this.macdValue = macdValue;
+        }
+
+
+        public double getMacdSignal()
+        {
+            return macdSignal;
+        }
+
+
+        public void setMacdSignal(double macdSignal)
+        {
+            this.macdSignal = macdSignal;
+        }
+
+
+        public double getUpperBB()
+        {
+            return upperBB;
+        }
+
+
+        public void setUpperBB(double upperBB)
+        {
+            this.upperBB = upperBB;
+        }
+
+
+        public double getMiddleBB()
+        {
+            return middleBB;
+        }
+
+
+        public void setMiddleBB(double middleBB)
+        {
+            this.middleBB = middleBB;
+        }
+
+
+        public double getLowerBB()
+        {
+            return lowerBB;
+        }
+
+
+        public void setLowerBB(double lowerBB)
+        {
+            this.lowerBB = lowerBB;
+        }
+
+
+        public double getCurrentPrice()
+        {
+            return currentPrice;
+        }
+
+
+        public void setCurrentPrice(double currentPrice)
+        {
+            this.currentPrice = currentPrice;
+        }
+
+
+        public boolean isHighVolume()
+        {
+            return highVolume;
+        }
+
+
+        public void setHighVolume(boolean highVolume)
+        {
+            this.highVolume = highVolume;
+        }
+
+
+        public String getReason()
+        {
+            return reason;
+        }
+
+
+        public void setReason(String reason)
+        {
+            this.reason = reason;
+        }
+
 
         @Override
         public String toString()
@@ -122,26 +229,89 @@ public class TradingIndicatorService
             this.bollingerPeriod = bollingerPeriod;
         }
 
-        public int getRsiPeriod() { return rsiPeriod; }
-        public void setRsiPeriod(int rsiPeriod) { this.rsiPeriod = rsiPeriod; }
 
-        public int getEmaShortPeriod() { return emaShortPeriod; }
-        public void setEmaShortPeriod(int emaShortPeriod) { this.emaShortPeriod = emaShortPeriod; }
+        public int getRsiPeriod()
+        {
+            return rsiPeriod;
+        }
 
-        public int getEmaLongPeriod() { return emaLongPeriod; }
-        public void setEmaLongPeriod(int emaLongPeriod) { this.emaLongPeriod = emaLongPeriod; }
 
-        public int getMacdSignalPeriod() { return macdSignalPeriod; }
-        public void setMacdSignalPeriod(int macdSignalPeriod) { this.macdSignalPeriod = macdSignalPeriod; }
+        public void setRsiPeriod(int rsiPeriod)
+        {
+            this.rsiPeriod = rsiPeriod;
+        }
 
-        public int getBollingerPeriod() { return bollingerPeriod; }
-        public void setBollingerPeriod(int bollingerPeriod) { this.bollingerPeriod = bollingerPeriod; }
 
-        public double getBollingerStdDev() { return bollingerStdDev; }
-        public void setBollingerStdDev(double bollingerStdDev) { this.bollingerStdDev = bollingerStdDev; }
+        public int getEmaShortPeriod()
+        {
+            return emaShortPeriod;
+        }
 
-        public int getVolumePeriod() { return volumePeriod; }
-        public void setVolumePeriod(int volumePeriod) { this.volumePeriod = volumePeriod; }
+
+        public void setEmaShortPeriod(int emaShortPeriod)
+        {
+            this.emaShortPeriod = emaShortPeriod;
+        }
+
+
+        public int getEmaLongPeriod()
+        {
+            return emaLongPeriod;
+        }
+
+
+        public void setEmaLongPeriod(int emaLongPeriod)
+        {
+            this.emaLongPeriod = emaLongPeriod;
+        }
+
+
+        public int getMacdSignalPeriod()
+        {
+            return macdSignalPeriod;
+        }
+
+
+        public void setMacdSignalPeriod(int macdSignalPeriod)
+        {
+            this.macdSignalPeriod = macdSignalPeriod;
+        }
+
+
+        public int getBollingerPeriod()
+        {
+            return bollingerPeriod;
+        }
+
+
+        public void setBollingerPeriod(int bollingerPeriod)
+        {
+            this.bollingerPeriod = bollingerPeriod;
+        }
+
+
+        public double getBollingerStdDev()
+        {
+            return bollingerStdDev;
+        }
+
+
+        public void setBollingerStdDev(double bollingerStdDev)
+        {
+            this.bollingerStdDev = bollingerStdDev;
+        }
+
+
+        public int getVolumePeriod()
+        {
+            return volumePeriod;
+        }
+
+
+        public void setVolumePeriod(int volumePeriod)
+        {
+            this.volumePeriod = volumePeriod;
+        }
     }
 
     /**
@@ -179,8 +349,8 @@ public class TradingIndicatorService
         {
             analysis.setSignal(Signal.HOLD);
             analysis.setReason(String.format("Nicht genug Daten für Analyse (benötigt: %d, vorhanden: %d)",
-                                            minDataPoints,
-                                            prices == null ? 0 : prices.size()));
+                                             minDataPoints,
+                                             prices == null ? 0 : prices.size()));
             return analysis;
         }
 
@@ -193,7 +363,9 @@ public class TradingIndicatorService
         analysis.setMacdValue(macd[0]);
         analysis.setMacdSignal(macd[1]);
 
-        double[] bb = calculateBollingerBands(prices, config.getBollingerPeriod(), config.getBollingerStdDev());
+        double[] bb = calculateBollingerBands(prices,
+                                              config.getBollingerPeriod(),
+                                              config.getBollingerStdDev());
         analysis.setUpperBB(bb[0]);
         analysis.setMiddleBB(bb[1]);
         analysis.setLowerBB(bb[2]);
@@ -484,32 +656,87 @@ public class TradingIndicatorService
         return currentVolume > avgVolume * 1.5; // 50% über Durchschnitt
     }
 
-
-    // Beispiel-Verwendung
-    public static void main(String[] args)
+    public static class ReportEntry
     {
-        List<DailyPrice> prices = new ArrayList<>();
+        private String name;
+        private TradingConfig config;
+        private Analysis result;
 
-        // Beispieldaten (in Realität würden diese von einer API kommen)
-        // Open, High, Low, Close, AdjClose, Volume
-        prices.add(new DailyPrice(100, 102, 97, 98, 98, 1500000)); // Neuester Tag
-        prices.add(new DailyPrice(102, 103, 99, 100, 100, 1200000));
-        prices.add(new DailyPrice(104, 105, 101, 102, 102, 1000000));
-
-        // Für Demo: füge 50 Tage mit simulierten Daten hinzu
-        Random random = new Random();
-        for (int i = 0; i < 50; i++ )
+        public ReportEntry(String name, TradingConfig config, Analysis result)
         {
-            double price = 100 + random.nextDouble() * 10 - 5;
-            long volume = 1000000 + random.nextLong(500000);
-            // Open, High, Low, Close, AdjClose, Volume
-            prices.add(new DailyPrice(price, price + 1, price - 1, price, price, volume));
+            this.name = name;
+            this.config = config;
+            this.result = result;
         }
+
+
+        public String getName()
+        {
+            return name;
+        }
+
+
+        public TradingConfig getConfig()
+        {
+            return config;
+        }
+
+
+        public Analysis getResult()
+        {
+            return result;
+        }
+    }
+
+    public static class Report
+    {
+        private String symbol;
+        private List<ReportEntry> analyses = new ArrayList<>();
+
+        public Report(String symbol)
+        {
+            this.symbol = symbol;
+        }
+
+
+        public String getSymbol()
+        {
+            return symbol;
+        }
+
+
+        public List<ReportEntry> getAnalyses()
+        {
+            return analyses;
+        }
+
+
+        public void addAnalysis(String name, TradingConfig config, Analysis result)
+        {
+            analyses.add(new ReportEntry(name, config, result));
+        }
+    }
+
+    public Report getReport(String symbol)
+    {
+        List<DailyPrice> prices = marketDataService.getMarketData(symbol);
+        // MarketDataService returns oldest first, but analyzeStock expects newest first
+        Collections.reverse(prices);
+
+        if (prices.isEmpty())
+        {
+            logger.error("No prices found for symbol: " + symbol);
+            return null;
+        }
+
+        Report report = new Report(symbol);
 
         // Beispiel 1: Standard-Konfiguration verwenden
         logger.info("=== STANDARD-KONFIGURATION ===");
-        Analysis analysis1 = analyzeStock(prices);
+        TradingConfig config1 = new TradingConfig();
+        Analysis analysis1 = analyzeStock(prices, config1);
         logger.info("{}", analysis1);
+        report.addAnalysis("Standard Configuration", config1, analysis1);
 
         // Beispiel 2: Custom-Konfiguration für kurzfristigeres Trading
         logger.info("\n=== KURZFRISTIGE KONFIGURATION ===");
@@ -522,6 +749,7 @@ public class TradingIndicatorService
 
         Analysis analysis2 = analyzeStock(prices, shortTermConfig);
         logger.info("{}", analysis2);
+        report.addAnalysis("Short Term Configuration", shortTermConfig, analysis2);
 
         // Beispiel 3: Custom-Konfiguration für langfristigeres Trading
         logger.info("\n=== LANGFRISTIGE KONFIGURATION ===");
@@ -534,5 +762,8 @@ public class TradingIndicatorService
 
         Analysis analysis3 = analyzeStock(prices, longTermConfig);
         logger.info("{}", analysis3);
+        report.addAnalysis("Long Term Configuration", longTermConfig, analysis3);
+
+        return report;
     }
 }
