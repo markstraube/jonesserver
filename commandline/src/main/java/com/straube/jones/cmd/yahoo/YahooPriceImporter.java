@@ -205,7 +205,7 @@ public class YahooPriceImporter
         int count = 0;
 
         String deleteSql = "DELETE FROM tPriceData WHERE cSymbol = ? AND cDayCounter = ?";
-        String insertSql = "INSERT INTO tPriceData (cId, cIsin, cSymbol, cDateLong, cOpen, cClose, cAdjClose, cHight, cLow, cVolume, cCurrency, cDayCounter) "
+        String insertSql = "INSERT INTO tPriceData (cId, cIsin, cSymbol, cDate, cOpen, cClose, cAdjClose, cHigh, cLow, cVolume, cCurrency, cDayCounter) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement psDelete = conn.prepareStatement(deleteSql);
