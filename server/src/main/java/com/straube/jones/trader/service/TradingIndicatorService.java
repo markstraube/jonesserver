@@ -715,13 +715,26 @@ public class TradingIndicatorService
         {
             analyses.add(new ReportEntry(name, config, result));
         }
+
+        @Override
+        public String toString()
+        {
+            try
+            {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                return mapper.writeValueAsString(this);
+            }
+            catch (Exception e)
+            {
+                return "Error converting Report to JSON: " + e.getMessage();
+            }
+        }
     }
 
     public Report getReport(String symbol)
     {
         List<DailyPrice> prices = marketDataService.getMarketData(symbol);
-        // MarketDataService returns oldest first, but analyzeStock expects newest first
-        Collections.reverse(prices);
 
         if (prices.isEmpty())
         {
@@ -765,5 +778,25 @@ public class TradingIndicatorService
         report.addAnalysis("Long Term Configuration", longTermConfig, analysis3);
 
         return report;
+    }
+
+
+     // Beispiel-Verwendung
+    public static void main(String[] args)
+    {
+        String symbol = "LUNR";        
+        
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
+        dataSource.setUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
+        dataSource.setUsername("stocksdb");
+        dataSource.setPassword("stocksdb");
+
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
+
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
+        Report report = indicatorService.getReport(symbol);
+        System.out.println("Technischer Analyse-Report für " + symbol + ":\n" + report.toString());
     }
 }
