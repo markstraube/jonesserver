@@ -1,0 +1,5 @@
+
+
+POST https://aktienkatalog.de/api/convert-ticker-isin-wkn
+Accept: application/json
+Content-Type: application/x-www-form-urlencoded

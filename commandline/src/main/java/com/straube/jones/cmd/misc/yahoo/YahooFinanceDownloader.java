@@ -826,7 +826,7 @@ public class YahooFinanceDownloader
         YahooFinanceDownloader downloader = new YahooFinanceDownloader(rootFolder);
 
         // Lade Daten für die letzten 365 Tage im CSV-Format
-        //boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
+        boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
         //List<String> codes = List.of("GWO.TO", "LUN.TO", "PPL.TO");
         //int updatedCount = downloader.updateHistoricalData(codes, OutputFormat.JSON, 365);
         downloader.uploadToDB();

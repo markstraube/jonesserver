@@ -99,7 +99,7 @@ public class YahooCodeResolver
                 LOGGER.log(Level.INFO, () -> "Resolving ISIN: " + isin);
 
                 // Yahoo Search API abfragen
-                JSONObject searchResult = queryYahooSearch(isin);
+                JSONObject searchResult = queryYahooSearchISIN(isin);
 
                 if (searchResult != null && searchResult.has("quotes"))
                 {
@@ -192,10 +192,32 @@ public class YahooCodeResolver
     }
 
 
+    public List<String> getCodeForISIN(String isin) throws IOException
+    {
+        List<String> symbols = new ArrayList<>();
+        JSONObject json = queryYahooSearchISIN(isin);
+
+        if (json != null && json.has("quotes"))
+        {
+            JSONArray quotes = json.getJSONArray("quotes");
+            for (int i = 0; i < quotes.length(); i++)
+            {
+                JSONObject quote = quotes.getJSONObject(i);
+                if (quote.has("symbol"))
+                {
+                    symbols.add(quote.getString("symbol"));
+                }
+            }
+        }
+
+        return symbols;
+    }
+
+
     /**
      * Fragt Yahoo Search API für eine ISIN ab
      */
-    private JSONObject queryYahooSearch(String isin)
+    private JSONObject queryYahooSearchISIN(String isin)
         throws IOException
     {
         String urlString = String.format(YAHOO_SEARCH_URL, URLEncoder.encode(isin, StandardCharsets.UTF_8));
@@ -249,6 +271,7 @@ public class YahooCodeResolver
     }
 
 
+
     public static void main(String[] args)
     {
         try
@@ -259,7 +282,9 @@ public class YahooCodeResolver
             LOGGER.log(Level.INFO, () -> "Data path: " + dataPath);
 
             YahooCodeResolver resolver = new YahooCodeResolver(dataPath);
-            resolver.resolve();
+            JSONObject jo = resolver.queryYahooSearchISIN("DE0008404005"); // Testaufruf
+            System.out.println(jo.toString(2));
+            //resolver.resolve();
 
             LOGGER.log(Level.INFO, "Yahoo Code Resolver completed successfully");
         }
