@@ -7,12 +7,17 @@ import java.util.List;
 import com.straube.jones.trader.dasboard.TradeStatus;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.trader.dto.SwingTradeCandidate;
-import com.straube.jones.trader.filter.*;
+import com.straube.jones.trader.filter.EventFilter;
+import com.straube.jones.trader.filter.LiquidityFilter;
+import com.straube.jones.trader.filter.PullbackFilter;
+import com.straube.jones.trader.filter.RiskRewardFilter;
+import com.straube.jones.trader.filter.StockTrendFilter;
+import com.straube.jones.trader.filter.SupportFilter;
+import com.straube.jones.trader.filter.VolumeFilter;
 import com.straube.jones.trader.service.MovingAverageService;
 import com.straube.jones.trader.service.RiskRewardService;
 import com.straube.jones.trader.service.RsiService;
 import com.straube.jones.trader.service.SupportDetectionService;
-import com.straube.jones.trader.service.TrendStructureService;
 import com.straube.jones.trader.service.VolumeAnalysisService;
 
 /**
@@ -27,19 +32,29 @@ public class SwingTradeCandidateBuilder
     private final VolumeAnalysisService volumeService = new VolumeAnalysisService();
     private final SupportDetectionService supportService = new SupportDetectionService();
     private final RiskRewardService riskRewardService = new RiskRewardService();
-    private final TrendStructureService trendStructureService = new TrendStructureService();
+    
 
     /**
      * Baut einen Swing-Trading-Kandidaten.
      *
      * @param symbol Aktiensymbol (z. B. AAPL)
      * @param prices Historische Tagesdaten (neuester Tag zuerst!)
+     * @param config Konfiguration für die Analyseparameter
      */
-    public SwingTradeCandidate build(String symbol, List<DailyPrice> prices)
+    public SwingTradeCandidate build(String symbol, List<DailyPrice> prices, SwingTradeConfig config)
     {
 
         List<String> notes = new ArrayList<>();
         TradeStatus status = TradeStatus.GREEN;
+
+        if (prices == null || prices.size() < 2) {
+            SwingTradeCandidate candidate = new SwingTradeCandidate();
+            candidate.setSymbol(symbol);
+            candidate.setStatus(TradeStatus.RED);
+            candidate.setNotes(List.of("Zu wenige historische Daten (min. 2 Tage)"));
+            candidate.setEvents(new EventFilter());
+            return candidate;
+        }
 
         DailyPrice today = prices.get(0);
 
@@ -47,7 +62,7 @@ public class SwingTradeCandidateBuilder
         // STUFE 0 – Liquidität (vereinfacht)
         // ─────────────────────────────
         long avgVolume20 = volumeService.calculateAverageVolume(prices, 20);
-        if (avgVolume20 < 500_000)
+        if (avgVolume20 < config.getMinAverageVolume())
         {
             notes.add("Zu geringes Handelsvolumen");
             status = TradeStatus.RED;
@@ -60,13 +75,17 @@ public class SwingTradeCandidateBuilder
         // ─────────────────────────────
         // STUFE 2 – Trend
         // ─────────────────────────────
-        double sma50 = maService.calculateSMA(prices, 50);
-        double sma200 = maService.calculateSMA(prices, 200);
+        double sma50 = maService.calculateSMA(prices, config.getSmaFastPeriod());
+        double sma200 = maService.calculateSMA(prices, config.getSmaSlowPeriod());
+        
+        // Check if SMA50 is rising (compare with yesterday)
+        double sma50Yesterday = maService.calculateSMA(prices.subList(1, prices.size()), config.getSmaFastPeriod());
+        boolean sma50Rising = sma50 > sma50Yesterday;
 
-        boolean trendOk = today.getClose() > sma50 && sma50 > sma200;
+        boolean trendOk = today.getClose() > sma50 && sma50 > sma200 && sma50Rising;
         if (!trendOk)
         {
-            notes.add("Kein stabiler Aufwärtstrend");
+            notes.add("Kein stabiler Aufwärtstrend (SMA50 > SMA200 & SMA50 steigend)");
             status = TradeStatus.RED;
         }
 
@@ -74,17 +93,18 @@ public class SwingTradeCandidateBuilder
         trend.setClosePrice(today.getClose());
         trend.setSma50(sma50);
         trend.setSma200(sma200);
-        trend.setSma50Rising(true);
+        trend.setSma50Rising(sma50Rising);
 
         // ─────────────────────────────
         // STUFE 3 – Pullback
         // ─────────────────────────────
-        double ema20 = maService.calculateEMA(prices, 20);
+        double ema20 = maService.calculateEMA(prices, config.getEmaPeriod());
         double distanceToEma = (today.getClose() - ema20) / ema20 * 100;
 
-        double rsi = rsiService.calculateRSI(prices, 14);
+        double rsi = rsiService.calculateRSI(prices, config.getRsiPeriod());
 
-        boolean pullbackOk = distanceToEma < 0 && distanceToEma > -5 && rsi >= 40 && rsi <= 60;
+        boolean pullbackOk = distanceToEma < 0 && distanceToEma > config.getMaxPullbackDistance() 
+                && rsi >= config.getMinRsi() && rsi <= config.getMaxRsi();
 
         if (!pullbackOk && status == TradeStatus.GREEN)
         {
@@ -100,16 +120,23 @@ public class SwingTradeCandidateBuilder
         // ─────────────────────────────
         // STUFE 4 - Volume Analysis
         // ─────────────────────────────
+        // Check if volume is drying up during pullback
+        boolean volumeDryingUp = today.getVolume() < avgVolume20;
+        if (!volumeDryingUp && status == TradeStatus.GREEN) {
+             notes.add("Volumen beim Pullback nicht rückläufig");
+             // status = TradeStatus.YELLOW; // Optional: make it a warning
+        }
+        
         VolumeFilter volume = new VolumeFilter();
         volume.setAverageVolume20d(avgVolume20);
 
         // ─────────────────────────────
         // STUFE 5 – Support
         // ─────────────────────────────
-        double supportLevel = supportService.findRecentSupport(prices, 20);
+        double supportLevel = supportService.findRecentSupport(prices, config.getSupportSearchPeriod());
         double supportDistance = supportService.distanceToSupportPercent(today.getClose(), supportLevel);
 
-        if (supportDistance > 3)
+        if (supportDistance > config.getMaxSupportDistance())
         {
             notes.add("Kurs zu weit von Unterstützung entfernt");
             status = TradeStatus.YELLOW;
@@ -124,16 +151,16 @@ public class SwingTradeCandidateBuilder
         // STUFE 6 – Risiko & CRV (Beispielwerte)
         // ─────────────────────────────
         double entry = today.getClose();
-        double stop = supportLevel * 0.99; // 1 % unter Support
-        double target = entry * 1.06; // 6 % Ziel (vereinfachtes Beispiel)
+        double stop = supportLevel * (1 - config.getStopLossBuffer()); 
+        double target = entry * config.getTargetProfitFactor(); 
 
         double risk = riskRewardService.calculateRisk(entry, stop);
         double reward = riskRewardService.calculateReward(entry, target);
         double crv = riskRewardService.calculateCRV(reward, risk);
 
-        if (crv < 2.0)
+        if (crv < config.getMinCrv())
         {
-            notes.add("CRV unter 2.0");
+            notes.add("CRV unter " + config.getMinCrv());
             status = TradeStatus.RED;
         }
 

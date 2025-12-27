@@ -1,16 +1,29 @@
 package com.straube.jones.trader.service;
 
 
-import com.straube.jones.trader.SwingTradeCandidateBuilder;
-import com.straube.jones.trader.dasboard.*;
-import com.straube.jones.trader.dto.*;
-import com.straube.jones.trader.filter.*;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+
+import com.straube.jones.trader.SwingTradeCandidateBuilder;
+import com.straube.jones.trader.SwingTradeConfig;
+import com.straube.jones.trader.dasboard.EventSection;
+import com.straube.jones.trader.dasboard.PullbackSection;
+import com.straube.jones.trader.dasboard.RiskSection;
+import com.straube.jones.trader.dasboard.SupportSection;
+import com.straube.jones.trader.dasboard.TrendSection;
+import com.straube.jones.trader.dto.DailyPrice;
+import com.straube.jones.trader.dto.SwingTradeCandidate;
+import com.straube.jones.trader.dto.SwingTradeDetailDto;
+import com.straube.jones.trader.dto.SwingTradeOverviewDto;
+import com.straube.jones.trader.filter.EventFilter;
+import com.straube.jones.trader.filter.PullbackFilter;
+import com.straube.jones.trader.filter.RiskRewardFilter;
+import com.straube.jones.trader.filter.StockTrendFilter;
+import com.straube.jones.trader.filter.SupportFilter;
 
 @Service
 public class SwingTradeQueryService
@@ -37,10 +50,18 @@ public class SwingTradeQueryService
         List<String> symbols = companyService.getAllSymbols();
         List<SwingTradeOverviewDto> result = new ArrayList<>();
 
+        com.straube.jones.trader.SwingTradeConfig config = new com.straube.jones.trader.SwingTradeConfig();
+        if (minCrv != null) {
+            config.setMinCrv(minCrv);
+        }
+        if (maxRsi != null) {
+            config.setMaxRsi(maxRsi);
+        }
+
         for (String symbol : symbols)
         {
             List<DailyPrice> prices = marketDataService.getMarketData(symbol);
-            SwingTradeCandidate candidate = candidateBuilder.build(symbol, prices);
+            SwingTradeCandidate candidate = candidateBuilder.build(symbol, prices, config);
 
             // Enrich with events
             EventFilter eventFilter = candidate.getEvents();
@@ -88,7 +109,7 @@ public class SwingTradeQueryService
         if (prices.isEmpty())
             return Optional.empty();
 
-        SwingTradeCandidate candidate = candidateBuilder.build(symbol, prices);
+        SwingTradeCandidate candidate = candidateBuilder.build(symbol, prices, new SwingTradeConfig());
 
         // Enrich with events
         EventFilter eventFilter = candidate.getEvents();
