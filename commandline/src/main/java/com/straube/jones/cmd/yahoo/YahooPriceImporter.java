@@ -61,7 +61,7 @@ public class YahooPriceImporter
             try
             {
                 JsonNode rootNode = objectMapper.readTree(jsonFile);
-                
+
                 JsonNode meta;
                 JsonNode dataNode;
 
@@ -260,16 +260,19 @@ public class YahooPriceImporter
                     JsonNode lowArr = quoteNode.path("low");
                     JsonNode volumeArr = quoteNode.path("volume");
                     JsonNode adjCloseArr = (adjCloseNode != null) ? adjCloseNode.path("adjclose") : null;
-                    
+
                     String timezone = meta.path("timezone").asText("UTC");
                     ZoneId zoneId;
-                    try {
+                    try
+                    {
                         zoneId = ZoneId.of(timezone);
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e)
+                    {
                         zoneId = ZoneId.of("UTC");
                     }
 
-                    for (int i = 0; i < timestampNode.size(); i++)
+                    for (int i = 0; i < timestampNode.size(); i++ )
                     {
                         long ts = timestampNode.get(i).asLong();
                         LocalDate date = Instant.ofEpochSecond(ts).atZone(zoneId).toLocalDate();
@@ -285,13 +288,14 @@ public class YahooPriceImporter
                         psInsert.setString(2, isin);
                         psInsert.setString(3, symbol);
                         psInsert.setTimestamp(4, Timestamp.valueOf(date.atStartOfDay()));
-                        
+
                         psInsert.setDouble(5, getValue(openArr, i));
                         psInsert.setDouble(6, getValue(closeArr, i));
-                        
-                        double adjClose = (adjCloseArr != null) ? getValue(adjCloseArr, i) : getValue(closeArr, i);
+
+                        double adjClose = (adjCloseArr != null) ? getValue(adjCloseArr, i)
+                                        : getValue(closeArr, i);
                         psInsert.setDouble(7, adjClose);
-                        
+
                         psInsert.setDouble(8, getValue(highArr, i));
                         psInsert.setDouble(9, getValue(lowArr, i));
                         psInsert.setLong(10, getLongValue(volumeArr, i));
@@ -307,20 +311,26 @@ public class YahooPriceImporter
         return count;
     }
 
-    private double getValue(JsonNode arr, int index) {
-        if (arr == null || !arr.has(index) || arr.get(index).isNull()) return 0.0;
+
+    private double getValue(JsonNode arr, int index)
+    {
+        if (arr == null || !arr.has(index) || arr.get(index).isNull())
+            return 0.0;
         return arr.get(index).asDouble();
     }
 
-    private long getLongValue(JsonNode arr, int index) {
-        if (arr == null || !arr.has(index) || arr.get(index).isNull()) return 0L;
+
+    private long getLongValue(JsonNode arr, int index)
+    {
+        if (arr == null || !arr.has(index) || arr.get(index).isNull())
+            return 0L;
         return arr.get(index).asLong();
     }
 
 
     public static void main(String[] args)
     {
-        String rootFolder = "C:\\Users\\marks\\git\\jonesserver\\data\\yahoo\\20251226_prices";
+        String rootFolder = "./data/yahoo/daily";
         if (args.length > 0)
         {
             rootFolder = args[0];

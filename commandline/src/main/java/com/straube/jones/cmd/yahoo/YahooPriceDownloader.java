@@ -15,7 +15,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.logging.Level;
 
 import com.straube.jones.cmd.db.DBConnection;
@@ -112,14 +111,19 @@ public class YahooPriceDownloader
     public static void main(String[] args)
         throws Exception
     {
-        LocalDate endDate = LocalDate.now();
-        String rootFolder = "C:\\Users\\marks\\git\\jonesserver\\data\\yahoo\\" + endDate.toString() + "_prices";
+        String rootFolder = "./data/yahoo/daily";
+        int daysBack = 2;
         if (args.length > 0)
         {
             rootFolder = args[0];
         }
-        System.out.println("Starting Yahoo Price download to: " + rootFolder);
-        YahooPriceDownloader.fetchPrices(365, rootFolder);
+        if (args.length > 1)
+        {
+            String daysBackStr = args[1];
+            daysBack = Integer.parseInt(daysBackStr);
+        }
+        System.out.println("Starting Yahoo Price download to: " + rootFolder + " for the past " + daysBack + " days.");
+        YahooPriceDownloader.fetchPrices(daysBack, rootFolder);
         System.out.println("Download finished.");
     }
 }

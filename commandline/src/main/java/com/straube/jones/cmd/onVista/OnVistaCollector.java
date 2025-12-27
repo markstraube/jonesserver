@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
@@ -95,18 +96,33 @@ public class OnVistaCollector
 		final File targetFolder = new File(onvistaFinder, baseName);
 		targetFolder.mkdirs();
 
+		List<String> existingIsins = new ArrayList<>();
+		try (final Connection connection = DBConnection.getStocksConnection(); final PreparedStatement psSelect = connection.prepareStatement("SELECT distinct(cIsin) FROM tOnVista"))
+		{			
+			ResultSet rs = psSelect.executeQuery();
+			while (rs.next())
+			{	
+				String isin = rs.getString("cIsin");
+				existingIsins.add(isin);
+			}
+		}
+		catch (SQLException e)
+		{
+			LOGGER.log(Level.SEVERE, "Fehler beim Laden der Isins", e);
+		}	
+
 		OnVistaParser.init(onvistaRoot);
 
 		AtomicInteger cnt = new AtomicInteger();
 		Arrays.asList(QUERIES).forEach(query -> {
-			runQuery(query, targetFolder, CONTINENTS[cnt.get()]);
+			runQuery(query, targetFolder, CONTINENTS[cnt.get()], existingIsins);
 			cnt.incrementAndGet();
 		});
 		return targetFolder;
 	}
 
 
-	public void runQuery(String query, File folder, String prefix)
+	public void runQuery(String query, File folder, String prefix, List<String> existingIsins)
 	{
 		final StringBuilder onVistaQueryUrl = new StringBuilder();
 		onVistaQueryUrl.append(query);
@@ -138,7 +154,7 @@ public class OnVistaCollector
 					}
 					else
 					{
-						JSONObject jo = parseHtml(htmlString);
+						JSONObject jo = parseHtml(htmlString, existingIsins);
 						if (jo == null)
 						{
 							LOGGER.log(Level.FINE, () -> "Parser lieferte null - Ende");
@@ -254,11 +270,12 @@ public class OnVistaCollector
 	}
 
 
-	private JSONObject parseHtml(String htmlString)
+	private JSONObject parseHtml(String htmlString, List<String> existingIsins)
 	{
 		Document doc = Jsoup.parse(htmlString);
 		// Header extrahieren
 		List<String> lHeaders = new ArrayList<>();
+		lHeaders.add("ISIN");
 		Elements elHeaders = doc.select("#finderResults > thead > tr > th");
 		if (elHeaders.isEmpty())
 		{ return null; }
@@ -268,15 +285,25 @@ public class OnVistaCollector
 			{
 				e = header.select("span:nth-child(2)");
 			}
-			lHeaders.add(e.text());
+			if (e.text().equalsIgnoreCase("Kurs"))
+			{
+				lHeaders.add(e.text());
+				lHeaders.add("Kursdatum");
+				lHeaders.add("Currency");
+			}
+			else
+			{
+				lHeaders.add(e.text());
+			}
 		});
+
 		// Werte extrahieren
 		List<List<Object>> lValues = new ArrayList<>();
 		Elements elRows = doc.select("#finderResults > tbody > tr");
 		if (elRows != null)
 		{
 			elRows.forEach(row -> {
-				List<Object> lRow = OnVistaParser.parseRow(row);
+				List<Object> lRow = OnVistaParser.parseRow(row, existingIsins);
 				if (lRow != null)
 				{
 					lValues.add(lRow);
@@ -489,35 +516,35 @@ public class OnVistaCollector
 		try
 		{
 			String isin = String.valueOf(params.get(0));
-			Double quote = OnVistaParser.makeDouble(params.get(7));
-			String currency = String.valueOf(params.get(10));
+			Double quote = OnVistaParser.makeDouble(params.get(5));
+			String currency = String.valueOf(params.get(7));
 			if (currency.equalsIgnoreCase("GBP"))
 			{
 				quote = quote / 100; // GBP Kurse sind in Pence angegeben
 			}
-			Double capitalization = OnVistaParser.makeDouble(params.get(17));
+			Double capitalization = OnVistaParser.makeDouble(params.get(14));
 			capitalization = recalcCapitalization(isin, quote, currency, capitalization);
 
 			int idx = 1;
-			stmnt.setString(idx++ , String.valueOf(params.get(2))); // cName
-			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cSymbol
-			stmnt.setString(idx++ , String.valueOf(params.get(4))); // cBranch
-			stmnt.setString(idx++ , String.valueOf(params.get(5))); // cSector
-			stmnt.setString(idx++ , String.valueOf(params.get(6))); // cCountryCode
+			stmnt.setString(idx++ , String.valueOf(params.get(1))); // cName
+			stmnt.setString(idx++ , String.valueOf(params.get(0))); // cSymbol
+			stmnt.setString(idx++ , String.valueOf(params.get(2))); // cBranch
+			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cSector
+			stmnt.setString(idx++ , String.valueOf(params.get(4))); // cCountryCode
 			stmnt.setDouble(idx++ , quote); // cLast
-			stmnt.setString(idx++ , String.valueOf(params.get(8))); // cExchange
-			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(9))); // cDateLong
+			stmnt.setString(idx++ , String.valueOf("-")); // cExchange
+			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(6))); // cDateLong
 			stmnt.setString(idx++ , currency); // cCurrency
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(11))); // cPerformance
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(12))); // cPerf1Year
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(13))); // cPerf6Months
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(14))); // cPerf4Weeks
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(15))); // cDividendYield
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(16))); // cDividend
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(8))); // cPerformance
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(9))); // cPerf1Year
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(10))); // cPerf6Months
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(11))); // cPerf4Weeks
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(12))); // cDividendYield
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(13))); // cDividend
 			stmnt.setDouble(idx++ , capitalization); // cMarketCapitalization
-			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(18))); // cRiskRating
-			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(19))); // cEmployees
-			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(20))); // cTurnover
+			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(15))); // cRiskRating
+			stmnt.setLong(idx++ , OnVistaParser.makeLong(params.get(16))); // cEmployees
+			stmnt.setDouble(idx++ , OnVistaParser.makeDouble(params.get(17))); // cTurnover
 			stmnt.setTimestamp(idx++ , new Timestamp(System.currentTimeMillis())); // cUpdated
 
 			// WHERE cIsin

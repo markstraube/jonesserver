@@ -11,6 +11,8 @@ import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.db.StockCounterDB;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.StocksLoader;
+import com.straube.jones.cmd.yahoo.YahooPriceDownloader;
+import com.straube.jones.cmd.yahoo.YahooPriceImporter;
 
 public class Main
 {
@@ -40,6 +42,17 @@ public class Main
             StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28, Instant.now().toEpochMilli(), new String[0], 400, 300, webDataRoot + "/1M");
 
             break;      
+        case "yahoo":
+            int daysBack = 3;
+            String yahooFolder = dataRoot + "/yahoo/daily";
+            System.out.println("Starting Yahoo Price download to: " + yahooFolder + " for the past " + daysBack + " days.");
+            YahooPriceDownloader.fetchPrices(daysBack, yahooFolder);
+            System.out.println("Download finished.");
+             System.out.println("Starting Yahoo Price Import from: " + yahooFolder);
+            YahooPriceImporter importer = new YahooPriceImporter();
+            importer.uploadPriceData(yahooFolder);
+            System.out.println("Import finished.");
+            break;
         case "eurorates":
             File ef = new File(dataRoot, "onVista");
             ef.mkdirs();

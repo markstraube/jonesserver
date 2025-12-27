@@ -10,6 +10,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -20,6 +22,7 @@ import com.straube.jones.cmd.db.StockCounterDB;
 
 public class OnVistaParser
 {
+    private static final Logger LOGGER = Logger.getLogger(OnVistaParser.class.getName());
     public static final long OneWeekMillis = 7 * 24 * 3600 * 1000L;
 
     public static void init(File rootFolder)
@@ -30,58 +33,61 @@ public class OnVistaParser
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
 
-    public static List<Object> parseRow(Element row)
+    public static List<Object>  parseRow(Element row, List<String> existingIsins)
     {
         List<Object> lRow = new ArrayList<>();
+        String isin = "unknown";
         try
         {
             Elements entries = row.select("td");
-            String isin = Parser.parseIsin(entries.get(0));
+            isin = Parser.parseIsin(entries.get(0));
             if (isin == null || isin.isEmpty())
             {
-                System.out.println("### SKIPPING row with no ISIN");
+                LOGGER.info("### SKIPPING row with no ISIN");
+                return null;
+            }
+            if (!existingIsins.contains(isin))
+            {
+                LOGGER.info(String.format("### SKIPPING ISIN:%s - not registered in tOnVista", isin));
                 return null;
             }
             lRow.add(isin);
             lRow.add(Parser.parseName(entries.get(0)));
-            lRow.add(Parser.parseSymbol(entries.get(1)));
-            lRow.add(Parser.parseBranch(entries.get(2)));
-            lRow.add(Parser.parseSector(entries.get(3)));
-            lRow.add(Parser.parseCountry(entries.get(4)));
-            Double quote = Parser.parseQuote(entries.get(5));
+            lRow.add(Parser.parseBranch(entries.get(1)));
+            lRow.add(Parser.parseSector(entries.get(2)));
+            lRow.add(Parser.parseCountry(entries.get(3)));
+            Double quote = Parser.parseQuote(entries.get(4));
             lRow.add(quote);
-            lRow.add(Parser.parseExchange(entries.get(5)));
-            Long quoteDate = Parser.parseDateLong(entries.get(5));
-            if ((quoteDate < System.currentTimeMillis() - OneWeekMillis) && !isin.equalsIgnoreCase("DK0062498333"))
+            Long quoteDate = Parser.parseDateLong(entries.get(4));
+            if (quoteDate < System.currentTimeMillis() - OneWeekMillis)
             {
-                System.out.println(String.format("### SKIPPING outdated ISIN:%s, Date:%d", isin, quoteDate));
+                LOGGER.info(String.format("### SKIPPING outdated ISIN:%s, Date:%d", isin, quoteDate));
                 return null;
             }
             lRow.add(quoteDate);
-            lRow.add(Parser.parseCurrency(entries.get(5)));
-            lRow.add(Parser.parsePerformance(entries.get(6)));
-            lRow.add(Parser.parsePef52(entries.get(7)));
-            lRow.add(Parser.parsePefM6(entries.get(8)));
-            lRow.add(Parser.parsePefW4(entries.get(9)));
-            lRow.add(Parser.parseDivYield(entries.get(10)));
-            lRow.add(Parser.parseDividend(entries.get(11)));
-            lRow.add(Parser.parseCapitalization(entries.get(12)));
-            lRow.add(Parser.parseRisk(entries.get(13)));
-            lRow.add(Parser.parseEmployees(entries.get(14)));
-            lRow.add(Parser.parseTurnover(entries.get(15)));
-
+            lRow.add(Parser.parseCurrency(entries.get(4)));
+            lRow.add(Parser.parsePerformance(entries.get(5)));
+            lRow.add(Parser.parsePef52(entries.get(6)));
+            lRow.add(Parser.parsePefM6(entries.get(7)));
+            lRow.add(Parser.parsePefW4(entries.get(8)));
+            lRow.add(Parser.parseDivYield(entries.get(9)));
+            lRow.add(Parser.parseDividend(entries.get(10)));
+            lRow.add(Parser.parseCapitalization(entries.get(11)));
+            lRow.add(Parser.parseRisk(entries.get(12)));
+            lRow.add(Parser.parseEmployees(entries.get(13)));
+            lRow.add(Parser.parseTurnover(entries.get(14)));
             return lRow;
         }
         catch (Exception ignore)
         {
-            System.out.println(String.format("Could not parse row: %s", ignore.getMessage()));
-            System.out.println(row.toString()); 
-            ignore.printStackTrace();           
+            LOGGER.severe(String.format("Could not parse row with ISIN:%s - %s", isin, ignore.getMessage()));
+            LOGGER.severe(row.toString()); 
+            LOGGER.log(Level.SEVERE, ignore.getMessage(), ignore);           
         }
         return null;
     }
@@ -114,7 +120,7 @@ public class OnVistaParser
             }
             catch (Exception ignore)
             {
-                ignore.printStackTrace();
+                LOGGER.log(Level.SEVERE, ignore.getMessage(), ignore);
             }
         }
         return result;
@@ -156,7 +162,7 @@ public class OnVistaParser
         catch (Exception e)
         {
             // TODO Auto-generated catch block
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
         return stmnt;
     }
@@ -223,6 +229,23 @@ class Parser
 
     public static Long parseRisk(Element element)
     {
+        Elements s = element.select("div"); 
+        if (s.size()<4)
+        {
+            return Long.valueOf(1L); // No data available
+        }
+        if (s.get(1).hasClass("mini-bar-chart__item--with-indicator"))
+        {
+            return Long.valueOf(0L);
+        }
+        if (s.get(2).hasClass("mini-bar-chart__item--with-indicator"))
+        {
+            return Long.valueOf(1L);
+        }
+        if (s.get(3).hasClass("mini-bar-chart__item--with-indicator"))
+        {
+            return Long.valueOf(2L);
+        }
         return Long.valueOf(1L);
     }
 
