@@ -9,6 +9,7 @@ public class StockItem
 {
     Long id;
     String ISIN;
+    String symbol;
     Integer exchangeId;
     String name;
     String countryCode;
@@ -26,6 +27,7 @@ public class StockItem
     {
         id = 0L;
         ISIN = "";
+        symbol = "";
         exchangeId = 1; // Default to Frankfurt
         name = "";
         countryCode = "";
@@ -46,6 +48,7 @@ public class StockItem
     {
         this.id = id;
         setISIN(rs.getString("cIsin"));
+        symbol = rs.getString("cSymbol");
         name = rs.getString("cName");
         countryCode = rs.getString("cCountryCode");
         capitalization = Math.floor(rs.getDouble("cMarketCapitalization"));
@@ -97,6 +100,18 @@ public class StockItem
         {
             exchangeId = 5002; // Tradegate
         }
+    }
+
+
+    public String getSymbol()
+    {
+        return symbol;
+    }
+
+
+    public void setSymbol(String symbol)
+    {
+        this.symbol = symbol;
     }
 
 
