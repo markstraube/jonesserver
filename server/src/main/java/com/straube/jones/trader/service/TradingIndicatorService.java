@@ -2,22 +2,18 @@ package com.straube.jones.trader.service;
 
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.io.File;
-import java.io.IOException;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-
-import com.straube.jones.trader.dto.DailyPrice;
-
 import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.straube.jones.db.DayCounter;
+import com.straube.jones.trader.dto.DailyPrice;
 
 @Service
 public class TradingIndicatorService
@@ -732,9 +728,14 @@ public class TradingIndicatorService
         }
     }
 
-    public Report getReport(String symbol)
+        public Report getReport(String symbol)
     {
-        List<DailyPrice> prices = marketDataService.getMarketData(symbol);
+        return getReport(symbol, DayCounter.now());
+    }
+
+    public Report getReport(String symbol, long fromDayCounterDesc)
+    {
+        List<DailyPrice> prices = marketDataService.getMarketData(symbol, fromDayCounterDesc);
 
         if (prices.isEmpty())
         {
@@ -784,7 +785,7 @@ public class TradingIndicatorService
      // Beispiel-Verwendung
     public static void main(String[] args)
     {
-        String symbol = "LUNR";        
+        String symbol = "RKLB";        
         
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
@@ -796,7 +797,7 @@ public class TradingIndicatorService
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
         TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
-        Report report = indicatorService.getReport(symbol);
+        Report report = indicatorService.getReport(symbol, DayCounter.get("2025-12-12"));
         System.out.println("Technischer Analyse-Report für " + symbol + ":\n" + report.toString());
     }
 }

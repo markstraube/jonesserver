@@ -1,6 +1,7 @@
 package com.straube.jones.trader.service;
 
 
+import com.straube.jones.db.DayCounter;
 import com.straube.jones.trader.dto.DailyPrice;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -24,10 +25,14 @@ public class MarketDataService
         this.jdbcTemplate = jdbcTemplate;
     }
 
-
     public List<DailyPrice> getMarketData(String symbol)
     {
-        String sql = "SELECT cDate, cOpen, cHigh, cLow, cClose, cAdjClose, cVolume FROM tPriceData WHERE cSymbol = ? ORDER BY cDate DESC";
+    return  getMarketData(symbol, DayCounter.now());
+    }
+
+    public List<DailyPrice> getMarketData(String symbol, long fromDayCounterDesc)
+    {
+        String sql = "SELECT cDate, cOpen, cHigh, cLow, cClose, cAdjClose, cVolume FROM tPriceData WHERE cSymbol = ? and cDayCounter < ? ORDER BY cDayCounter DESC";
         return jdbcTemplate.query(sql, new RowMapper<DailyPrice>()
         {
             @Override
@@ -47,6 +52,6 @@ public class MarketDataService
                 dp.setVolume(rs.getLong("cVolume"));
                 return dp;
             }
-        }, symbol);
+        }, symbol, fromDayCounterDesc);
     }
 }

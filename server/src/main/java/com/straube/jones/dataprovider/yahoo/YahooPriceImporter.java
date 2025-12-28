@@ -17,10 +17,10 @@ import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.straube.jones.db.DBConnection;
+import com.straube.jones.db.DayCounter;
 
 public class YahooPriceImporter
 {
-    private static final LocalDate REFERENCE_DATE = LocalDate.of(2000, 1, 1);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -220,7 +220,7 @@ public class YahooPriceImporter
                         continue;
 
                     LocalDate date = LocalDate.parse(dateStr, DATE_FORMATTER);
-                    long dayCounter = ChronoUnit.DAYS.between(REFERENCE_DATE, date);
+                    long dayCounter = DayCounter.get(date);
 
                     // Idempotency: Delete existing
                     psDelete.setString(1, symbol);
@@ -276,7 +276,7 @@ public class YahooPriceImporter
                     {
                         long ts = timestampNode.get(i).asLong();
                         LocalDate date = Instant.ofEpochSecond(ts).atZone(zoneId).toLocalDate();
-                        long dayCounter = ChronoUnit.DAYS.between(REFERENCE_DATE, date);
+                        long dayCounter = DayCounter.get(date);
 
                         // Idempotency: Delete existing
                         psDelete.setString(1, symbol);
