@@ -11,6 +11,7 @@ import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.db.StockCounterDB;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.StocksLoader;
+import com.straube.jones.cmd.yahoo.SymbolResolver;
 import com.straube.jones.cmd.yahoo.YahooPriceDownloader;
 import com.straube.jones.cmd.yahoo.YahooPriceImporter;
 
@@ -52,6 +53,10 @@ public class Main
             YahooPriceImporter importer = new YahooPriceImporter();
             importer.uploadPriceData(yahooFolder);
             System.out.println("Import finished.");
+            System.out.println("Checking for missing yahoo symbols in OnVista Table");
+            SymbolResolver.updateOnVista();
+            System.out.println("Update finished.");
+
             break;
         case "eurorates":
             File ef = new File(dataRoot, "onVista");
