@@ -1,0 +1,56 @@
+    "/api/stock/prices": {
+      "get": {
+        "tags": [
+          "Stocks API"
+        ],
+        "summary": "Get Historical Daily Stock Price Data and Volume",
+        "description": "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.",
+        "operationId": "getPriceData",
+        "parameters": [
+          {
+            "name": "codes",
+            "in": "query",
+            "description": "List of Yahoo symbol codes or ISIN codes (International Securities Identification Numbers, e.g., ['US0378331005', 'DE0007164600'])",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "start_time",
+            "in": "query",
+            "description": "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Time-series stock price data successfully retrieved in tabular format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablePriceDataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }

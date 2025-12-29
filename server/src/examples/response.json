@@ -1,0 +1,47 @@
+{
+	"headers": [
+		"isin",
+		"symbol",
+		"date-long",
+		"open",
+		"high",
+		"low",
+		"close",
+		"adjClose",
+		"currency",
+		"volume",
+		"dayCounter"
+	],
+	"meta": {
+		"minVolume": 833200,
+		"maxVolume": 52764800
+	},
+	"rows": [
+		{
+			"isin": "US1717793095",
+			"symbol": "CIEN",
+			"date_long": 1764543600000,
+			"open": 194.49000549316407,
+			"high": 201.44000244140626,
+			"low": 192.1999969482422,
+			"close": 200.9199981689453,
+			"adjClose": 200.9199981689453,
+			"currency": "USD",
+			"volume": 2303800,
+			"dayCounter": 9466
+		},
+		{
+			"isin": "US1717793095",
+			"symbol": "CIEN",
+			"date_long": 1764630000000,
+			"open": 204.02999877929688,
+			"high": 209.19000244140626,
+			"low": 198.00999450683595,
+			"close": 202.5,
+			"adjClose": 202.5,
+			"currency": "USD",
+			"volume": 2282800,
+			"dayCounter": 9467
+		}
+	]
+}

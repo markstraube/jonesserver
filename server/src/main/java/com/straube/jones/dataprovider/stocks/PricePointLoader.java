@@ -37,6 +37,8 @@ public class PricePointLoader
     public static TablePriceDataResponse loadPrices(List<String> codes, long start, int type)
     {
         TablePriceDataResponse data = new TablePriceDataResponse();
+        long minVolume = Long.MAX_VALUE;
+        long maxVolume = 0;
 
         if (codes == null || codes.isEmpty())
         { return data; }
@@ -75,7 +77,6 @@ public class PricePointLoader
             // Parameter setzen
             int paramIndex = 1;
             ps.setLong(paramIndex, DayCounter.get(start));
-
             // Query ausführen
             try (ResultSet rs = ps.executeQuery())
             {
@@ -94,6 +95,14 @@ public class PricePointLoader
                     Long volume = rs.getLong("cVolume");
                     Integer dayCounter = rs.getInt("cDayCounter");
 
+                    if (volume < minVolume)
+                    {
+                        minVolume = volume;
+                    }
+                    if (volume > maxVolume)
+                    {
+                        maxVolume = volume;
+                    }
                     if (type == 1)
                     {
                         Double base = normalizationValues.get(isin);
@@ -135,7 +144,12 @@ public class PricePointLoader
         {
             e.printStackTrace();
         }
-
+        if (minVolume > maxVolume)
+        {
+            minVolume = 0;
+            maxVolume = 0;
+        }
+        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume));
         return data;
     }
 }

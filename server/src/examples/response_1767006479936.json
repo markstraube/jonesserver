@@ -1,0 +1,69 @@
+{
+	"headers": [
+		"isin",
+		"symbol",
+		"date-long",
+		"open",
+		"high",
+		"low",
+		"close",
+		"adjClose",
+		"currency",
+		"volume",
+		"dayCounter"
+	],
+	"rows": [
+		{
+			"isin": "US1717793095",
+			"symbol": "CIEN",
+			"date_long": 1766530800000,
+			"open": 240.58999633789063,
+			"high": 242,
+			"low": 237.92999267578126,
+			"close": 240.27999877929688,
+			"adjClose": 240.27999877929688,
+			"currency": "USD",
+			"volume": 833200,
+			"dayCounter": 9489
+		},
+		{
+			"isin": "US1717793095",
+			"symbol": "CIEN",
+			"date_long": 1766703600000,
+			"open": 240.89999389648438,
+			"high": 242.50999450683595,
+			"low": 238.42999267578126,
+			"close": 241.67999267578126,
+			"adjClose": 241.67999267578126,
+			"currency": "USD",
+			"volume": 946900,
+			"dayCounter": 9491
+		},
+		{
+			"isin": "US7731211089",
+			"symbol": "RKLB",
+			"date_long": 1766530800000,
+			"open": 78.03500366210938,
+			"high": 79.83000183105469,
+			"low": 74.8010025024414,
+			"close": 77.18000030517578,
+			"adjClose": 77.18000030517578,
+			"currency": "USD",
+			"volume": 16720600,
+			"dayCounter": 9489
+		},
+		{
+			"isin": "US7731211089",
+			"symbol": "RKLB",
+			"date_long": 1766703600000,
+			"open": 76.68000030517578,
+			"high": 76.98999786376953,
+			"low": 70.38999938964844,
+			"close": 70.6500015258789,
+			"adjClose": 70.6500015258789,
+			"currency": "USD",
+			"volume": 22983300,
+			"dayCounter": 9491
+		}
+	]
+}

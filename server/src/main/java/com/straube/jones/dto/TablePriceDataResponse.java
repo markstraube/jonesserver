@@ -12,6 +12,9 @@ public class TablePriceDataResponse
     @JsonProperty("headers")
     private List<String> headers;
 
+    @JsonProperty("meta")
+    private MetaData meta;
+
     @JsonProperty("rows")
     private List<PriceTableRow> rows;
 
@@ -28,6 +31,7 @@ public class TablePriceDataResponse
                                "currency",
                                "volume",
                                "dayCounter");
+        this.meta = null;
         this.rows = new ArrayList<>();
     }
 
@@ -44,6 +48,18 @@ public class TablePriceDataResponse
     }
 
 
+    public MetaData getMeta()
+    {
+        return meta;
+    }
+
+
+    public void setMeta(MetaData meta)
+    {
+        this.meta = meta;
+    }
+
+
     public List<PriceTableRow> getRows()
     {
         return rows;
@@ -56,9 +72,29 @@ public class TablePriceDataResponse
     }
 
 
-    public void addRow(String isin, String symbol, Long dateLong, Double open, Double high, Double low, Double close, Double adjClose, String currency, Long volume, Integer dayCounter)
+    public void addRow(String isin,
+                       String symbol,
+                       Long dateLong,
+                       Double open,
+                       Double high,
+                       Double low,
+                       Double close,
+                       Double adjClose,
+                       String currency,
+                       Long volume,
+                       Integer dayCounter)
     {
-        rows.add(new PriceTableRow(isin, symbol, dateLong, open, high, low, close, adjClose, currency, volume, dayCounter));
+        rows.add(new PriceTableRow(isin,
+                                   symbol,
+                                   dateLong,
+                                   open,
+                                   high,
+                                   low,
+                                   close,
+                                   adjClose,
+                                   currency,
+                                   volume,
+                                   dayCounter));
     }
 
 
@@ -146,6 +182,45 @@ public class TablePriceDataResponse
         return data;
     }
 
+    public static class MetaData
+    {
+        @JsonProperty("minVolume")
+        private long minVolume;
+
+        @JsonProperty("maxVolume")
+        private long maxVolume;
+
+        public MetaData(long minVolume, long maxVolume)
+        {
+            this.minVolume = minVolume;
+            this.maxVolume = maxVolume;
+        }
+
+
+        public long getMinVolume()
+        {
+            return minVolume;
+        }
+
+
+        public void setMinVolume(long minVolume)
+        {
+            this.minVolume = minVolume;
+        }
+
+
+        public long getMaxVolume()
+        {
+            return maxVolume;
+        }
+
+
+        public void setMaxVolume(long maxVolume)
+        {
+            this.maxVolume = maxVolume;
+        }
+
+    }
     // Hilfsklasse um primitive Werte als Objekte zu verpacken
     public static class TableCell
     {
