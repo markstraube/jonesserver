@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.straube.jones.dataprovider.stocks.PricePointLoader;
 import com.straube.jones.dataprovider.stocks.StockItem;
 import com.straube.jones.dataprovider.stocks.StockPointLoader;
 import com.straube.jones.dataprovider.stocks.StocksLoader;
@@ -37,6 +38,7 @@ import com.straube.jones.dto.OnVistaReportResponse;
 import com.straube.jones.dto.ServiceInfoResponse;
 import com.straube.jones.dto.ShareSearchResponse;
 import com.straube.jones.dto.TableDataResponse;
+import com.straube.jones.dto.TablePriceDataResponse;
 import com.straube.jones.dto.UserPrefsResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -108,7 +110,7 @@ public class StocksController
 										@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
 										@RequestParam(value = "start_time", required = false)
 										Long start,
-										@Parameter(description = "Data type identifier (0=price data, 1=volume data, etc.). Defaults to 0 (price data).")
+										@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).")
 										@RequestParam(required = false)
 										Integer type)
 	{
@@ -123,6 +125,34 @@ public class StocksController
 
 		// TableData direkt laden und zurückgeben
 		return StockPointLoader.loadRaw(isin, start, type);
+	}
+
+
+		
+	@Operation(summary = "Get Historical Daily Stock Price Data and Volume", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
+	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock price data successfully retrieved in tabular format")})
+	@GetMapping(path = "/stock/prices", produces = "application/json")
+	public TablePriceDataResponse getPriceData(@Parameter(description = "List of Yahoo symbol codes or ISIN codes (International Securities Identification Numbers, e.g., ['US0378331005', 'DE0007164600'])")
+	@RequestParam
+	List<String> codes,
+										@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
+										@RequestParam(value = "start_time", required = false)
+										Long start,
+										@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).")
+										@RequestParam(required = false)
+										Integer type)
+	{
+		if (start == null)
+		{
+			start = System.currentTimeMillis() - 1 * 30 * 24 * 60 * 60 * 1000L; // ~1 Month back
+		}
+		if (type == null)
+		{
+			type = 0;
+		}
+
+		// TableData direkt laden und zurückgeben
+		return PricePointLoader.loadPrices(codes, start, type);
 	}
 
 

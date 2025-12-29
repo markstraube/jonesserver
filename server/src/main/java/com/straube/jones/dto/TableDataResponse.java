@@ -3,6 +3,8 @@ package com.straube.jones.dto;
 
 import java.util.List;
 import java.util.ArrayList;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TableDataResponse
@@ -74,7 +76,7 @@ public class TableDataResponse
         }
     }
 
-    @JsonProperty("data")
+    @JsonIgnore // Diese Annotation verhindert, dass 'data' im JSON erscheint
     public List<List<Object>> getData()
     {
         List<List<Object>> result = new ArrayList<>();

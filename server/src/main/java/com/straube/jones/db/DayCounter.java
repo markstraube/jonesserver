@@ -2,7 +2,9 @@ package com.straube.jones.db;
 
 
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 public class DayCounter
@@ -16,7 +18,7 @@ public class DayCounter
 
     public static long get(long timestamp)
     {
-        return get(LocalDate.ofEpochDay(timestamp));
+        return get(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate());
     }
 
 

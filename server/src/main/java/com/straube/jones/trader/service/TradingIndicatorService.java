@@ -785,7 +785,7 @@ public class TradingIndicatorService
      // Beispiel-Verwendung
     public static void main(String[] args)
     {
-        String symbol = "RKLB";        
+        String symbol = "CIEN";        
         
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
@@ -797,7 +797,7 @@ public class TradingIndicatorService
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
         TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
-        Report report = indicatorService.getReport(symbol, DayCounter.get("2025-12-12"));
+        Report report = indicatorService.getReport(symbol, DayCounter.get("2025-12-11"));
         System.out.println("Technischer Analyse-Report für " + symbol + ":\n" + report.toString());
     }
 }
