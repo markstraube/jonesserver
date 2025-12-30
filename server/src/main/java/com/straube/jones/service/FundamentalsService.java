@@ -120,16 +120,7 @@ public class FundamentalsService
         Optional<StockFundamentals> existing = repository.findByIsin(isin);
         if (!existing.isPresent())
         {
-            StockFundamentals fundamentals = StocksAgent.execute(isin);
-            if (fundamentals != null)
-            {
-                create(fundamentals);
-                return Optional.of(fundamentals);
-            }
-            else
-            {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
         else
         {
@@ -535,7 +526,7 @@ public class FundamentalsService
 
         try
         {
-           FundamentalsService fundamentalsService = new FundamentalsService();
+            FundamentalsService fundamentalsService = new FundamentalsService();
             StockSnapshot snapshot = fundamentalsService.getStockDataFromYahoo(symbol);
             System.out.println("Yahoo Analysis complete. Resulting Stock Snapshot:");
             System.out.println(snapshot.toString());

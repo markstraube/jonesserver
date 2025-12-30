@@ -1,12 +1,14 @@
 package com.straube.jones.trader.dto;
 
+
 import java.time.LocalDate;
 
 /**
  * Repräsentiert einen Handelstag einer Aktie.
  * Diese Daten kommen direkt von der Börse / Marktdaten-API.
  */
-public class DailyPrice {
+public class DailyPrice
+{
 
     /** Handelstag */
     private LocalDate date;
@@ -33,10 +35,12 @@ public class DailyPrice {
      */
     private double adjClose;
 
-    public DailyPrice() {
-    }
+    public DailyPrice()
+    {}
 
-    public DailyPrice(double open, double high, double low, double close, double adjClose, long volume) {
+
+    public DailyPrice(double open, double high, double low, double close, double adjClose, long volume)
+    {
         this.open = open;
         this.high = high;
         this.low = low;
@@ -45,59 +49,87 @@ public class DailyPrice {
         this.volume = volume;
     }
 
-    public LocalDate getDate() {
+
+    public LocalDate getDate()
+    {
         return date;
     }
 
-    public void setDate(LocalDate date) {
+
+    public void setDate(LocalDate date)
+    {
         this.date = date;
     }
 
-    public double getOpen() {
+
+    public double getOpen()
+    {
         return open;
     }
 
-    public void setOpen(double open) {
+
+    public void setOpen(double open)
+    {
         this.open = open;
     }
 
-    public double getHigh() {
+
+    public double getHigh()
+    {
         return high;
     }
 
-    public void setHigh(double high) {
+
+    public void setHigh(double high)
+    {
         this.high = high;
     }
 
-    public double getLow() {
+
+    public double getLow()
+    {
         return low;
     }
 
-    public void setLow(double low) {
+
+    public void setLow(double low)
+    {
         this.low = low;
     }
 
-    public double getClose() {
+
+    public double getClose()
+    {
         return close;
     }
 
-    public void setClose(double close) {
+
+    public void setClose(double close)
+    {
         this.close = close;
     }
 
-    public long getVolume() {
+
+    public long getVolume()
+    {
         return volume;
     }
 
-    public void setVolume(long volume) {
+
+    public void setVolume(long volume)
+    {
         this.volume = volume;
     }
 
-    public double getAdjClose() {
+
+    public double getAdjClose()
+    {
         return adjClose;
     }
 
-    public void setAdjClose(double adjClose) {
+
+    public void setAdjClose(double adjClose)
+    {
         this.adjClose = adjClose;
     }
 }

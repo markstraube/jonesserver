@@ -1,6 +1,8 @@
 package com.straube.jones.trader.dasboard;
 
-public class SupportSection {
+
+public class SupportSection
+{
 
     /** Unterstützungsniveau */
     private double supportLevel;
@@ -14,12 +16,50 @@ public class SupportSection {
     /** Erklärung */
     private String explanation;
 
-    public double getSupportLevel() { return supportLevel; }
-    public void setSupportLevel(double supportLevel) { this.supportLevel = supportLevel; }
-    public double getDistanceToSupportPercent() { return distanceToSupportPercent; }
-    public void setDistanceToSupportPercent(double distanceToSupportPercent) { this.distanceToSupportPercent = distanceToSupportPercent; }
-    public String getSupportType() { return supportType; }
-    public void setSupportType(String supportType) { this.supportType = supportType; }
-    public String getExplanation() { return explanation; }
-    public void setExplanation(String explanation) { this.explanation = explanation; }
+    public double getSupportLevel()
+    {
+        return supportLevel;
+    }
+
+
+    public void setSupportLevel(double supportLevel)
+    {
+        this.supportLevel = supportLevel;
+    }
+
+
+    public double getDistanceToSupportPercent()
+    {
+        return distanceToSupportPercent;
+    }
+
+
+    public void setDistanceToSupportPercent(double distanceToSupportPercent)
+    {
+        this.distanceToSupportPercent = distanceToSupportPercent;
+    }
+
+
+    public String getSupportType()
+    {
+        return supportType;
+    }
+
+
+    public void setSupportType(String supportType)
+    {
+        this.supportType = supportType;
+    }
+
+
+    public String getExplanation()
+    {
+        return explanation;
+    }
+
+
+    public void setExplanation(String explanation)
+    {
+        this.explanation = explanation;
+    }
 }
