@@ -46,9 +46,9 @@ public class MasterdataController
 
         try (Connection conn = DBConnection.getStocksConnection())
         {
-            // 1. Check tSymbols
+            // 1. Check tSelectedStocks for existing symbol
             // Using cIndex as per text instructions. If DB has cImdex, this will fail and need adjustment.
-            String selectSymbolSql = "SELECT cSymbol FROM tSymbols WHERE cIsin = ? AND cIndex = 1";
+            String selectSymbolSql = "SELECT cSymbol FROM tSelectedStocks WHERE cIsin = ? AND cIndex = 1";
             try (PreparedStatement ps = conn.prepareStatement(selectSymbolSql))
             {
                 ps.setString(1, isin);
@@ -68,8 +68,8 @@ public class MasterdataController
                 if (symbols.isEmpty())
                 { throw new RuntimeException("No symbol found for ISIN: " + isin); }
 
-                // Insert into tSymbols
-                String insertSql = "INSERT INTO tSymbols (cSymbol, cIsin, cIndex) VALUES (?, ?, ?)";
+                // Insert into tSelectedStocks
+                String insertSql = "INSERT INTO tSelectedStocks (cSymbol, cIsin, cIndex) VALUES (?, ?, ?)";
                 try (PreparedStatement psInsert = conn.prepareStatement(insertSql))
                 {
                     int idx = 1;

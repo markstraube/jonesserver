@@ -31,7 +31,7 @@ public class YahooPriceDownloader
         LocalDate startDate = endDate.minusDays(daysBack);
 
         try (Connection conn = DBConnection.getStocksConnection();
-                        PreparedStatement psSelect = conn.prepareStatement("SELECT cSymbol, cIsin FROM tSymbols"))
+                        PreparedStatement psSelect = conn.prepareStatement("SELECT cSymbol, cIsin FROM tSelectedStocks"))
         {
             ResultSet rs = psSelect.executeQuery();
             while (rs.next())

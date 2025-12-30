@@ -356,10 +356,11 @@ public class OnVistaCollector
 			for (int i = 1; i < model.size(); i++ )
 			{
 				Column c = model.get(i);
-				if (!"cIsin".equalsIgnoreCase(c.colName))
+				if ("cIsin".equalsIgnoreCase(c.colName) || "cSymbol".equalsIgnoreCase(c.colName))
 				{
-					updateSql.append(c.colName).append("=?,");
+					continue;
 				}
+				updateSql.append(c.colName).append("=?,");
 			}
 			updateSql.deleteCharAt(updateSql.length() - 1);
 			updateSql.append(" WHERE cIsin=?");
@@ -527,7 +528,6 @@ public class OnVistaCollector
 
 			int idx = 1;
 			stmnt.setString(idx++ , String.valueOf(params.get(1))); // cName
-			stmnt.setString(idx++ , String.valueOf(params.get(0))); // cSymbol
 			stmnt.setString(idx++ , String.valueOf(params.get(2))); // cBranch
 			stmnt.setString(idx++ , String.valueOf(params.get(3))); // cSector
 			stmnt.setString(idx++ , String.valueOf(params.get(4))); // cCountryCode
