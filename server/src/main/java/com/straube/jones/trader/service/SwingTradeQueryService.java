@@ -61,6 +61,10 @@ public class SwingTradeQueryService
         for (String symbol : symbols)
         {
             List<DailyPrice> prices = marketDataService.getMarketData(symbol);
+            if (prices.isEmpty() || prices.size() < 50)
+            {                
+                continue;
+            }
             SwingTradeCandidate candidate = candidateBuilder.build(symbol, prices, config);
 
             // Enrich with events

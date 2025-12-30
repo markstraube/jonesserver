@@ -1,0 +1,42 @@
+    "/api/masterdata/company": {
+      "post": {
+        "tags": [
+          "Masterdata API"
+        ],
+        "summary": "Create or Update Company Master Data",
+        "description": "**Use Case:** Ensures that a company exists in the master data and its price data is initialized. **Logic:** Checks if the ISIN exists in `tSymbols`. If not, resolves the symbol via Yahoo Finance, downloads historical prices, and imports them. Finally, updates or creates the company record in `tCompany` based on the downloaded metadata. **Returns:** The updated company master data.",
+        "operationId": "company",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "500": {
+            "description": "Internal server error, e.g., if symbol resolution fails or database error occurs",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Company data successfully created or updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
