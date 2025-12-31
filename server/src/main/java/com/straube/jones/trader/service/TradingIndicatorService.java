@@ -712,6 +712,7 @@ public class TradingIndicatorService
             analyses.add(new ReportEntry(name, config, result));
         }
 
+
         @Override
         public String toString()
         {
@@ -728,10 +729,11 @@ public class TradingIndicatorService
         }
     }
 
-        public Report getReport(String symbol)
+    public Report getReport(String symbol)
     {
         return getReport(symbol, DayCounter.now());
     }
+
 
     public Report getReport(String symbol, long fromDayCounterDesc)
     {
@@ -782,11 +784,11 @@ public class TradingIndicatorService
     }
 
 
-     // Beispiel-Verwendung
+    // Beispiel-Verwendung
     public static void main(String[] args)
     {
-        String symbol = "CIEN";        
-        
+        String symbol = "CIEN";
+
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
         dataSource.setUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");

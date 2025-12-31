@@ -7,6 +7,7 @@ import com.straube.jones.trader.dto.TradingAnalysisResult;
 import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.trader.service.SwingTradeQueryService;
 import com.straube.jones.trader.service.TradingIndicatorService;
+import com.straube.jones.db.DayCounter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -79,9 +80,13 @@ public class SwingTradeController
     @ApiResponse(responseCode = "404", description = "Symbol nicht gefunden oder keine Daten verfügbar")
     public ResponseEntity<TradingIndicatorService.Report> getReport(@Parameter(description = "Aktiensymbol (z. B. AAPL)", required = true)
     @RequestParam
-    String symbol)
+    String symbol,
+    @Parameter(description = "Optionaler Endzeitpunkt (Timestamp in ms) für die Analyse", required = false)
+    @RequestParam(required = false)
+    Long endTime)
     {
-        TradingIndicatorService.Report report = indicatorService.getReport(symbol);
+        long day = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
+        TradingIndicatorService.Report report = indicatorService.getReport(symbol, day);
         if (report == null)
         { return ResponseEntity.notFound().build(); }
         return ResponseEntity.ok(report);

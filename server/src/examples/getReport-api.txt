@@ -1,0 +1,53 @@
+ "/api/swing-trades/report": {
+      "get": {
+        "tags": [
+          "Swing Trading API"
+        ],
+        "summary": "Technischen Analyse-Report abrufen",
+        "description": "Erstellt einen detaillierten technischen Analyse-Report mit verschiedenen Konfigurationen (Standard, Kurzfristig, Langfristig).",
+        "operationId": "getReport",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Aktiensymbol (z. B. AAPL)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "description": "Optionaler Endzeitpunkt (Timestamp in ms) für die Analyse",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Symbol nicht gefunden oder keine Daten verfügbar",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Report erfolgreich erstellt",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
