@@ -108,13 +108,13 @@ public class PricePointLoader
                         Double base = normalizationValues.get(isin);
                         if (base == null)
                         {
-                            if (open == 0.0d)
+                            if (adjClose == 0.0d)
                             {
                                 // Skip rows until we find the first non-zero price to normalize against
                                 continue;
                             }
-                            normalizationValues.put(isin, open);
-                            base = open;
+                            normalizationValues.put(isin, adjClose);
+                            base = adjClose;
                         }
 
                         if (base != 0.0d)
