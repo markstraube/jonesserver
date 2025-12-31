@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.trader.dto.DailyPrice;
 
@@ -735,8 +736,9 @@ public class TradingIndicatorService
     }
 
 
-    public Report getReport(String symbol, long fromDayCounterDesc)
+    public Report getReport(String code, long fromDayCounterDesc)
     {
+        String symbol = SymbolResolver.resolveCode(code);
         List<DailyPrice> prices = marketDataService.getMarketData(symbol, fromDayCounterDesc);
 
         if (prices.isEmpty())

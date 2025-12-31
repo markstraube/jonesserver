@@ -42,93 +42,23 @@ public class MasterdataController
         throws Exception
     {
         String isin = request.getIsin();
-        String symbol = null;
+        String symbol = SymbolResolver.resolveCode(isin);
 
-        try (Connection conn = DBConnection.getStocksConnection())
-        {
-            // 1. Check tSelectedStocks for existing symbol
-            // Using cIndex as per text instructions. If DB has cImdex, this will fail and need adjustment.
-            String selectSymbolSql = "SELECT cSymbol FROM tSelectedStocks WHERE cIsin = ? AND cIndex = 1";
-            try (PreparedStatement ps = conn.prepareStatement(selectSymbolSql))
-            {
-                ps.setString(1, isin);
-                try (ResultSet rs = ps.executeQuery())
-                {
-                    if (rs.next())
-                    {
-                        symbol = rs.getString("cSymbol");
-                    }
-                }
-            }
+        String path = System.getProperty("user.home") + "/Software/data/yahoo/prices/" + symbol;
 
-            if (symbol == null)
-            {
-                // Not found
-                List<String> symbols = SymbolResolver.getCodeForISIN(isin);
-                if (symbols.isEmpty())
-                { throw new RuntimeException("No symbol found for ISIN: " + isin); }
+        YahooPriceDownloader.fetchPrices(365, path, symbol, isin);
+        YahooPriceImporter importer = new YahooPriceImporter();
+        importer.uploadPriceData(path);
 
-                // Insert into tSelectedStocks
-                String insertSql = "INSERT INTO tSelectedStocks (cSymbol, cIsin, cIndex) VALUES (?, ?, ?)";
-                try (PreparedStatement psInsert = conn.prepareStatement(insertSql))
-                {
-                    int idx = 1;
-                    for (String s : symbols)
-                    {
-                        psInsert.setString(1, s);
-                        psInsert.setString(2, isin);
-                        psInsert.setInt(3, idx++ );
-                        try
-                        {
-                            psInsert.executeUpdate();
-                        }
-                        catch (SQLException e)
-                        {
-                            // Ignore if exists, or log
-                            System.err.println("Failed to insert symbol " + s + ": " + e.getMessage());
-                        }
-                    }
-                }
-
-                // Download and Import for each symbol
-                for (String s : symbols)
-                {
-                    String path = System.getProperty("user.home") + "/Software/data/yahoo/prices/" + s;
-                    // Ensure directory exists (YahooPriceDownloader does this, but good to be sure)
-
-                    YahooPriceDownloader.fetchPrices(365, path, s, isin);
-
-                    YahooPriceImporter importer = new YahooPriceImporter();
-                    importer.uploadPriceData(path);
-                }
-
-                // Use the first symbol (index 1)
-                symbol = symbols.get(0);
-            }
-            else
-            {
-                // If symbol was found, we still need to ensure tCompany is updated as per instructions
-                // "Implementiere dann ein Funktion..."
-                // We call uploadPriceData which handles the update from JSON.
-                // Note: If the file doesn't exist (because we didn't download), this won't do anything.
-                String path = System.getProperty("user.home") + "/Software/data/yahoo/prices/" + symbol;
-                YahooPriceImporter importer = new YahooPriceImporter();
-                importer.uploadPriceData(path);
-            }
-
-            conn.commit(); // Commit any changes made by importer if it didn't commit itself (it does commit itself)
-
-            // Return the current record from tCompany
-            return getCompany(conn, symbol);
-        }
+        // Return the current record from tCompany
+        return getCompany(symbol);
     }
 
-
-    private CompanyResponse getCompany(Connection conn, String symbol)
+    private CompanyResponse getCompany(String symbol)
         throws SQLException
     {
         String sql = "SELECT * FROM tCompany WHERE cSymbol = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql))
+        try (Connection conn = DBConnection.getStocksConnection(); PreparedStatement ps = conn.prepareStatement(sql))
         {
             ps.setString(1, symbol);
             try (ResultSet rs = ps.executeQuery())
