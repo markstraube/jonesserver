@@ -1,0 +1,43 @@
+"/api/swing-trades/{symbol}/analyze": {
+      "get": {
+        "tags": [
+          "Swing Trading API"
+        ],
+        "summary": "Detaillierte AI-Analyse erstellen",
+        "description": "Erstellt einen technischen Report basierend auf Indikatoren und lässt diesen vom AI Agent analysieren. Das Ergebnis ist ein strukturierter JSON-Bericht mit Handlungsempfehlungen.",
+        "operationId": "analyzeReport",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "description": "Symbol der Aktie (z.B. US0378331005)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Symbol nicht gefunden oder keine Daten verfügbar",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradingAnalysisResult"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Erfolgreiche Analyse",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradingAnalysisResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    }

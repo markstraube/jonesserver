@@ -3,6 +3,8 @@ package com.straube.jones.controller;
 
 import com.straube.jones.trader.dto.SwingTradeDetailDto;
 import com.straube.jones.trader.dto.SwingTradeOverviewDto;
+import com.straube.jones.trader.dto.TradingAnalysisResult;
+import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.trader.service.SwingTradeQueryService;
 import com.straube.jones.trader.service.TradingIndicatorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.io.File;
+import java.io.IOException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +30,8 @@ import java.util.Map;
 public class SwingTradeController
 {
 
+    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
+                                                                      "/home/mark/Software/data");
     private final SwingTradeQueryService queryService;
     private final TradingIndicatorService indicatorService;
 
@@ -85,5 +93,61 @@ public class SwingTradeController
     public ResponseEntity<Map<String, Object>> health()
     {
         return ResponseEntity.ok(Map.of("status", "UP", "timestamp", LocalDateTime.now().toString()));
+    }
+
+
+    @GetMapping("/{symbol}/analyze")
+    @Operation(summary = "Detaillierte AI-Analyse erstellen", description = "Erstellt einen technischen Report basierend auf Indikatoren und lässt diesen vom AI Agent analysieren. Das Ergebnis ist ein strukturierter JSON-Bericht mit Handlungsempfehlungen.")
+    @ApiResponse(responseCode = "200", description = "Erfolgreiche Analyse", content = @Content(schema = @Schema(implementation = TradingAnalysisResult.class)))
+    @ApiResponse(responseCode = "404", description = "Symbol nicht gefunden oder keine Daten verfügbar")
+    public ResponseEntity<TradingAnalysisResult> analyzeReport(@Parameter(description = "Symbol der Aktie (z.B. US0378331005)", required = true)
+    @PathVariable
+    String symbol)
+    {
+        // Cache Logic
+        String dateStr = LocalDate.now().toString();
+        String filename = symbol + "-" + dateStr + ".json";
+        File cacheDir = new File(DATA_ROOT_FOLDER, "cache");
+        if (!cacheDir.exists())
+        {
+            cacheDir.mkdirs();
+        }
+        File cacheFile = new File(cacheDir, filename);
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        if (cacheFile.exists())
+        {
+            try
+            {
+                TradingAnalysisResult cachedResult = mapper.readValue(cacheFile, TradingAnalysisResult.class);
+                return ResponseEntity.ok(cachedResult);
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
+        // 1. Erstelle den technischen Report mit Indikatoren
+        TradingIndicatorService.Report report = indicatorService.getReport(symbol);
+
+        if (report == null)
+        { return ResponseEntity.notFound().build(); }
+
+        // 2. Lasse den Report vom AI Agent analysieren
+        TradingAnalysisResult result = StocksAgent.analyzeReport(report);
+
+        // Save to cache
+        try
+        {
+            mapper.writerWithDefaultPrettyPrinter().writeValue(cacheFile, result);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
+        return ResponseEntity.ok(result);
     }
 }
