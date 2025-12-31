@@ -1,6 +1,7 @@
 package com.straube.jones.trader.service;
 
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -688,11 +689,19 @@ public class TradingIndicatorService
     public static class Report
     {
         private String symbol;
+        private LocalDate date;
         private List<ReportEntry> analyses = new ArrayList<>();
 
-        public Report(String symbol)
+        public Report(String symbol, LocalDate date)
         {
             this.symbol = symbol;
+            this.date = date;
+        }
+
+
+        public LocalDate getDate()
+        {
+            return date;
         }
 
 
@@ -746,8 +755,8 @@ public class TradingIndicatorService
             logger.error("No prices found for symbol: " + symbol);
             return null;
         }
-
-        Report report = new Report(symbol);
+        LocalDate localDate = prices.get(0).getDate();
+        Report report = new Report(symbol, localDate);
 
         // Beispiel 1: Standard-Konfiguration verwenden
         logger.info("=== STANDARD-KONFIGURATION ===");
