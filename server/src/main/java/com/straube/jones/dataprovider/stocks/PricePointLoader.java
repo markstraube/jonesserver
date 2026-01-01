@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
@@ -34,11 +35,12 @@ public class PricePointLoader
     }
 
 
-    public static TablePriceDataResponse loadPrices(List<String> codes, long start, int type)
+    public static TablePriceDataResponse loadPrices(List<String> codes, long start, long end, int type)
     {
         TablePriceDataResponse data = new TablePriceDataResponse();
         long minVolume = Long.MAX_VALUE;
         long maxVolume = 0;
+        long averageVolume = 0;
 
         if (codes == null || codes.isEmpty())
         { return data; }
@@ -67,16 +69,20 @@ public class PricePointLoader
                         + codesString
                         + ") OR cSymbol IN ("
                         + codesString
-                        + ")) AND cDayCounter >= ? ORDER BY cIsin, cDayCounter ASC";
-
+                        + ")) AND cDayCounter >= ? AND cDayCounter <= ? ORDER BY cIsin, cDayCounter "
+                        + (type == 1 ? "ASC" : "DESC");
+    
         Map<String, Double> normalizationValues = (type == 1) ? new HashMap<>() : null;
 
+        AtomicInteger rowCounter = new AtomicInteger(0);
         try (Connection connection = DBConnection.getStocksConnection();
                         PreparedStatement ps = connection.prepareStatement(query))
         {
             // Parameter setzen
             int paramIndex = 1;
             ps.setLong(paramIndex, DayCounter.get(start));
+            paramIndex++;
+            ps.setLong(paramIndex, DayCounter.get(end));
             // Query ausführen
             try (ResultSet rs = ps.executeQuery())
             {
@@ -137,6 +143,8 @@ public class PricePointLoader
                                 currency,
                                 volume,
                                 dayCounter);
+                    rowCounter.incrementAndGet();
+                    averageVolume += volume;
                 }
             }
         }
@@ -148,8 +156,13 @@ public class PricePointLoader
         {
             minVolume = 0;
             maxVolume = 0;
+            averageVolume = 0;
         }
-        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume));
+        else if (rowCounter.get() > 0)
+        {
+            averageVolume = averageVolume / rowCounter.get();
+        }
+        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume, averageVolume));
         return data;
     }
 }

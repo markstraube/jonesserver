@@ -190,12 +190,24 @@ public class TablePriceDataResponse
         @JsonProperty("maxVolume")
         private long maxVolume;
 
-        public MetaData(long minVolume, long maxVolume)
+        @JsonProperty("averageVolume")
+        private long averageVolume;
+        public MetaData(long minVolume, long maxVolume, long averageVolume)
         {
             this.minVolume = minVolume;
             this.maxVolume = maxVolume;
+            this.averageVolume = averageVolume; 
         }
 
+        public long getAverageVolume()
+        {
+            return averageVolume;
+        }   
+
+        public void setAverageVolume(long averageVolume)
+        {
+            this.averageVolume = averageVolume;
+        }   
 
         public long getMinVolume()
         {

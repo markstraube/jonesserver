@@ -138,6 +138,9 @@ public class StocksController
 										@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
 										@RequestParam(value = "start_time", required = false)
 										Long start,
+										@Parameter(description = "End timestamp in milliseconds (Unix epoch time). Defaults to current time for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
+										@RequestParam(value = "end_time", required = false)
+										Long end,
 										@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).")
 										@RequestParam(required = false)
 										Integer type)
@@ -146,13 +149,17 @@ public class StocksController
 		{
 			start = System.currentTimeMillis() - 1 * 30 * 24 * 60 * 60 * 1000L; // ~1 Month back
 		}
+		if (end == null)
+		{
+			end = System.currentTimeMillis(); // Current time
+		}
 		if (type == null)
 		{
 			type = 0;
 		}
 
 		// TableData direkt laden und zurückgeben
-		return PricePointLoader.loadPrices(codes, start, type);
+		return PricePointLoader.loadPrices(codes, start, end, type);
 	}
 
 
