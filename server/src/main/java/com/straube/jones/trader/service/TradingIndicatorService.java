@@ -893,7 +893,7 @@ public class TradingIndicatorService
     }
 
 
-    public static void main(String[] args)
+    public static void main2(String[] args)
     {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
@@ -915,9 +915,9 @@ public class TradingIndicatorService
     }   
 
     // Beispiel-Verwendung
-    public static void main0(String[] args)
+    public static void main(String[] args)
     {
-        String symbol = "CIEN";
+        String symbol = "TSLA";
 
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
@@ -929,7 +929,7 @@ public class TradingIndicatorService
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
         TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, null);
-        Report report = indicatorService.getReport(symbol, DayCounter.get("2025-12-11"));
+        Report report = indicatorService.getReport(symbol, DayCounter.now());
         System.out.println("Technischer Analyse-Report für " + symbol + ":\n" + report.toString());
     }
 
@@ -937,7 +937,7 @@ public class TradingIndicatorService
     // Beispiel-Verwendung
     public static void main1(String[] args)
     {
-        String symbol = "RKLB";
+        String symbol = "TSLA";
         File analysisFolder = new File(ANALYSIS_ROOT_FOLDER);
         analysisFolder.mkdirs();
 
