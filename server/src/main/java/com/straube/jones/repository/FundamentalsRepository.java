@@ -11,9 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.model.StockFundamentals;
-import com.straube.jones.service.FundamentalsService;
 
 /**
  * Repository für Fundamentaldaten von Aktien.

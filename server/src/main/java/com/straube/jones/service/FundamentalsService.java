@@ -2,18 +2,17 @@ package com.straube.jones.service;
 
 
 import java.io.IOException;
-import java.util.Optional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.dto.StockSnapshot;
 import com.straube.jones.model.StockFundamentals;
 import com.straube.jones.repository.FundamentalsRepository;

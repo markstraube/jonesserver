@@ -32,7 +32,7 @@ public class MarketDataService
 
     public List<DailyPrice> getMarketData(String symbol, long fromDayCounterDesc)
     {
-        String sql = "SELECT cDate, cOpen, cHigh, cLow, cClose, cAdjClose, cVolume FROM tPriceData WHERE cSymbol = ? and cDayCounter < ? ORDER BY cDayCounter DESC";
+        String sql = "SELECT cDate, cOpen, cHigh, cLow, cClose, cAdjClose, cVolume FROM tPriceData WHERE cSymbol = ? and cDayCounter <= ? ORDER BY cDayCounter DESC";
         return jdbcTemplate.query(sql, new RowMapper<DailyPrice>()
         {
             @Override

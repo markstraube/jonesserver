@@ -1,6 +1,7 @@
 package com.straube.jones.trader.service;
 
 
+import java.io.File;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,10 @@ import com.straube.jones.trader.dto.DailyPrice;
 @Service
 public class TradingIndicatorService
 {
+    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
+                                                                      "/home/mark/Software/data");
+
+    private static final String ANALYSIS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/analysis";
     private static final Logger logger = LoggerFactory.getLogger(TradingIndicatorService.class);
 
     private final MarketDataService marketDataService;
@@ -689,17 +694,17 @@ public class TradingIndicatorService
     public static class Report
     {
         private String symbol;
-        private LocalDate date;
+        private String date;
         private List<ReportEntry> analyses = new ArrayList<>();
 
-        public Report(String symbol, LocalDate date)
+        public Report(String symbol, String date)
         {
             this.symbol = symbol;
             this.date = date;
         }
 
 
-        public LocalDate getDate()
+        public String getDate()
         {
             return date;
         }
@@ -755,7 +760,7 @@ public class TradingIndicatorService
             logger.error("No prices found for symbol: " + symbol);
             return null;
         }
-        LocalDate localDate = prices.get(0).getDate();
+        String localDate = prices.get(0).getDate().toString();
         Report report = new Report(symbol, localDate);
 
         // Beispiel 1: Standard-Konfiguration verwenden
@@ -796,7 +801,7 @@ public class TradingIndicatorService
 
 
     // Beispiel-Verwendung
-    public static void main(String[] args)
+    public static void main0(String[] args)
     {
         String symbol = "CIEN";
 
@@ -813,4 +818,55 @@ public class TradingIndicatorService
         Report report = indicatorService.getReport(symbol, DayCounter.get("2025-12-11"));
         System.out.println("Technischer Analyse-Report für " + symbol + ":\n" + report.toString());
     }
+
+
+    // Beispiel-Verwendung
+    public static void main(String[] args)
+    {
+        String symbol = "RKLB";
+        File analysisFolder = new File(ANALYSIS_ROOT_FOLDER);
+        analysisFolder.mkdirs();
+
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
+        dataSource.setUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
+        dataSource.setUsername("stocksdb");
+        dataSource.setPassword("stocksdb");
+
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
+
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
+        Long today = DayCounter.get(LocalDate.now());
+        for (int i = 0; i < 300; i++ )
+        {
+            long day = today - i;
+            Report report = indicatorService.getReport(symbol, day);
+            if (report != null && DayCounter.get(report.getDate()) == day)
+            {
+                String filename = String.format("%s/%s_%s_analysis.json",
+                                                ANALYSIS_ROOT_FOLDER,
+                                                symbol,
+                                                report.getDate());
+                File f = new File(filename);
+                if (f.exists())
+                {
+                    System.out.println("Analysis report already exists: " + filename + " - aborting loop" );
+                    break;
+                }
+                try
+                {
+                    ObjectMapper mapper = new ObjectMapper();
+                    mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                    mapper.writeValue(f, report);
+                    System.out.println("Analysis report saved to: " + filename);
+                }
+                catch (Exception e)
+                {
+                    System.err.println("Error saving analysis report: " + e.getMessage());
+                }
+            }
+        }
+    }
+
 }
