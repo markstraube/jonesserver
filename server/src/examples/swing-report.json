@@ -1,77 +1,74 @@
 {
-  "symbol": "MU",
-  "analyses": [
-    {
-      "name": "Standard Configuration",
-      "config": {
-        "rsiPeriod": 14,
-        "emaShortPeriod": 12,
-        "emaLongPeriod": 26,
-        "macdSignalPeriod": 9,
-        "bollingerPeriod": 20,
-        "bollingerStdDev": 2,
-        "volumePeriod": 20
-      },
-      "result": {
-        "signal": "HOLD",
-        "rsi": 69.4091097248513,
-        "macdValue": 14.859983557370555,
-        "macdSignal": 11.887986845896444,
-        "upperBB": 294.7279741697627,
-        "middleBB": 253.46649932861328,
-        "lowerBB": 212.20502448746385,
-        "currentPrice": 294.3699951171875,
-        "highVolume": false,
-        "reason": "RSI hoch (>60), MACD stark bullisch, Preis nahe oberem Bollinger Band"
-      }
+  "symbol" : "TSLA",
+  "date" : "2025-12-31",
+  "analyses" : [ {
+    "name" : "Short Term Configuration",
+    "config" : {
+      "rsiPeriod" : 9,
+      "emaShortPeriod" : 8,
+      "emaLongPeriod" : 17,
+      "macdSignalPeriod" : 9,
+      "bollingerPeriod" : 15,
+      "bollingerStdDev" : 2.0,
+      "volumePeriod" : 15
     },
-    {
-      "name": "Short Term Configuration",
-      "config": {
-        "rsiPeriod": 9,
-        "emaShortPeriod": 8,
-        "emaLongPeriod": 17,
-        "macdSignalPeriod": 9,
-        "bollingerPeriod": 15,
-        "bollingerStdDev": 2,
-        "volumePeriod": 15
-      },
-      "result": {
-        "signal": "SELL",
-        "rsi": 74.27810357004499,
-        "macdValue": 13.670592732972523,
-        "macdSignal": 10.93647418637802,
-        "upperBB": 300.2806870825225,
-        "middleBB": 259.42333170572914,
-        "lowerBB": 218.56597632893576,
-        "currentPrice": 294.3699951171875,
-        "highVolume": false,
-        "reason": "RSI überkauft (>70), MACD stark bullisch, Preis nahe oberem Bollinger Band"
-      }
-    },
-    {
-      "name": "Long Term Configuration",
-      "config": {
-        "rsiPeriod": 21,
-        "emaShortPeriod": 20,
-        "emaLongPeriod": 50,
-        "macdSignalPeriod": 9,
-        "bollingerPeriod": 30,
-        "bollingerStdDev": 2,
-        "volumePeriod": 30
-      },
-      "result": {
-        "signal": "HOLD",
-        "rsi": 66.54993919305211,
-        "macdValue": 23.60232571876901,
-        "macdSignal": 18.881860575015207,
-        "upperBB": 289.36185910918016,
-        "middleBB": 244.5489985148112,
-        "lowerBB": 199.73613792044222,
-        "currentPrice": 294.3699951171875,
-        "highVolume": false,
-        "reason": "RSI hoch (>60), MACD stark bullisch, Preis nahe oberem Bollinger Band"
-      }
+    "result" : {
+      "signal" : "BUY",
+      "rsi" : 40.04817065670529,
+      "macdValue" : 1.983888670639999,
+      "macdSignal" : 1.5871109365119993,
+      "upperBB" : 500.0997494003035,
+      "middleBB" : 470.1993367513021,
+      "lowerBB" : 440.2989241023007,
+      "currentPrice" : 449.7200012207031,
+      "highVolume" : false,
+      "reason" : "MACD bullisch, Preis nahe unterem Bollinger Band"
     }
-  ]
+  }, {
+    "name" : "Mid Term Configuration",
+    "config" : {
+      "rsiPeriod" : 14,
+      "emaShortPeriod" : 12,
+      "emaLongPeriod" : 26,
+      "macdSignalPeriod" : 9,
+      "bollingerPeriod" : 20,
+      "bollingerStdDev" : 2.0,
+      "volumePeriod" : 20
+    },
+    "result" : {
+      "signal" : "BUY",
+      "rsi" : 46.70470508249252,
+      "macdValue" : 7.636867661171152,
+      "macdSignal" : 6.109494128936922,
+      "upperBB" : 497.37705914135137,
+      "middleBB" : 464.7005020141602,
+      "lowerBB" : 432.023944886969,
+      "currentPrice" : 449.7200012207031,
+      "highVolume" : false,
+      "reason" : "MACD stark bullisch, Preis im unteren Bereich"
+    }
+  }, {
+    "name" : "Long Term Configuration",
+    "config" : {
+      "rsiPeriod" : 21,
+      "emaShortPeriod" : 20,
+      "emaLongPeriod" : 50,
+      "macdSignalPeriod" : 9,
+      "bollingerPeriod" : 30,
+      "bollingerStdDev" : 2.0,
+      "volumePeriod" : 30
+    },
+    "result" : {
+      "signal" : "BUY",
+      "rsi" : 49.97899232926466,
+      "macdValue" : 16.381524616547267,
+      "macdSignal" : 13.105219693237814,
+      "upperBB" : 504.8152203518085,
+      "middleBB" : 447.96266784667966,
+      "lowerBB" : 391.11011534155085,
+      "currentPrice" : 449.7200012207031,
+      "highVolume" : false,
+      "reason" : "MACD stark bullisch"
+    }
+  } ]
 }

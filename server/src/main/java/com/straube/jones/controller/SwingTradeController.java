@@ -5,10 +5,16 @@ import com.straube.jones.trader.dto.SwingTradeDetailDto;
 import com.straube.jones.trader.dto.SwingTradeOverviewDto;
 import com.straube.jones.trader.dto.RatingDto;
 import com.straube.jones.trader.dto.TradingAnalysisResult;
+import com.straube.jones.trader.dto.RSI30PredictionDto;
+import com.straube.jones.trader.dto.HistoricalAnalysisDto;
+import com.straube.jones.trader.dto.BuyPriceTargetsDto;
+import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.trader.service.SwingTradeQueryService;
 import com.straube.jones.trader.service.TradingIndicatorService;
 import com.straube.jones.trader.service.RatingService;
+import com.straube.jones.trader.service.MarketDataService;
+import com.straube.jones.trader.service.RSIPrediction2;
 import com.straube.jones.db.DayCounter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,12 +44,17 @@ public class SwingTradeController
     private final SwingTradeQueryService queryService;
     private final TradingIndicatorService indicatorService;
     private final RatingService ratingService;
+    private final MarketDataService marketDataService;
 
-    public SwingTradeController(SwingTradeQueryService queryService, TradingIndicatorService indicatorService, RatingService ratingService)
+    public SwingTradeController(SwingTradeQueryService queryService, 
+                               TradingIndicatorService indicatorService, 
+                               RatingService ratingService,
+                               MarketDataService marketDataService)
     {
         this.queryService = queryService;
         this.indicatorService = indicatorService;
         this.ratingService = ratingService;
+        this.marketDataService = marketDataService;
     }
 
 
@@ -169,5 +180,133 @@ public class SwingTradeController
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/prediction/rsi30")
+    @Operation(
+        summary = "RSI30 Vorhersage abrufen",
+        description = "Analysiert die Wahrscheinlichkeit, dass der RSI-Wert einer Aktie innerhalb der nächsten 30 Tage unter 30 fällt. " +
+                      "Die Analyse basiert auf historischen Preisdaten der letzten 60 Tage und technischen Indikatoren. " +
+                      "Die Methode liefert:\n" +
+                      "- **Wahrscheinlichkeitseinschätzung**: Prozentuale Wahrscheinlichkeit für RSI < 30\n" +
+                      "- **Analysefaktoren**: Detaillierte Aufschlüsselung der berücksichtigten Faktoren (RSI-Abstand, MACD, Bollinger Bands, Volatilität, Verlust-Serien, Trends)\n" +
+                      "- **Historische Analyse**: Volatilität, Drawdowns, Verlusttage der letzten 30 Tage\n" +
+                      "- **Kaufpreis-Ziele**: Geschätzte Zielpreise für verschiedene Zeithorizonte (5, 10, 20, 30 Tage)\n\n" +
+                      "**Verwendung:**\n" +
+                      "- `end_time` definiert den Analysezeitpunkt (in der Regel aktueller Zeitpunkt oder ein Datum in der Vergangenheit)\n" +
+                      "- Das System ermittelt automatisch den optimalen Start-Zeitpunkt für die Datenabfrage (60 Handelstage zurück)\n" +
+                      "- Mindestens 35 Handelstage an Preisdaten werden für eine zuverlässige Analyse benötigt"
+    )
+    @ApiResponse(
+        responseCode = "200",
+        description = "RSI30 Vorhersage erfolgreich erstellt",
+        content = @Content(schema = @Schema(implementation = RSI30PredictionDto.class))
+    )
+    @ApiResponse(
+        responseCode = "404",
+        description = "Symbol nicht gefunden oder nicht genügend historische Daten verfügbar"
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Ungültige Parameter"
+    )
+    public ResponseEntity<RSI30PredictionDto> getRSI30Prediction(
+        @Parameter(
+            description = "Aktiensymbol (Yahoo Finance Identifier, z.B. TSLA, AAPL, MSFT)",
+            required = true,
+            example = "TSLA"
+        )
+        @RequestParam String symbol,
+        
+        @Parameter(
+            description = "Endzeitpunkt für die Analyse als Java Timestamp in Millisekunden. " +
+                         "Die Analyse verwendet Daten bis zu diesem Zeitpunkt. " +
+                         "Wenn nicht angegeben, wird der aktuelle Zeitpunkt verwendet.",
+            required = false,
+            example = "1735689600000"
+        )
+        @RequestParam(required = false) Long endTime
+    )
+    {
+        // 1. Bestimme den Endzeitpunkt
+        long endDayCounter = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
+        
+        // 2. Erstelle technischen Report für den Analysezeitpunkt
+        // Hinweis: Der Report benötigt mindestens 60 Handelstage an Daten für zuverlässige Indikator-Berechnungen
+        TradingIndicatorService.Report report = indicatorService.getReport(symbol, endDayCounter);
+        
+        if (report == null)
+        {
+            return ResponseEntity.notFound().build();
+        }
+        
+        // 3. Hole historische Preisdaten
+        List<DailyPrice> prices = marketDataService.getMarketData(symbol, endDayCounter);
+        
+        if (prices == null || prices.size() < 35)
+        {
+            // Nicht genug Daten für eine verlässliche Analyse
+            return ResponseEntity.notFound().build();
+        }
+        
+        // 4. Führe RSI30-Vorhersage durch
+        RSIPrediction2.RSI30Probability probability = RSIPrediction2.estimateRSI30Probability(report, prices);
+        RSIPrediction2.BuyPriceTargets buyTargets = RSIPrediction2.calculateBuyPriceTargets(report, prices);
+        
+        // 5. Konvertiere in DTO
+        RSI30PredictionDto predictionDto = new RSI30PredictionDto();
+        predictionDto.setSymbol(symbol);
+        predictionDto.setTimestamp(endTime != null ? endTime : System.currentTimeMillis());
+        
+        // Extrahiere aktuelle Werte aus dem Report (Mid-Term Analyse)
+        TradingIndicatorService.Analysis midTermAnalysis = null;
+        for (TradingIndicatorService.ReportEntry entry : report.getAnalyses())
+        {
+            if (entry.getName().contains("Mid Term"))
+            {
+                midTermAnalysis = entry.getResult();
+                break;
+            }
+        }
+        
+        if (midTermAnalysis != null)
+        {
+            predictionDto.setCurrentPrice(midTermAnalysis.getCurrentPrice());
+            predictionDto.setCurrentRsi(midTermAnalysis.getRsi());
+        }
+        
+        // Setze Wahrscheinlichkeits-Daten
+        predictionDto.setProbabilityPercent(probability.getProbabilityPercent());
+        predictionDto.setAssessment(probability.getAssessment());
+        predictionDto.setEstimatedDaysToRSI30(probability.getDaysToReachRSI30Estimate());
+        predictionDto.setFactors(probability.getFactors());
+        
+        // Konvertiere historische Analyse
+        if (probability.getHistoricalAnalysis() != null)
+        {
+            HistoricalAnalysisDto histDto = new HistoricalAnalysisDto();
+            RSIPrediction2.HistoricalAnalysis hist = probability.getHistoricalAnalysis();
+            histDto.setAvgDailyVolatility(hist.getAvgDailyVolatility());
+            histDto.setConsecutiveLossDays(hist.getConsecutiveLossDays());
+            histDto.setAvgLossOnDownDays(hist.getAvgLossOnDownDays());
+            histDto.setMaxDrawdown(hist.getMaxDrawdown());
+            histDto.setAvgGainOnUpDays(hist.getAvgGainOnUpDays());
+            histDto.setTotalDownDays(hist.getTotalDownDays());
+            histDto.setPriceChange30Days(hist.getPriceChange30Days());
+            predictionDto.setHistoricalAnalysis(histDto);
+        }
+        
+        // Konvertiere Kaufpreis-Ziele
+        BuyPriceTargetsDto targetsDto = new BuyPriceTargetsDto();
+        targetsDto.setCurrentPrice(buyTargets.getCurrentPrice());
+        targetsDto.setTarget5Days(buyTargets.getTarget5Days());
+        targetsDto.setTarget10Days(buyTargets.getTarget10Days());
+        targetsDto.setTarget20Days(buyTargets.getTarget20Days());
+        targetsDto.setTarget30Days(buyTargets.getTarget30Days());
+        targetsDto.setRequiredDailyDecline(buyTargets.getRequiredDailyDecline());
+        targetsDto.setVolatilityAssessment(buyTargets.getVolatilityAssessment());
+        predictionDto.setBuyPriceTargets(targetsDto);
+        
+        return ResponseEntity.ok(predictionDto);
     }
 }
