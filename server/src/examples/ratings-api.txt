@@ -1,0 +1,60 @@
+ "/api/swing-trades/ratings": {
+      "post": {
+        "tags": [
+          "Swing Trading API"
+        ],
+        "summary": "Ratings abrufen",
+        "description": "Liefert Ratings für die übergebene Liste von Symbolen.",
+        "operationId": "getRatings",
+        "parameters": [
+          {
+            "name": "startTime",
+            "in": "query",
+            "description": "Startzeitpunkt (Timestamp ms)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "description": "Endzeitpunkt (Timestamp ms)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RatingDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }

@@ -16,7 +16,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DayCounter;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import com.straube.jones.trader.dto.DailyPrice;
+import com.straube.jones.trader.dto.RatingDto;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 public class TradingIndicatorService
@@ -28,10 +32,12 @@ public class TradingIndicatorService
     private static final Logger logger = LoggerFactory.getLogger(TradingIndicatorService.class);
 
     private final MarketDataService marketDataService;
+    private final RatingService ratingService;
 
-    public TradingIndicatorService(MarketDataService marketDataService)
+    public TradingIndicatorService(MarketDataService marketDataService, RatingService ratingService)
     {
         this.marketDataService = marketDataService;
+        this.ratingService = ratingService;
     }
 
     /**
@@ -763,15 +769,8 @@ public class TradingIndicatorService
         String localDate = prices.get(0).getDate().toString();
         Report report = new Report(symbol, localDate);
 
-        // Beispiel 1: Standard-Konfiguration verwenden
-        logger.info("=== STANDARD-KONFIGURATION ===");
-        TradingConfig config1 = new TradingConfig();
-        Analysis analysis1 = analyzeStock(prices, config1);
-        logger.info("{}", analysis1);
-        report.addAnalysis("Standard Configuration", config1, analysis1);
-
-        // Beispiel 2: Custom-Konfiguration für kurzfristigeres Trading
-        logger.info("\n=== KURZFRISTIGE KONFIGURATION ===");
+        // Custom-Konfiguration für kurzfristigeres Trading
+        logger.info("\n=== SHORT KONFIGURATION ===");
         TradingConfig shortTermConfig = new TradingConfig();
         shortTermConfig.setRsiPeriod(9); // Kürzere RSI-Periode
         shortTermConfig.setEmaShortPeriod(8); // Kürzere EMA
@@ -783,8 +782,15 @@ public class TradingIndicatorService
         logger.info("{}", analysis2);
         report.addAnalysis("Short Term Configuration", shortTermConfig, analysis2);
 
-        // Beispiel 3: Custom-Konfiguration für langfristigeres Trading
-        logger.info("\n=== LANGFRISTIGE KONFIGURATION ===");
+        // Standard-Konfiguration verwenden
+        logger.info("=== MID-KONFIGURATION ===");
+        TradingConfig config1 = new TradingConfig();
+        Analysis analysis1 = analyzeStock(prices, config1);
+        logger.info("{}", analysis1);
+        report.addAnalysis("Mid Term Configuration", config1, analysis1);
+
+        // Custom-Konfiguration für langfristigeres Trading
+        logger.info("\n=== LONG KONFIGURATION ===");
         TradingConfig longTermConfig = new TradingConfig();
         longTermConfig.setRsiPeriod(21); // Längere RSI-Periode
         longTermConfig.setEmaShortPeriod(20); // Längere EMA
@@ -800,6 +806,114 @@ public class TradingIndicatorService
     }
 
 
+    private static RatingDto extractRatingsFromReport(Report report)
+    {
+        RatingDto rating = new RatingDto();
+        rating.setSymbol(report.getSymbol());
+        rating.setDate(DayCounter.get(report.getDate()));
+
+        for (ReportEntry entry : report.getAnalyses())
+        {
+            switch (entry.getName())
+            {
+            case "Short Term Configuration" -> rating.setShortTerm(entry.getResult().getSignal().toString());
+            case "Mid Term Configuration" -> rating.setMidTerm(entry.getResult().getSignal().toString());
+            case "Long Term Configuration" -> rating.setLongTerm(entry.getResult().getSignal().toString());
+            }
+        }
+
+        return rating;
+    }
+
+
+    public void updateAllRatings()
+    {
+        List<String> symbols = marketDataService.getAllSymbols();
+        Long today = DayCounter.get(LocalDate.now());
+
+        for (String symbol : symbols)
+        {
+            logger.info("Updating ratings for symbol: {}", symbol);
+            List<RatingDto> ratings = new ArrayList<>();
+            for (int i = 0; i < 300; i++ )
+            {
+                long day = today - i;
+                Report report = getReport(symbol, day);
+
+                if (report != null && DayCounter.get(report.getDate()) == day)
+                {
+                    RatingDto rating = extractRatingsFromReport(report);
+                    ratings.add(rating);
+                }
+            }
+            
+            if (!ratings.isEmpty())
+            {
+                ratingService.deleteRatingsForSymbol(symbol);
+                ratingService.saveRatingsBatch(ratings);
+            }
+        }
+    }
+
+    @Scheduled(cron = "${trading.indicator.schedule.cron:0 0 6 * * ?}")
+    public void updateTodaysRating()
+    {
+        logger.info("Starting scheduled update of ratings for today...");
+        long today = DayCounter.get(LocalDate.now());
+        
+        // Delete existing ratings for today to allow re-execution
+        ratingService.deleteRatingsForDate(today);
+        
+        List<String> symbols = marketDataService.getAllSymbols();
+        List<RatingDto> ratings = new ArrayList<>();
+        
+        for (String symbol : symbols)
+        {
+            Report report = getReport(symbol, today);
+            
+            if (report != null && DayCounter.get(report.getDate()) == today)
+            {
+                RatingDto rating = extractRatingsFromReport(report);
+                ratings.add(rating);
+            }
+            
+            // Batch save every 100 records to manage memory
+            if (ratings.size() >= 100) {
+                ratingService.saveRatingsBatch(ratings);
+                ratings.clear();
+            }
+        }
+        
+        // Save remaining
+        if (!ratings.isEmpty())
+        {
+            ratingService.saveRatingsBatch(ratings);
+        }
+        logger.info("Finished scheduled update of ratings for today.");
+    }
+
+
+    public static void main(String[] args)
+    {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
+        config.setUsername("stocksdb");
+        config.setPassword("stocksdb");
+        config.setDriverClassName("org.mariadb.jdbc.Driver");
+        config.setMaximumPoolSize(10);
+        
+        HikariDataSource dataSource = new HikariDataSource(config);
+
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
+        RatingService ratingService = new RatingService(jdbcTemplate);
+
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, ratingService);
+        indicatorService.updateAllRatings();
+        
+        dataSource.close();
+    }   
+
     // Beispiel-Verwendung
     public static void main0(String[] args)
     {
@@ -814,14 +928,14 @@ public class TradingIndicatorService
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
-        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, null);
         Report report = indicatorService.getReport(symbol, DayCounter.get("2025-12-11"));
         System.out.println("Technischer Analyse-Report für " + symbol + ":\n" + report.toString());
     }
 
 
     // Beispiel-Verwendung
-    public static void main(String[] args)
+    public static void main1(String[] args)
     {
         String symbol = "RKLB";
         File analysisFolder = new File(ANALYSIS_ROOT_FOLDER);
@@ -836,7 +950,7 @@ public class TradingIndicatorService
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
-        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, null);
         Long today = DayCounter.get(LocalDate.now());
         for (int i = 0; i < 300; i++ )
         {
@@ -851,7 +965,7 @@ public class TradingIndicatorService
                 File f = new File(filename);
                 if (f.exists())
                 {
-                    System.out.println("Analysis report already exists: " + filename + " - aborting loop" );
+                    System.out.println("Analysis report already exists: " + filename + " - aborting loop");
                     break;
                 }
                 try

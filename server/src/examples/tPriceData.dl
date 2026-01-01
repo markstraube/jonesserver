@@ -1,0 +1,17 @@
+-- StocksDB.tPriceData definition
+
+CREATE TABLE `tPriceData` (
+  `cId` varchar(100) NOT NULL,
+  `cIsin` varchar(100) NOT NULL,
+  `cSymbol` varchar(100) NOT NULL,
+  `cDate` timestamp NOT NULL,
+  `cOpen` double DEFAULT NULL,
+  `cClose` double DEFAULT NULL,
+  `cAdjClose` double DEFAULT NULL,
+  `cHigh` double DEFAULT NULL,
+  `cLow` double DEFAULT NULL,
+  `cVolume` int unsigned DEFAULT NULL,
+  `cCurrency` char(3) NOT NULL,
+  `cDayCounter` int unsigned NOT NULL DEFAULT '0',
+  UNIQUE KEY `tMarketData_cId_IDX` (`cId`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

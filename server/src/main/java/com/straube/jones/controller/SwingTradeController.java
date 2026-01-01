@@ -3,10 +3,12 @@ package com.straube.jones.controller;
 
 import com.straube.jones.trader.dto.SwingTradeDetailDto;
 import com.straube.jones.trader.dto.SwingTradeOverviewDto;
+import com.straube.jones.trader.dto.RatingDto;
 import com.straube.jones.trader.dto.TradingAnalysisResult;
 import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.trader.service.SwingTradeQueryService;
 import com.straube.jones.trader.service.TradingIndicatorService;
+import com.straube.jones.trader.service.RatingService;
 import com.straube.jones.db.DayCounter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,11 +37,13 @@ public class SwingTradeController
                                                                       "/home/mark/Software/data");
     private final SwingTradeQueryService queryService;
     private final TradingIndicatorService indicatorService;
+    private final RatingService ratingService;
 
-    public SwingTradeController(SwingTradeQueryService queryService, TradingIndicatorService indicatorService)
+    public SwingTradeController(SwingTradeQueryService queryService, TradingIndicatorService indicatorService, RatingService ratingService)
     {
         this.queryService = queryService;
         this.indicatorService = indicatorService;
+        this.ratingService = ratingService;
     }
 
 
@@ -90,6 +94,17 @@ public class SwingTradeController
         if (report == null)
         { return ResponseEntity.notFound().build(); }
         return ResponseEntity.ok(report);
+    }
+
+
+    @PostMapping("/ratings")
+    @Operation(summary = "Ratings abrufen", description = "Liefert Ratings für die übergebene Liste von Symbolen.")
+    public ResponseEntity<List<RatingDto>> getRatings(
+            @RequestBody List<String> codes,
+            @Parameter(description = "Startzeitpunkt (Timestamp ms)", required = false) @RequestParam(required = false) Long startTime,
+            @Parameter(description = "Endzeitpunkt (Timestamp ms)", required = false) @RequestParam(required = false) Long endTime)
+    {
+        return ResponseEntity.ok(ratingService.getRatings(codes, startTime, endTime));
     }
 
 

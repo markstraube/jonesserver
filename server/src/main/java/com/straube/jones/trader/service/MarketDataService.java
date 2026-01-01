@@ -54,4 +54,10 @@ public class MarketDataService
             }
         }, symbol, fromDayCounterDesc);
     }
+
+    public List<String> getAllSymbols()
+    {
+        String sql = "SELECT DISTINCT cSymbol FROM tPriceData";
+        return jdbcTemplate.queryForList(sql, String.class);
+    }
 }

@@ -1,0 +1,101 @@
+package com.straube.jones.trader.service;
+
+
+import java.util.Collections;
+import java.util.List;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import com.straube.jones.db.DayCounter;
+import com.straube.jones.trader.dto.RatingDto;
+
+@Service
+public class RatingService
+{
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    public RatingService(JdbcTemplate jdbcTemplate)
+    {
+        this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+    }
+
+
+    public List<RatingDto> getRatings(List<String> codes, Long startTime, Long endTime)
+    {
+        if (codes == null || codes.isEmpty())
+        { return Collections.emptyList(); }
+
+        long startDay = (startTime != null) ? DayCounter.get(startTime) : 0; // 0 is 1.1.2000
+        long endDay = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
+
+        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDateLong FROM tRatings WHERE cSymbol IN (:codes) AND cDateLong >= :startDay AND cDateLong <= :endDay ORDER BY cSymbol ASC, cDateLong DESC";
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("codes", codes);
+        parameters.addValue("startDay", startDay);
+        parameters.addValue("endDay", endDay);
+
+        return namedParameterJdbcTemplate.query(sql, parameters, (rs, rowNum) -> {
+            RatingDto dto = new RatingDto();
+            dto.setSymbol(rs.getString("cSymbol"));
+            dto.setShortTerm(rs.getString("cShort"));
+            dto.setMidTerm(rs.getString("cMid"));
+            dto.setLongTerm(rs.getString("cLong"));
+            dto.setDate((Long)rs.getObject("cDateLong"));
+            return dto;
+        });
+    }
+
+
+    public void saveRating(RatingDto rating)
+    {
+        String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDateLong) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("symbol", rating.getSymbol());
+        parameters.addValue("shortTerm", rating.getShortTerm());
+        parameters.addValue("midTerm", rating.getMidTerm());
+        parameters.addValue("longTerm", rating.getLongTerm());
+        parameters.addValue("date", rating.getDate());
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    public void deleteRatingsForSymbol(String symbol)
+    {
+        String sql = "DELETE FROM tRatings WHERE cSymbol = :symbol";
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("symbol", symbol);
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    public void deleteRatingsForDate(long date)
+    {
+        String sql = "DELETE FROM tRatings WHERE cDateLong = :date";
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("date", date);
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    public void saveRatingsBatch(List<RatingDto> ratings)
+    {
+        if (ratings == null || ratings.isEmpty())
+        {
+            return;
+        }
+        String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDateLong) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
+        MapSqlParameterSource[] batch = ratings.stream().map(rating -> {
+            MapSqlParameterSource parameters = new MapSqlParameterSource();
+            parameters.addValue("symbol", rating.getSymbol());
+            parameters.addValue("shortTerm", rating.getShortTerm());
+            parameters.addValue("midTerm", rating.getMidTerm());
+            parameters.addValue("longTerm", rating.getLongTerm());
+            parameters.addValue("date", rating.getDate());
+            return parameters;
+        }).toArray(MapSqlParameterSource[]::new);
+
+        namedParameterJdbcTemplate.batchUpdate(sql, batch);
+    }
+}

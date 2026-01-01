@@ -255,7 +255,7 @@ public class StocksAgent
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
-        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService);
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, null);
         Report report = indicatorService.getReport(symbol, DayCounter.now());
 
         TradingAnalysisResult analysisResult = analyzeReport(report);

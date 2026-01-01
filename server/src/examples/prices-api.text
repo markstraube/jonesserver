@@ -30,6 +30,16 @@
             }
           },
           {
+            "name": "end_time",
+            "in": "query",
+            "description": "End timestamp in milliseconds (Unix epoch time). Defaults to current time for sufficient historical data.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
             "name": "type",
             "in": "query",
             "description": "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).",
