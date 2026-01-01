@@ -810,7 +810,7 @@ public class TradingIndicatorService
     {
         RatingDto rating = new RatingDto();
         rating.setSymbol(report.getSymbol());
-        rating.setDate(DayCounter.get(report.getDate()));
+        rating.setDate(DayCounter.toTimestamp(DayCounter.get(report.getDate())));
 
         for (ReportEntry entry : report.getAnalyses())
         {

@@ -1,6 +1,7 @@
 package com.straube.jones.trader.service;
 
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -9,6 +10,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.trader.dto.RatingDto;
 
@@ -28,13 +30,17 @@ public class RatingService
         if (codes == null || codes.isEmpty())
         { return Collections.emptyList(); }
 
+        List<String> symbols = new ArrayList<>();
+        codes.forEach(code -> {
+            symbols.add(SymbolResolver.resolveCode(code));
+        });
         long startDay = (startTime != null) ? DayCounter.get(startTime) : 0; // 0 is 1.1.2000
         long endDay = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
 
-        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDateLong FROM tRatings WHERE cSymbol IN (:codes) AND cDateLong >= :startDay AND cDateLong <= :endDay ORDER BY cSymbol ASC, cDateLong DESC";
+        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDateLong FROM tRatings WHERE cSymbol IN (:symbols) AND cDateLong >= :startDay AND cDateLong <= :endDay ORDER BY cSymbol ASC, cDateLong DESC";
 
         MapSqlParameterSource parameters = new MapSqlParameterSource();
-        parameters.addValue("codes", codes);
+        parameters.addValue("symbols", symbols);
         parameters.addValue("startDay", startDay);
         parameters.addValue("endDay", endDay);
 
@@ -44,7 +50,7 @@ public class RatingService
             dto.setShortTerm(rs.getString("cShort"));
             dto.setMidTerm(rs.getString("cMid"));
             dto.setLongTerm(rs.getString("cLong"));
-            dto.setDate((Long)rs.getObject("cDateLong"));
+            dto.setDate(DayCounter.toTimestamp((Long)rs.getObject("cDateLong")));
             return dto;
         });
     }
@@ -63,6 +69,7 @@ public class RatingService
         namedParameterJdbcTemplate.update(sql, parameters);
     }
 
+
     public void deleteRatingsForSymbol(String symbol)
     {
         String sql = "DELETE FROM tRatings WHERE cSymbol = :symbol";
@@ -70,6 +77,7 @@ public class RatingService
         parameters.addValue("symbol", symbol);
         namedParameterJdbcTemplate.update(sql, parameters);
     }
+
 
     public void deleteRatingsForDate(long date)
     {
@@ -79,12 +87,11 @@ public class RatingService
         namedParameterJdbcTemplate.update(sql, parameters);
     }
 
+
     public void saveRatingsBatch(List<RatingDto> ratings)
     {
         if (ratings == null || ratings.isEmpty())
-        {
-            return;
-        }
+        { return; }
         String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDateLong) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
         MapSqlParameterSource[] batch = ratings.stream().map(rating -> {
             MapSqlParameterSource parameters = new MapSqlParameterSource();

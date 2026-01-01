@@ -1,7 +1,6 @@
 package com.straube.jones.db;
 
 
-import java.sql.Date;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -43,5 +42,11 @@ public class DayCounter
     public static long before(long days)
     {
         return get(LocalDate.now().minusDays(days));
+    }
+
+    public static long toTimestamp(long dayCount)
+    {
+        LocalDate date = REFERENCE_DATE.plusDays(dayCount);
+        return date.atStartOfDay(ZoneId.of("Europe/Berlin")).toInstant().toEpochMilli();
     }
 }
