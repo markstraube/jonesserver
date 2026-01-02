@@ -1,0 +1,92 @@
+"/api/masterdata/company/{symbol}": {
+      "get": {
+        "tags": [
+          "Masterdata API"
+        ],
+        "summary": "Get Company Details by Symbol",
+        "description": "Retrieves complete master data for a specific company identified by its stock symbol. Returns all available information including identifiers, names, exchange details, trading metadata, and timestamps. This endpoint provides comprehensive company information needed for detailed views, analysis, and trading operations.",
+        "operationId": "getCompanyBySymbol",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "description": "The stock ticker symbol of the company to retrieve. This is case-sensitive and should match the symbol stored in the database.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "AAPL"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Company with the specified symbol was not found in the database.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved company details. Returns a complete CompanyResponse object with all available fields populated from the tCompany table. If no company with the given symbol exists, returns null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error occurred while accessing the database or processing the request.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/masterdata/company/list": {
+      "get": {
+        "tags": [
+          "Masterdata API"
+        ],
+        "summary": "Get List of All Companies",
+        "description": "Retrieves a simplified list of all companies in the database, containing only the stock symbol and full company name. The list is ordered alphabetically by company name. This endpoint is optimized for dropdown lists, autocomplete features, and overview displays where only basic company identification is needed.",
+        "operationId": "getCompanyList",
+        "responses": {
+          "500": {
+            "description": "Internal server error occurred while accessing the database or processing the request.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyListItem"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved the list of companies. Returns an array of company items, each containing the stock symbol (cSymbol) and full company name (cLongName). The list is sorted alphabetically by company name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyListItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
