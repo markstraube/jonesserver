@@ -1,5 +1,6 @@
 package com.straube.jones.dto;
 
+
 import java.math.BigDecimal;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -14,105 +15,155 @@ public class PriceEntry
 {
     @JsonProperty("type")
     private PriceType type;
-    
-    @JsonProperty("price")
+
+    @JsonProperty("bid-price")
     @JsonSerialize(using = ToStringSerializer.class)
-    private BigDecimal price;
-    
-    @JsonProperty("changeAbsolute")
+    private BigDecimal bidPrice;
+
+    @JsonProperty("ask-price")
     @JsonSerialize(using = ToStringSerializer.class)
-    private BigDecimal changeAbsolute;
-    
-    @JsonProperty("changePercent")
+    private BigDecimal askPrice;
+
+    @JsonProperty("high-price")
     @JsonSerialize(using = ToStringSerializer.class)
-    private BigDecimal changePercent;
-    
+    private BigDecimal highPrice;
+
+    @JsonProperty("low-price")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private BigDecimal lowPrice;
+
+    @JsonProperty("last-price")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private BigDecimal lastPrice;
+
     @JsonProperty("timestamp")
     private String timestamp;
-    
-    @JsonProperty("qualifier")
-    private String qualifier;
-    
+
+    @JsonProperty("exchange")
+    private String exchange;
+
     public enum PriceType
     {
-        REGULAR,
-        PRE_MARKET,
-        AFTER_MARKET
+        REGULAR, PRE_MARKET, AFTER_MARKET
     }
-    
+
     public PriceEntry()
-    {
-    }
-    
-    public PriceEntry(PriceType type, BigDecimal price, BigDecimal changeAbsolute, 
-                     BigDecimal changePercent, String timestamp, String qualifier)
+    {}
+
+
+    public PriceEntry(PriceType type,
+                      BigDecimal bidPrice,
+                      BigDecimal askPrice,
+                      BigDecimal highPrice,
+                      BigDecimal lowPrice,
+                      BigDecimal lastPrice,
+                      String timestamp,
+                      String exchange)
     {
         this.type = type;
-        this.price = price;
-        this.changeAbsolute = changeAbsolute;
-        this.changePercent = changePercent;
+        this.bidPrice = bidPrice;
+        this.askPrice = askPrice;
+        this.highPrice = highPrice;
+        this.lowPrice = lowPrice;
+        this.lastPrice = lastPrice;
         this.timestamp = timestamp;
-        this.qualifier = qualifier;
+        this.exchange = exchange;
     }
-    
+
+
     // Getters and Setters
     public PriceType getType()
     {
         return type;
     }
-    
+
+
     public void setType(PriceType type)
     {
         this.type = type;
     }
-    
-    public BigDecimal getPrice()
+
+
+    public BigDecimal getBidPrice()
     {
-        return price;
+        return bidPrice;
     }
-    
-    public void setPrice(BigDecimal price)
+
+
+    public void setBidPrice(BigDecimal bidPrice)
     {
-        this.price = price;
+        this.bidPrice = bidPrice;
     }
-    
-    public BigDecimal getChangeAbsolute()
+
+
+    public BigDecimal getAskPrice()
     {
-        return changeAbsolute;
+        return askPrice;
     }
-    
-    public void setChangeAbsolute(BigDecimal changeAbsolute)
+
+
+    public void setAskPrice(BigDecimal askPrice)
     {
-        this.changeAbsolute = changeAbsolute;
+        this.askPrice = askPrice;
     }
-    
-    public BigDecimal getChangePercent()
+
+
+    public BigDecimal getHighPrice()
     {
-        return changePercent;
+        return highPrice;
     }
-    
-    public void setChangePercent(BigDecimal changePercent)
+
+
+    public void setHighPrice(BigDecimal highPrice)
     {
-        this.changePercent = changePercent;
+        this.highPrice = highPrice;
     }
-    
+
+
+    public BigDecimal getLowPrice()
+    {
+        return lowPrice;
+    }
+
+
+    public void setLowPrice(BigDecimal lowPrice)
+    {
+        this.lowPrice = lowPrice;
+    }
+
+
+    public BigDecimal getLastPrice()
+    {
+        return lastPrice;
+    }
+
+
+    public void setLastPrice(BigDecimal lastPrice)
+    {
+        this.lastPrice = lastPrice;
+    }
+
+
     public String getTimestamp()
     {
         return timestamp;
     }
-    
+
+
     public void setTimestamp(String timestamp)
     {
         this.timestamp = timestamp;
     }
-    
-    public String getQualifier()
+
+
+    public String getExchange()
     {
-        return qualifier;
+        return exchange;
     }
-    
-    public void setQualifier(String qualifier)
+
+
+    public void setExchange(String exchange)
     {
-        this.qualifier = qualifier;
+        this.exchange = exchange;
     }
 }

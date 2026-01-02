@@ -58,11 +58,10 @@ public class PriceTickerController
      * @param isin The ISIN of the stock to retrieve price information for
      * @return ResponseEntity with PriceTickerResponse (200) or error response
      */
-    @GetMapping
+    @GetMapping("/tradegate")
     @Operation(
         summary = "Get current stock price by ISIN",
-        description = "Retrieves current stock price information from Yahoo Finance by scraping the HTML page. " +
-                     "Returns regular market price and extended hours (pre-market/after-market) prices if available."
+        description = "Retrieves current stock price information from Tradegate by scraping the HTML page. " 
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -82,7 +81,7 @@ public class PriceTickerController
         ),
         @ApiResponse(
             responseCode = "502",
-            description = "Yahoo Finance page not reachable",
+            description = "Tradegate page not reachable",
             content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))
         ),
         @ApiResponse(
@@ -115,7 +114,7 @@ public class PriceTickerController
             }
             
             // Get price information
-            PriceTickerResponse response = service.getPriceByIsin(isin.trim());
+            PriceTickerResponse response = service.getPriceByIsinFromTradegate(isin.trim());
             return ResponseEntity.ok(response);
         }
         catch (IllegalArgumentException e)
@@ -149,9 +148,9 @@ public class PriceTickerController
             return ResponseEntity
                 .status(HttpStatus.BAD_GATEWAY)
                 .body(PriceTickerErrorResponse.create(
-                    "YAHOO_UNREACHABLE",
-                    "Yahoo Finance page not reachable",
-                    "Unable to connect to Yahoo Finance: " + e.getMessage()
+                    "TRADEGATE_UNREACHABLE",
+                    "Tradegate page not reachable",
+                    "Unable to connect to Tradegate: " + e.getMessage()
                 ));
         }
         catch (IOException e)
