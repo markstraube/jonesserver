@@ -1,4 +1,4 @@
-package com.straube.jones.trader.service;
+package com.straube.jones.service;
 
 
 import org.springframework.stereotype.Service;

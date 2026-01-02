@@ -1,18 +1,19 @@
-package com.straube.jones.trader.service;
+package com.straube.jones.trader.indicators;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import com.straube.jones.trader.collectors.TradingIndicatorService;
+import com.straube.jones.trader.collectors.TradingIndicatorService.Report;
 import com.straube.jones.trader.dto.DailyPrice;
-import com.straube.jones.trader.service.TradingIndicatorService.Report;
 
 /**
  * Verbesserte RSI-Vorhersage mit direkter Verwendung von DailyPrice-Listen.
  * Analysiert Wahrscheinlichkeit für RSI < 30 und berechnet Kaufpreis-Ziele.
  */
-public class RSIPrediction2
+public class RSIPrediction
 {
-    private RSIPrediction2() {
+    private RSIPrediction() {
         // Utility-Klasse - keine Instanziierung
     }
     /**

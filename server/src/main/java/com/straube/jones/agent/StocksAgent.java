@@ -18,10 +18,10 @@ import com.openai.models.responses.Tool;
 import com.openai.models.responses.WebSearchTool.Type;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.model.StockFundamentals;
+import com.straube.jones.service.MarketDataService;
+import com.straube.jones.trader.collectors.TradingIndicatorService;
+import com.straube.jones.trader.collectors.TradingIndicatorService.Report;
 import com.straube.jones.trader.dto.TradingAnalysisResult;
-import com.straube.jones.trader.service.MarketDataService;
-import com.straube.jones.trader.service.TradingIndicatorService;
-import com.straube.jones.trader.service.TradingIndicatorService.Report;
 
 public class StocksAgent
 {

@@ -5,17 +5,18 @@ import com.straube.jones.trader.dto.SwingTradeDetailDto;
 import com.straube.jones.trader.dto.SwingTradeOverviewDto;
 import com.straube.jones.trader.dto.RatingDto;
 import com.straube.jones.trader.dto.TradingAnalysisResult;
+import com.straube.jones.trader.indicators.RSIPrediction;
+import com.straube.jones.trader.indicators.RatingService;
 import com.straube.jones.trader.dto.RSI30PredictionDto;
 import com.straube.jones.trader.dto.HistoricalAnalysisDto;
+import com.straube.jones.trader.collectors.SwingTradeQueryService;
+import com.straube.jones.trader.collectors.TradingIndicatorService;
 import com.straube.jones.trader.dto.BuyPriceTargetsDto;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.agent.StocksAgent;
-import com.straube.jones.trader.service.SwingTradeQueryService;
-import com.straube.jones.trader.service.TradingIndicatorService;
-import com.straube.jones.trader.service.RatingService;
-import com.straube.jones.trader.service.MarketDataService;
-import com.straube.jones.trader.service.RSIPrediction2;
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.service.MarketDataService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -250,8 +251,8 @@ public class SwingTradeController
         }
         
         // 4. Führe RSI30-Vorhersage durch
-        RSIPrediction2.RSI30Probability probability = RSIPrediction2.estimateRSI30Probability(report, prices);
-        RSIPrediction2.BuyPriceTargets buyTargets = RSIPrediction2.calculateBuyPriceTargets(report, prices);
+        RSIPrediction.RSI30Probability probability = RSIPrediction.estimateRSI30Probability(report, prices);
+        RSIPrediction.BuyPriceTargets buyTargets = RSIPrediction.calculateBuyPriceTargets(report, prices);
         
         // 5. Konvertiere in DTO
         RSI30PredictionDto predictionDto = new RSI30PredictionDto();
@@ -285,7 +286,7 @@ public class SwingTradeController
         if (probability.getHistoricalAnalysis() != null)
         {
             HistoricalAnalysisDto histDto = new HistoricalAnalysisDto();
-            RSIPrediction2.HistoricalAnalysis hist = probability.getHistoricalAnalysis();
+            RSIPrediction.HistoricalAnalysis hist = probability.getHistoricalAnalysis();
             histDto.setAvgDailyVolatility(hist.getAvgDailyVolatility());
             histDto.setConsecutiveLossDays(hist.getConsecutiveLossDays());
             histDto.setAvgLossOnDownDays(hist.getAvgLossOnDownDays());

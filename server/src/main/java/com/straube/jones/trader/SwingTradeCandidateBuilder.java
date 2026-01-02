@@ -14,11 +14,11 @@ import com.straube.jones.trader.filter.RiskRewardFilter;
 import com.straube.jones.trader.filter.StockTrendFilter;
 import com.straube.jones.trader.filter.SupportFilter;
 import com.straube.jones.trader.filter.VolumeFilter;
-import com.straube.jones.trader.service.MovingAverageService;
-import com.straube.jones.trader.service.RiskRewardService;
-import com.straube.jones.trader.service.RsiService;
-import com.straube.jones.trader.service.SupportDetectionService;
-import com.straube.jones.trader.service.VolumeAnalysisService;
+import com.straube.jones.trader.indicators.MovingAverageService;
+import com.straube.jones.trader.indicators.RiskRewardService;
+import com.straube.jones.trader.indicators.RsiService;
+import com.straube.jones.trader.indicators.SupportDetectionService;
+import com.straube.jones.trader.indicators.VolumeAnalysisService;
 
 /**
  * Baut einen SwingTradeCandidate aus Kursdaten und Marktdaten.

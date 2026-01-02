@@ -1,4 +1,4 @@
-package com.straube.jones.trader.service;
+package com.straube.jones.trader.collectors;
 
 
 import java.io.File;
@@ -16,10 +16,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.service.MarketDataService;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.trader.dto.RatingDto;
+import com.straube.jones.trader.indicators.RatingService;
+
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
@@ -564,7 +567,7 @@ public class TradingIndicatorService
 
     /**
      * Berechnet MACD (Moving Average Convergence Divergence)
-     * @param prices Liste der Preise
+     * @param prices Liste der Preise (neueste zuerst)
      * @param shortPeriod Kurze EMA-Periode (Standard: 12)
      * @param longPeriod Lange EMA-Periode (Standard: 26)
      * @param signalPeriod Signal-Linien-Periode (Standard: 9)
@@ -575,16 +578,65 @@ public class TradingIndicatorService
                                           int longPeriod,
                                           int signalPeriod)
     {
-        double emaShort = calculateEMA(prices, shortPeriod);
-        double emaLong = calculateEMA(prices, longPeriod);
-        double macd = emaShort - emaLong;
+        // Benötigte Anzahl von Preisen für die Berechnung
+        int minRequired = longPeriod + signalPeriod;
+        if (prices.size() < minRequired)
+        {
+            return new double[]{0.0, 0.0};
+        }
 
-        // Berechne Signal-Linie als EMA des MACD
-        // Vereinfachung: approximiere mit 90% des MACD-Werts
-        // In Production würde man die tatsächliche EMA-Berechnung auf MACD-Werten durchführen
-        double signal = macd * (1.0 - (2.0 / (signalPeriod + 1)));
+        // Berechne MACD-Werte für die letzten signalPeriod + 1 Tage
+        List<Double> macdValues = new ArrayList<>();
+        
+        // Berechne EMA-Werte für jeden Tag
+        for (int i = 0; i < signalPeriod; i++)
+        {
+            // Erstelle Subliste von diesem Punkt bis zum Ende
+            List<DailyPrice> subList = prices.subList(i, prices.size());
+            
+            double emaShort = calculateEMA(subList, shortPeriod);
+            double emaLong = calculateEMA(subList, longPeriod);
+            double macdValue = emaShort - emaLong;
+            
+            macdValues.add(macdValue);
+        }
+        
+        // Der aktuelle MACD-Wert ist der erste in der Liste
+        double currentMACD = macdValues.get(0);
+        
+        // Berechne Signal-Linie als EMA der MACD-Werte
+        double signalLine = calculateEMAFromValues(macdValues, signalPeriod);
 
-        return new double[]{macd, signal};
+        return new double[]{currentMACD, signalLine};
+    }
+
+    /**
+     * Berechnet EMA aus einer Liste von Double-Werten
+     */
+    private static double calculateEMAFromValues(List<Double> values, int period)
+    {
+        if (values.isEmpty())
+            return 0.0;
+        
+        if (values.size() < period)
+            period = values.size();
+
+        // Berechne SMA als Startwert
+        double sum = 0;
+        for (int i = 0; i < period; i++)
+        {
+            sum += values.get(values.size() - 1 - i);
+        }
+        double ema = sum / period;
+        
+        // Berechne EMA
+        double multiplier = 2.0 / (period + 1);
+        for (int i = values.size() - period - 1; i >= 0; i--)
+        {
+            ema = (values.get(i) - ema) * multiplier + ema;
+        }
+        
+        return ema;
     }
 
 
@@ -982,5 +1034,4 @@ public class TradingIndicatorService
             }
         }
     }
-
 }

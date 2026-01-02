@@ -1,4 +1,4 @@
-package com.straube.jones.trader.service;
+package com.straube.jones.trader.collectors;
 
 
 import java.time.LocalDateTime;
@@ -8,6 +8,9 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.straube.jones.service.CompanyService;
+import com.straube.jones.service.MarketDataService;
+import com.straube.jones.service.MockEventService;
 import com.straube.jones.trader.SwingTradeCandidateBuilder;
 import com.straube.jones.trader.SwingTradeConfig;
 import com.straube.jones.trader.dasboard.EventSection;

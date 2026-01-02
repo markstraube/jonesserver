@@ -1,4 +1,4 @@
-package com.straube.jones.trader.service;
+package com.straube.jones.trader.indicators;
 
 
 import java.time.LocalDate;
@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.service.MarketDataService;
 import com.straube.jones.trader.dto.DailyPrice;
 
 /**

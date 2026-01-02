@@ -1,4 +1,4 @@
-package com.straube.jones.trader.service;
+package com.straube.jones.trader.indicators;
 
 
 import java.util.List;
