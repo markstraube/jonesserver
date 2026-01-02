@@ -1,16 +1,16 @@
-"/api/price-ticker/tradegate": {
+ "/api/price-ticker/tradegate": {
       "get": {
         "tags": [
           "Price Ticker API"
         ],
-        "summary": "Get current stock price by ISIN",
+        "summary": "Get current stock price by ISIN or Yahoo symbol from Tradegate",
         "description": "Retrieves current stock price information from Tradegate by scraping the HTML page. ",
-        "operationId": "getPriceByIsin",
+        "operationId": "getPriceByCode",
         "parameters": [
           {
-            "name": "isin",
+            "name": "code",
             "in": "query",
-            "description": "ISIN of the stock (e.g., US0378331005 for Apple)",
+            "description": "ISIN or Yahoo symbol of the stock (e.g., US0378331005 or AAPL for Apple)",
             "required": true,
             "schema": {
               "type": "string"
@@ -18,28 +18,8 @@
           }
         ],
         "responses": {
-          "500": {
-            "description": "Unexpected error during processing",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
-                }
-              }
-            }
-          },
           "400": {
-            "description": "Invalid or missing ISIN parameter",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ISIN not found or cannot be resolved to Yahoo symbol",
+            "description": "Invalid or missing ISIN or Symbol parameter",
             "content": {
               "*/*": {
                 "schema": {
@@ -70,6 +50,26 @@
           },
           "503": {
             "description": "HTML structure changed or price information not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ISIN or Symbol not found or cannot be resolved to ISIN",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error during processing",
             "content": {
               "*/*": {
                 "schema": {

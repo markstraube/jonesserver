@@ -32,6 +32,49 @@ public class SymbolResolver
 
 
     /**
+    * checks if the supplied code is a ISIN and resolves it to a Yahoo Finance symbol or return the code itself.
+    * @param code
+    * @return
+    */
+    public static String resolveIsin(String code)
+    {
+        if (code != null && code.length() == "US0378331005".length())
+        {
+            //assuming it is a ISIN and lookup the symbol in tStockCodes Table
+            return code;
+        }
+        String isin = null;
+        try (Connection conn = DBConnection.getStocksConnection())
+        {
+            // 1. Check tSelectedStocks for existing symbol
+            // Using cIndex as per text instructions. If DB has cImdex, this will fail and need adjustment.
+            String selectSymbolSql = "SELECT cIsin FROM tStockCodes WHERE cSymbol = ?";
+            try (PreparedStatement ps = conn.prepareStatement(selectSymbolSql))
+            {
+                ps.setString(1, code);
+                try (ResultSet rs = ps.executeQuery())
+                {
+                    if (rs.next())
+                    {
+                        isin = rs.getString("cIsin");
+                    }
+                }
+            }
+            if (isin == null)
+            {
+                // Not found
+                throw new RuntimeException("No ISIN found for symbol: " + code);
+            }
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException("Error resolving ISIN for symbol: " + code, e);
+        }
+        return isin;
+    }
+
+
+    /**
      * checks if the supplied code is a ISIN and resolves it to a Yahoo Finance symbol or return the code itself.
      * @param code
      * @return
@@ -94,7 +137,7 @@ public class SymbolResolver
             catch (Exception e)
             {
                 throw new RuntimeException("Error resolving symbol for ISIN: " + isin, e);
-            }   
+            }
         }
         return symbol;
     }

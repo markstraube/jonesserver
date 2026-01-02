@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.dto.PriceTickerErrorResponse;
 import com.straube.jones.dto.PriceTickerResponse;
 import com.straube.jones.service.PriceTickerService;
@@ -60,7 +61,7 @@ public class PriceTickerController
      */
     @GetMapping("/tradegate")
     @Operation(
-        summary = "Get current stock price by ISIN",
+        summary = "Get current stock price by ISIN or Yahoo symbol from Tradegate",
         description = "Retrieves current stock price information from Tradegate by scraping the HTML page. " 
     )
     @ApiResponses(value = {
@@ -71,12 +72,12 @@ public class PriceTickerController
         ),
         @ApiResponse(
             responseCode = "400",
-            description = "Invalid or missing ISIN parameter",
+            description = "Invalid or missing ISIN or Symbol parameter",
             content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))
         ),
         @ApiResponse(
             responseCode = "404",
-            description = "ISIN not found or cannot be resolved to Yahoo symbol",
+            description = "ISIN or Symbol not found or cannot be resolved to ISIN",
             content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))
         ),
         @ApiResponse(
@@ -95,14 +96,14 @@ public class PriceTickerController
             content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))
         )
     })
-    public ResponseEntity<?> getPriceByIsin(
-        @Parameter(description = "ISIN of the stock (e.g., US0378331005 for Apple)", required = true)
-        @RequestParam(required = true) String isin)
+    public ResponseEntity<?> getPriceByCode(
+        @Parameter(description = "ISIN or Yahoo symbol of the stock (e.g., US0378331005 or AAPL for Apple)", required = true)
+        @RequestParam(required = true) String code)
     {
         try
         {
             // Validate ISIN parameter
-            if (isin == null || isin.trim().isEmpty())
+            if (code == null || code.trim().isEmpty())
             {
                 return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
@@ -114,6 +115,7 @@ public class PriceTickerController
             }
             
             // Get price information
+            String isin = SymbolResolver.resolveIsin(code);
             PriceTickerResponse response = service.getPriceByIsinFromTradegate(isin.trim());
             return ResponseEntity.ok(response);
         }
