@@ -19,6 +19,8 @@ import java.util.logging.Level;
 
 import com.straube.jones.cmd.db.DBConnection;
 
+
+
 public class YahooPriceDownloader
 {
 
@@ -29,9 +31,14 @@ public class YahooPriceDownloader
     {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(daysBack);
+        // String sql = "select cIsin, cSymbol from tStockCodes where cIsin in ("
+        //                 + "select distinct(cIsin) from tOnVista where cCountryCode in ('Deutschland','Frankreich','Großbritannien','Israel','Italien','Niederlande','USA')"
+        //                 + " AND cBranch in ('Computer-Hardware','Elektrotechnologie','Halbleiterindustrie','IT-Dienstleistungen','IT-Software (Telekommunikation und Internet)','Internetservice',"
+        //                 + "'Luft- und Raumfahrtindustrie','Netzwerktechnik und -systeme','Softwareservice / -dienstleistung','Sonstige Technologie','Spezialsoftware','Standardsoftware','Telekomdienstleister','Telekommunikationsausrüster'))";
 
+        String sql = "SELECT cSymbol, cIsin FROM tCompany WHERE cIsin IS NOT NULL AND cSymbol IS NOT NULL";
         try (Connection conn = DBConnection.getStocksConnection();
-                        PreparedStatement psSelect = conn.prepareStatement("SELECT cSymbol, cIsin FROM tSelectedStocks"))
+                        PreparedStatement psSelect = conn.prepareStatement(sql))
         {
             ResultSet rs = psSelect.executeQuery();
             while (rs.next())
@@ -45,10 +52,28 @@ public class YahooPriceDownloader
                 {
                     t.mkdirs();
                 }
+                LOGGER.log(Level.INFO, () -> "Writing data for symbol: " + symbol + " to folder: " + rootFolder);
                 File f = new File(rootFolder, isin + "_" + symbol + ".json");
                 Files.writeString(f.toPath(), rawJson, StandardCharsets.UTF_8);
             }
         }
+    }
+
+
+    public static void fetchPrices(int daysBack, String rootFolder, String symbol, String isin)
+        throws Exception
+    {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(daysBack);
+
+        String rawJson = downloadRawJson(symbol, startDate, endDate);
+        File t = new File(rootFolder);
+        if (!t.exists())
+        {
+            t.mkdirs();
+        }
+        File f = new File(rootFolder, isin + "_" + symbol + ".json");
+        Files.writeString(f.toPath(), rawJson, StandardCharsets.UTF_8);
     }
 
 
@@ -122,7 +147,10 @@ public class YahooPriceDownloader
             String daysBackStr = args[1];
             daysBack = Integer.parseInt(daysBackStr);
         }
-        System.out.println("Starting Yahoo Price download to: " + rootFolder + " for the past " + daysBack + " days.");
+        System.out.println("Starting Yahoo Price download to: " + rootFolder
+                        + " for the past "
+                        + daysBack
+                        + " days.");
         YahooPriceDownloader.fetchPrices(daysBack, rootFolder);
         System.out.println("Download finished.");
     }

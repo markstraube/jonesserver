@@ -13,6 +13,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,7 @@ public class YahooPriceImporter
     private static final LocalDate REFERENCE_DATE = LocalDate.of(2000, 1, 1);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private final ObjectMapper objectMapper = new ObjectMapper();
+	private static final Logger LOGGER = Logger.getLogger(YahooPriceImporter.class.getName());
 
     public void uploadPriceData(String folder)
     {
@@ -43,6 +45,7 @@ public class YahooPriceImporter
         for (File jsonFile : jsonFiles)
         {
             processFile(jsonFile);
+            LOGGER.info("Imported file: " + jsonFile.getName());
         }
     }
 
