@@ -37,7 +37,7 @@ public class RatingService
         long startDay = (startTime != null) ? DayCounter.get(startTime) : 0; // 0 is 1.1.2000
         long endDay = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
 
-        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDateLong FROM tRatings WHERE cSymbol IN (:symbols) AND cDayCounter >= :startDay AND cDayCounter <= :endDay ORDER BY cSymbol ASC, cDayCounter DESC";
+        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDayCounter FROM tRatings WHERE cSymbol IN (:symbols) AND cDayCounter >= :startDay AND cDayCounter <= :endDay ORDER BY cSymbol ASC, cDayCounter DESC";
 
         MapSqlParameterSource parameters = new MapSqlParameterSource();
         parameters.addValue("symbols", symbols);
@@ -50,7 +50,7 @@ public class RatingService
             dto.setShortTerm(rs.getString("cShort"));
             dto.setMidTerm(rs.getString("cMid"));
             dto.setLongTerm(rs.getString("cLong"));
-            dto.setDate(DayCounter.toTimestamp((Long)rs.getObject("cDateLong")));
+            dto.setDate(DayCounter.toTimestamp(rs.getLong("cDayCounter")));
             return dto;
         });
     }
