@@ -37,7 +37,7 @@ public class RatingService
         long startDay = (startTime != null) ? DayCounter.get(startTime) : 0; // 0 is 1.1.2000
         long endDay = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
 
-        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDateLong FROM tRatings WHERE cSymbol IN (:symbols) AND cDateLong >= :startDay AND cDateLong <= :endDay ORDER BY cSymbol ASC, cDateLong DESC";
+        String sql = "SELECT cSymbol, cShort, cMid, cLong, cDateLong FROM tRatings WHERE cSymbol IN (:symbols) AND cDayCounter >= :startDay AND cDayCounter <= :endDay ORDER BY cSymbol ASC, cDayCounter DESC";
 
         MapSqlParameterSource parameters = new MapSqlParameterSource();
         parameters.addValue("symbols", symbols);
@@ -58,13 +58,13 @@ public class RatingService
 
     public void saveRating(RatingDto rating)
     {
-        String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDateLong) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
+        String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDayCounter) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
         MapSqlParameterSource parameters = new MapSqlParameterSource();
         parameters.addValue("symbol", rating.getSymbol());
         parameters.addValue("shortTerm", rating.getShortTerm());
         parameters.addValue("midTerm", rating.getMidTerm());
         parameters.addValue("longTerm", rating.getLongTerm());
-        parameters.addValue("date", rating.getDate());
+        parameters.addValue("date", DayCounter.get(rating.getDate()));
 
         namedParameterJdbcTemplate.update(sql, parameters);
     }
@@ -78,10 +78,18 @@ public class RatingService
         namedParameterJdbcTemplate.update(sql, parameters);
     }
 
+    public void deleteRatingsForDate(long date, String symbol)
+    {
+        String sql = "DELETE FROM tRatings WHERE cDayCounter = :date" + " AND cSymbol = :symbol";
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("date", date);
+        parameters.addValue("symbol", symbol);  
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
 
     public void deleteRatingsForDate(long date)
     {
-        String sql = "DELETE FROM tRatings WHERE cDateLong = :date";
+        String sql = "DELETE FROM tRatings WHERE cDayCounter = :date";
         MapSqlParameterSource parameters = new MapSqlParameterSource();
         parameters.addValue("date", date);
         namedParameterJdbcTemplate.update(sql, parameters);
@@ -92,14 +100,14 @@ public class RatingService
     {
         if (ratings == null || ratings.isEmpty())
         { return; }
-        String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDateLong) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
+        String sql = "INSERT INTO tRatings (cSymbol, cShort, cMid, cLong, cDayCounter) VALUES (:symbol, :shortTerm, :midTerm, :longTerm, :date)";
         MapSqlParameterSource[] batch = ratings.stream().map(rating -> {
             MapSqlParameterSource parameters = new MapSqlParameterSource();
             parameters.addValue("symbol", rating.getSymbol());
             parameters.addValue("shortTerm", rating.getShortTerm());
             parameters.addValue("midTerm", rating.getMidTerm());
             parameters.addValue("longTerm", rating.getLongTerm());
-            parameters.addValue("date", rating.getDate());
+            parameters.addValue("date", DayCounter.get(rating.getDate()));
             return parameters;
         }).toArray(MapSqlParameterSource[]::new);
 

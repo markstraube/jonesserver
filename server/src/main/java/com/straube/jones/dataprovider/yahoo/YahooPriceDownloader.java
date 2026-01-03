@@ -27,8 +27,6 @@ public class YahooPriceDownloader
     public static void fetchPrices(int daysBack, String rootFolder)
         throws Exception
     {
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(daysBack);
         // String sql = "select cIsin, cSymbol from tStockCodes where cIsin in ("
         //                 + "select distinct(cIsin) from tOnVista where cCountryCode in ('Deutschland','Frankreich','Großbritannien','Israel','Italien','Niederlande','USA')"
         //                 + " AND cBranch in ('Computer-Hardware','Elektrotechnologie','Halbleiterindustrie','IT-Dienstleistungen','IT-Software (Telekommunikation und Internet)','Internetservice',"
@@ -44,14 +42,7 @@ public class YahooPriceDownloader
                 String symbol = rs.getString("cSymbol");
                 String isin = rs.getString("cIsin");
 
-                String rawJson = downloadRawJson(symbol, startDate, endDate);
-                File t = new File(rootFolder);
-                if (!t.exists())
-                {
-                    t.mkdirs();
-                }
-                File f = new File(rootFolder, isin + "_" + symbol + ".json");
-                Files.writeString(f.toPath(), rawJson, StandardCharsets.UTF_8);
+                fetchPrices(daysBack, rootFolder, symbol, isin);
             }
         }
     }

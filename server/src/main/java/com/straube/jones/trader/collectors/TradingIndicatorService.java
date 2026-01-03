@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,13 +18,11 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.service.MarketDataService;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.trader.dto.RatingDto;
 import com.straube.jones.trader.indicators.RatingService;
-
-import org.springframework.scheduling.annotation.Scheduled;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 @Service
 public class TradingIndicatorService
@@ -581,34 +580,33 @@ public class TradingIndicatorService
         // Benötigte Anzahl von Preisen für die Berechnung
         int minRequired = longPeriod + signalPeriod;
         if (prices.size() < minRequired)
-        {
-            return new double[]{0.0, 0.0};
-        }
+        { return new double[]{0.0, 0.0}; }
 
         // Berechne MACD-Werte für die letzten signalPeriod + 1 Tage
         List<Double> macdValues = new ArrayList<>();
-        
+
         // Berechne EMA-Werte für jeden Tag
-        for (int i = 0; i < signalPeriod; i++)
+        for (int i = 0; i < signalPeriod; i++ )
         {
             // Erstelle Subliste von diesem Punkt bis zum Ende
             List<DailyPrice> subList = prices.subList(i, prices.size());
-            
+
             double emaShort = calculateEMA(subList, shortPeriod);
             double emaLong = calculateEMA(subList, longPeriod);
             double macdValue = emaShort - emaLong;
-            
+
             macdValues.add(macdValue);
         }
-        
+
         // Der aktuelle MACD-Wert ist der erste in der Liste
         double currentMACD = macdValues.get(0);
-        
+
         // Berechne Signal-Linie als EMA der MACD-Werte
         double signalLine = calculateEMAFromValues(macdValues, signalPeriod);
 
         return new double[]{currentMACD, signalLine};
     }
+
 
     /**
      * Berechnet EMA aus einer Liste von Double-Werten
@@ -617,25 +615,25 @@ public class TradingIndicatorService
     {
         if (values.isEmpty())
             return 0.0;
-        
+
         if (values.size() < period)
             period = values.size();
 
         // Berechne SMA als Startwert
         double sum = 0;
-        for (int i = 0; i < period; i++)
+        for (int i = 0; i < period; i++ )
         {
             sum += values.get(values.size() - 1 - i);
         }
         double ema = sum / period;
-        
+
         // Berechne EMA
         double multiplier = 2.0 / (period + 1);
-        for (int i = values.size() - period - 1; i >= 0; i--)
+        for (int i = values.size() - period - 1; i >= 0; i-- )
         {
             ema = (values.get(i) - ema) * multiplier + ema;
         }
-        
+
         return ema;
     }
 
@@ -898,7 +896,7 @@ public class TradingIndicatorService
                     ratings.add(rating);
                 }
             }
-            
+
             if (!ratings.isEmpty())
             {
                 ratingService.deleteRatingsForSymbol(symbol);
@@ -907,35 +905,37 @@ public class TradingIndicatorService
         }
     }
 
+
     @Scheduled(cron = "${trading.indicator.schedule.cron:0 0 6 * * ?}")
     public void updateTodaysRating()
     {
         logger.info("Starting scheduled update of ratings for today...");
         long today = DayCounter.get(LocalDate.now());
-        
-        // Delete existing ratings for today to allow re-execution
-        ratingService.deleteRatingsForDate(today);
-        
+
         List<String> symbols = marketDataService.getAllSymbols();
         List<RatingDto> ratings = new ArrayList<>();
-        
+
         for (String symbol : symbols)
         {
             Report report = getReport(symbol, today);
-            
-            if (report != null && DayCounter.get(report.getDate()) == today)
+
+            if (report != null)
             {
+                // Delete existing ratings for today to allow re-execution
+                long reportDay = DayCounter.get(report.getDate());
+                ratingService.deleteRatingsForDate(reportDay, symbol);
                 RatingDto rating = extractRatingsFromReport(report);
                 ratings.add(rating);
             }
-            
+
             // Batch save every 100 records to manage memory
-            if (ratings.size() >= 100) {
+            if (ratings.size() >= 100)
+            {
                 ratingService.saveRatingsBatch(ratings);
                 ratings.clear();
             }
         }
-        
+
         // Save remaining
         if (!ratings.isEmpty())
         {
@@ -945,7 +945,7 @@ public class TradingIndicatorService
     }
 
 
-    public static void main2(String[] args)
+    public static void main(String[] args)
     {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
@@ -953,21 +953,23 @@ public class TradingIndicatorService
         config.setPassword("stocksdb");
         config.setDriverClassName("org.mariadb.jdbc.Driver");
         config.setMaximumPoolSize(10);
-        
+
         HikariDataSource dataSource = new HikariDataSource(config);
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
         RatingService ratingService = new RatingService(jdbcTemplate);
 
-        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, ratingService);
+        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService,
+                                                                               ratingService);
         indicatorService.updateAllRatings();
-        
+
         dataSource.close();
-    }   
+    }
+
 
     // Beispiel-Verwendung
-    public static void main(String[] args)
+    public static void main3(String[] args)
     {
         String symbol = "TSLA";
 
