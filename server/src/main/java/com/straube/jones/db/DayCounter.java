@@ -44,6 +44,11 @@ public class DayCounter
         return get(LocalDate.now().minusDays(days));
     }
 
+    public static LocalDate toDate(long dayCount)
+    {
+        return REFERENCE_DATE.plusDays(dayCount);
+    }
+
     public static long toTimestamp(long dayCount)
     {
         LocalDate date = REFERENCE_DATE.plusDays(dayCount);

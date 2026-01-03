@@ -1,0 +1,31 @@
+-- StocksDB.tIndicators definition
+
+CREATE TABLE `tIndicators` (
+  `cID` int unsigned NOT NULL AUTO_INCREMENT,
+  `cSymbol` varchar(16) NOT NULL,
+  `cDateLong` int unsigned NOT NULL,
+  `cDayCounter` int unsigned NOT NULL,
+  `cBB15low` double DEFAULT NULL,
+  `cBB15mid` double DEFAULT NULL,
+  `cBB15high` double DEFAULT NULL,
+  `cRSI` double DEFAULT NULL,
+  `cVolume` double DEFAULT NULL,
+  `cMACDvalue` double DEFAULT NULL,
+  `cMACDsignal` double DEFAULT NULL,
+  `cRSI30_5` double DEFAULT NULL,
+  `cRSI30_10` double DEFAULT NULL,
+  `cRSI30_20` double DEFAULT NULL,
+  `cRSI30_30` double DEFAULT NULL,
+  `cRSI30probability` double DEFAULT NULL,
+  `cSMA5` double DEFAULT NULL,
+  `cSMA10` double DEFAULT NULL,
+  `cSMA20` double DEFAULT NULL,
+  `cSMA30` double DEFAULT NULL,
+  `cEMA5` double DEFAULT NULL,
+  `cEMA10` double DEFAULT NULL,
+  `cEMA20` double DEFAULT NULL,
+  `cEMA30` double DEFAULT NULL,
+  `cSupport` double DEFAULT NULL,
+  `cResistance` double DEFAULT NULL,
+  PRIMARY KEY (`cID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

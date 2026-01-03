@@ -4,6 +4,7 @@ package com.straube.jones.controller;
 import com.straube.jones.trader.dto.SwingTradeDetailDto;
 import com.straube.jones.trader.dto.SwingTradeOverviewDto;
 import com.straube.jones.trader.dto.RatingDto;
+import com.straube.jones.trader.dto.IndicatorDto;
 import com.straube.jones.trader.dto.TradingAnalysisResult;
 import com.straube.jones.trader.indicators.RSIPrediction;
 import com.straube.jones.trader.indicators.RatingService;
@@ -15,6 +16,7 @@ import com.straube.jones.trader.dto.BuyPriceTargetsDto;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.service.IndicatorService;
 import com.straube.jones.service.MarketDataService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,16 +47,19 @@ public class SwingTradeController
     private final SwingTradeQueryService queryService;
     private final TradingIndicatorService indicatorService;
     private final RatingService ratingService;
+    private final IndicatorService indicatorDtoService;
     private final MarketDataService marketDataService;
 
     public SwingTradeController(SwingTradeQueryService queryService, 
                                TradingIndicatorService indicatorService, 
                                RatingService ratingService,
+                               IndicatorService indicatorDtoService,
                                MarketDataService marketDataService)
     {
         this.queryService = queryService;
         this.indicatorService = indicatorService;
         this.ratingService = ratingService;
+        this.indicatorDtoService = indicatorDtoService;
         this.marketDataService = marketDataService;
     }
 
@@ -117,6 +122,69 @@ public class SwingTradeController
             @Parameter(description = "Endzeitpunkt (Timestamp ms)", required = false) @RequestParam(required = false) Long endTime)
     {
         return ResponseEntity.ok(ratingService.getRatings(codes, startTime, endTime));
+    }
+
+
+    @PostMapping("/indicators")
+    @Operation(
+        summary = "Technische Indikatoren abrufen",
+        description = "Liefert detaillierte technische Indikatoren für die übergebene Liste von Aktiensymbolen. " +
+                      "Die Methode gibt historische Indikator-Daten aus der tIndicators-Tabelle zurück.\n\n" +
+                      "**Zurückgegebene Indikatoren:**\n" +
+                      "- **Bollinger Bänder**: Oberes, mittleres und unteres Band (15-Tage-Periode)\n" +
+                      "- **RSI (Relative Strength Index)**: Momentum-Indikator (0-100)\n" +
+                      "- **MACD**: Moving Average Convergence Divergence mit Signal-Linie\n" +
+                      "- **Gleitende Durchschnitte**: SMA und EMA für 5, 10, 20 und 30 Tage\n" +
+                      "- **RSI30-Wahrscheinlichkeiten**: Wahrscheinlichkeit für RSI < 30 in verschiedenen Zeithorizonten (5, 10, 20, 30 Tage)\n" +
+                      "- **Unterstützung/Widerstand**: Berechnete Support- und Resistance-Levels\n" +
+                      "- **Volumen**: Handelsvolumen\n\n" +
+                      "**Zeitraum-Filter:**\n" +
+                      "- `startTime`: Unix-Timestamp in Millisekunden für den Beginn des Abfragezeitraums (optional, Standard: 1.1.2000)\n" +
+                      "- `endTime`: Unix-Timestamp in Millisekunden für das Ende des Abfragezeitraums (optional, Standard: aktuelles Datum)\n\n" +
+                      "**Sortierung:** Die Ergebnisse werden nach Symbol (aufsteigend) und Datum (absteigend) sortiert zurückgegeben.\n\n" +
+                      "**Verwendungsbeispiel:**\n" +
+                      "```json\n" +
+                      "POST /api/swing-trades/indicators?startTime=1704067200000&endTime=1735689600000\n" +
+                      "Body: [\"AAPL\", \"MSFT\", \"TSLA\"]\n" +
+                      "```\n\n" +
+                      "**Response-Struktur:** Jedes IndicatorDto-Objekt enthält alle verfügbaren Indikatoren für ein Symbol und Datum. " +
+                      "Felder können `null` sein, wenn für den jeweiligen Indikator keine Daten verfügbar sind."
+    )
+    @ApiResponse(
+        responseCode = "200",
+        description = "Erfolgreiche Abfrage - Liste von Indikator-Objekten mit allen technischen Kennzahlen",
+        content = @Content(schema = @Schema(implementation = IndicatorDto.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Ungültige Anfrage - z.B. leere Symbol-Liste oder ungültige Zeitstempel"
+    )
+    public ResponseEntity<List<IndicatorDto>> getIndicators(
+            @Parameter(
+                description = "Liste von Aktiensymbolen oder Codes (z.B. AAPL, MSFT, TSLA oder interne ISIN-Codes). " +
+                             "Die Codes werden automatisch in die entsprechenden Handelssymbole aufgelöst.",
+                required = true,
+                example = "[\"AAPL\", \"MSFT\", \"TSLA\"]"
+            )
+            @RequestBody List<String> codes,
+            
+            @Parameter(
+                description = "Startzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. " +
+                             "Wenn nicht angegeben, werden Daten ab dem 1.1.2000 abgerufen.",
+                required = false,
+                example = "1704067200000"
+            )
+            @RequestParam(required = false) Long startTime,
+            
+            @Parameter(
+                description = "Endzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. " +
+                             "Wenn nicht angegeben, wird das aktuelle Datum verwendet.",
+                required = false,
+                example = "1735689600000"
+            )
+            @RequestParam(required = false) Long endTime)
+    {
+        return ResponseEntity.ok(indicatorDtoService.getIndicators(codes, startTime, endTime));
     }
 
 

@@ -1,7 +1,6 @@
 package com.straube.jones.trader.indicators;
 
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -473,7 +472,7 @@ public class MovingAverageService
      */
     private static double getPrice(DailyPrice price, MAConfig.PriceSource source)
     {
-        return source == MAConfig.PriceSource.ADJ_CLOSE ? price.getAdjClose() : price.getAdjClose();
+        return source == MAConfig.PriceSource.ADJ_CLOSE ? price.getAdjClose() : price.getClose();
     }
 
 
