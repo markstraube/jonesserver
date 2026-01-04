@@ -65,12 +65,14 @@ public class SwingTradeController
 
 
     @GetMapping
-    @Operation(summary = "Watchlist abrufen", description = "Liefert eine Liste von Swing-Trading-Kandidaten mit Status und Kennzahlen.")
-    @ApiResponse(responseCode = "200", description = "Erfolgreiche Abfrage", content = @Content(schema = @Schema(implementation = SwingTradeOverviewDto.class)))
+    @Operation(summary = "Watchlist abrufen", description = "Liefert eine Liste von Swing-Trading-Kandidaten basierend auf technischen Indikatoren und Ratings. " +
+            "Die Liste enthält Stammdaten von OnVista, aktuelle Indikatoren (RSI, MACD, Volumen) und Swing-Trading-Kennzahlen (CRV, Support-Abstand). " +
+            "Die Kandidaten werden vorab gefiltert nach Ratings (BUY in Short/Mid/Long).")
+    @ApiResponse(responseCode = "200", description = "Erfolgreiche Abfrage der Watchlist", content = @Content(schema = @Schema(implementation = SwingTradeOverviewDto.class)))
     public ResponseEntity<List<SwingTradeOverviewDto>> getWatchlist(@Parameter(description = "Filter nach Status (GREEN, YELLOW, RED)")
     @RequestParam(required = false)
     String status,
-                                                                    @Parameter(description = "Minimales Chance-Risiko-Verhältnis")
+                                                                    @Parameter(description = "Minimales Chance-Risiko-Verhältnis (CRV)")
                                                                     @RequestParam(required = false)
                                                                     Double minCrv,
                                                                     @Parameter(description = "Maximaler RSI-Wert")

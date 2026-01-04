@@ -92,63 +92,84 @@ public class SwingTradeQueryService
 
     public List<SwingTradeOverviewDto> getWatchlist(String statusFilter, Double minCrv, Double maxRsi)
     {
-        List<String> symbols = companyService.getAllSymbols();
-        List<SwingTradeOverviewDto> result = new ArrayList<>();
+        // Get max day counter
+        String maxDaySql = "SELECT MAX(cDayCounter) FROM tRatings";
+        Long maxDay = jdbcTemplate.queryForObject(maxDaySql, Long.class);
+        
+        if (maxDay == null) return new ArrayList<>();
 
-        com.straube.jones.trader.SwingTradeConfig config = new com.straube.jones.trader.SwingTradeConfig();
-        if (minCrv != null) {
-            config.setMinCrv(minCrv);
-        }
-        if (maxRsi != null) {
-            config.setMaxRsi(maxRsi);
-        }
+        // SQL to get all data
+        String sql = "SELECT " +
+                "o.cIsin, o.cName, o.cSymbol, o.cLast, o.cSector, o.cCountryCode, o.cMarketCapitalization, " +
+                "i.cRSI, i.cMACDvalue, i.cMACDsignal, i.cVolume, i.cSupport, i.cResistance, " +
+                "r.cShort, r.cMid, r.cLong " +
+                "FROM tOnVista o " +
+                "JOIN tCompany c ON o.cIsin = c.cIsin " +
+                "JOIN tRatings r ON c.cSymbol = r.cSymbol " +
+                "LEFT JOIN tIndicators i ON c.cSymbol = i.cSymbol AND i.cDayCounter = (SELECT MAX(cDayCounter) FROM tIndicators) " +
+                "WHERE r.cDayCounter = ? " +
+                "AND (r.cShort='BUY' OR r.cMid='BUY' OR r.cLong='BUY') " +
+                "ORDER BY o.cMarketCapitalization DESC";
 
-        for (String symbol : symbols)
-        {
-            List<DailyPrice> prices = marketDataService.getMarketData(symbol);
-            if (prices.isEmpty() || prices.size() < 50)
-            {                
-                continue;
-            }
-            SwingTradeCandidate candidate = candidateBuilder.build(symbol, prices, config);
-
-            // Enrich with events
-            EventFilter eventFilter = candidate.getEvents();
-            eventFilter.setNextEarningsDate(eventService.getNextEarningsDate(symbol));
-            eventFilter.setNextDividendDate(eventService.getNextDividendDate(symbol));
-            long days = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(),
-                                                                   eventFilter.getNextEarningsDate());
-            eventFilter.setTradingDaysUntilEarnings((int)days);
-
-            if (statusFilter != null && !candidate.getStatus().name().equalsIgnoreCase(statusFilter))
-            {
-                continue;
-            }
-            if (minCrv != null && candidate.getRiskReward().getChanceRiskRatio() < minCrv)
-            {
-                continue;
-            }
-            if (maxRsi != null && candidate.getPullback().getRsi14() > maxRsi)
-            {
-                continue;
-            }
-
+        List<SwingTradeOverviewDto> list = jdbcTemplate.query(sql, new Object[]{maxDay}, (rs, rowNum) -> {
             SwingTradeOverviewDto dto = new SwingTradeOverviewDto();
-            dto.setSymbol(candidate.getSymbol());
-            dto.setCompanyName(companyService.getCompanyName(symbol));
-            dto.setLastPrice(prices.get(0).getClose());
-            dto.setStatus(candidate.getStatus());
-            dto.setStatusSummary(candidate.getNotes().isEmpty() ? "Sauberes Setup"
-                            : String.join(", ", candidate.getNotes()));
-            dto.setRsi(candidate.getPullback().getRsi14());
-            dto.setDistanceToSupportPercent(candidate.getSupport().getDistanceToSupportPercent());
-            dto.setChanceRiskRatio(candidate.getRiskReward().getChanceRiskRatio());
-            dto.setDaysUntilEarnings(candidate.getEvents().getTradingDaysUntilEarnings());
+            dto.setIsin(rs.getString("cIsin"));
+            dto.setSymbol(rs.getString("cSymbol"));
+            dto.setCompanyName(rs.getString("cName"));
+            dto.setLastPrice(rs.getDouble("cLast"));
+            dto.setSector(rs.getString("cSector"));
+            dto.setCountry(rs.getString("cCountryCode"));
+            dto.setMarketCap(rs.getDouble("cMarketCapitalization"));
+            
+            dto.setRsi(rs.getDouble("cRSI"));
+            dto.setMacdValue(rs.getObject("cMACDvalue") != null ? rs.getDouble("cMACDvalue") : null);
+            dto.setMacdSignal(rs.getObject("cMACDsignal") != null ? rs.getDouble("cMACDsignal") : null);
+            dto.setVolume(rs.getObject("cVolume") != null ? rs.getDouble("cVolume") : null);
+            
+            double support = rs.getDouble("cSupport");
+            double resistance = rs.getDouble("cResistance");
+            double last = rs.getDouble("cLast");
+            
+            if (last > 0) {
+                dto.setDistanceToSupportPercent(((last - support) / last) * 100);
+            }
+            
+            // Calculate CRV
+            if (last > support && resistance > last) {
+                double risk = last - support;
+                double chance = resistance - last;
+                if (risk > 0) {
+                    dto.setChanceRiskRatio(chance / risk);
+                }
+            }
+            
+            // Determine status based on ratings
+            String s = rs.getString("cShort");
+            String m = rs.getString("cMid");
+            String l = rs.getString("cLong");
+            
+            if ("BUY".equals(s) && "BUY".equals(m)) {
+                dto.setStatus(com.straube.jones.trader.dasboard.TradeStatus.GREEN);
+                dto.setStatusSummary("Strong Buy (Short/Mid)");
+            } else if ("BUY".equals(m) || "BUY".equals(l)) {
+                dto.setStatus(com.straube.jones.trader.dasboard.TradeStatus.YELLOW);
+                dto.setStatusSummary("Buy (Mid/Long)");
+            } else {
+                dto.setStatus(com.straube.jones.trader.dasboard.TradeStatus.RED);
+                dto.setStatusSummary("Watch");
+            }
+            
             dto.setLastUpdated(LocalDateTime.now().toString());
+            
+            return dto;
+        });
 
-            result.add(dto);
-        }
-        return result;
+        // Apply filters
+        return list.stream()
+            .filter(dto -> statusFilter == null || dto.getStatus().name().equalsIgnoreCase(statusFilter))
+            .filter(dto -> minCrv == null || dto.getChanceRiskRatio() >= minCrv)
+            .filter(dto -> maxRsi == null || dto.getRsi() <= maxRsi)
+            .collect(java.util.stream.Collectors.toList());
     }
 
 

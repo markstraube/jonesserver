@@ -9,6 +9,9 @@ import com.straube.jones.trader.dasboard.TradeStatus;
 public class SwingTradeOverviewDto
 {
 
+    /** ISIN */
+    private String isin;
+
     /** Aktiensymbol (z. B. AAPL) */
     private String symbol;
 
@@ -27,6 +30,24 @@ public class SwingTradeOverviewDto
     /** RSI-Wert (Momentum) */
     private double rsi;
 
+    /** MACD-Wert */
+    private Double macdValue;
+
+    /** MACD-Signal */
+    private Double macdSignal;
+
+    /** Handelsvolumen */
+    private Double volume;
+
+    /** Sektor (aus OnVista) */
+    private String sector;
+
+    /** Land (aus OnVista) */
+    private String country;
+
+    /** Marktkapitalisierung (aus OnVista) */
+    private Double marketCap;
+
     /** Abstand zur Unterstützung in Prozent */
     private double distanceToSupportPercent;
 
@@ -38,6 +59,14 @@ public class SwingTradeOverviewDto
 
     /** Datum der letzten Aktualisierung */
     private String lastUpdated;
+
+    public String getIsin() {
+        return isin;
+    }
+
+    public void setIsin(String isin) {
+        this.isin = isin;
+    }
 
     public String getSymbol()
     {
@@ -108,6 +137,54 @@ public class SwingTradeOverviewDto
     public void setRsi(double rsi)
     {
         this.rsi = rsi;
+    }
+
+    public Double getMacdValue() {
+        return macdValue;
+    }
+
+    public void setMacdValue(Double macdValue) {
+        this.macdValue = macdValue;
+    }
+
+    public Double getMacdSignal() {
+        return macdSignal;
+    }
+
+    public void setMacdSignal(Double macdSignal) {
+        this.macdSignal = macdSignal;
+    }
+
+    public Double getVolume() {
+        return volume;
+    }
+
+    public void setVolume(Double volume) {
+        this.volume = volume;
+    }
+
+    public String getSector() {
+        return sector;
+    }
+
+    public void setSector(String sector) {
+        this.sector = sector;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public Double getMarketCap() {
+        return marketCap;
+    }
+
+    public void setMarketCap(Double marketCap) {
+        this.marketCap = marketCap;
     }
 
 

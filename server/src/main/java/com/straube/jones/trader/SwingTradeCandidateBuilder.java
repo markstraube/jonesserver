@@ -35,6 +35,33 @@ public class SwingTradeCandidateBuilder
     
 
     /**
+     * Baut einen Swing-Trading-Kandidaten unter Verwendung von vorbrechneten Indikatoren.
+     */
+    public SwingTradeCandidate build(String symbol, List<DailyPrice> prices, com.straube.jones.trader.dto.IndicatorDto indicators, SwingTradeConfig config) {
+        SwingTradeCandidate candidate = build(symbol, prices, config);
+        
+        if (indicators != null) {
+            // Override calculated values with DB values
+            if (indicators.getRsi() != null) {
+                candidate.getPullback().setRsi14(indicators.getRsi());
+            }
+            
+            if (indicators.getSupport() != null) {
+                candidate.getSupport().setNearestSupportLevel(indicators.getSupport());
+                // Recalculate distance
+                double lastPrice = prices.get(0).getClose();
+                double dist = ((lastPrice - indicators.getSupport()) / lastPrice) * 100;
+                candidate.getSupport().setDistanceToSupportPercent(dist);
+            }
+            
+            // Add MACD and Volume info if available in candidate (SwingTradeCandidate might need update)
+            // Currently SwingTradeCandidate doesn't seem to have MACD field, but we can add it or put in notes.
+        }
+        
+        return candidate;
+    }
+
+    /**
      * Baut einen Swing-Trading-Kandidaten.
      *
      * @param symbol Aktiensymbol (z. B. AAPL)
