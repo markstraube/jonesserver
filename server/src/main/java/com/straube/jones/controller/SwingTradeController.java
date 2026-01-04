@@ -95,6 +95,15 @@ public class SwingTradeController
     }
 
 
+    @GetMapping("/candidates")
+    @Operation(summary = "Kandidaten abrufen", description = "Liefert eine Liste mit Stammdaten zu Unternehmen aus der tOnVista Tabelle, die basierend auf Ratings ausgewählt wurden.")
+    @ApiResponse(responseCode = "200", description = "Erfolgreiche Abfrage", content = @Content(schema = @Schema(implementation = com.straube.jones.dto.OnVistaDto.class)))
+    public ResponseEntity<List<com.straube.jones.dto.OnVistaDto>> getCandidates()
+    {
+        return ResponseEntity.ok(queryService.getCandidates());
+    }
+
+
     @GetMapping("/report")
     @Operation(summary = "Technischen Analyse-Report abrufen", description = "Erstellt einen detaillierten technischen Analyse-Report mit verschiedenen Konfigurationen (Standard, Kurzfristig, Langfristig).")
     @ApiResponse(responseCode = "200", description = "Report erfolgreich erstellt", content = @Content(schema = @Schema(implementation = TradingIndicatorService.Report.class)))

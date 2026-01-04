@@ -36,16 +36,58 @@ public class SwingTradeQueryService
     private final MockEventService eventService;
     private final CompanyService companyService;
     private final SwingTradeCandidateBuilder candidateBuilder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public SwingTradeQueryService(MarketDataService marketDataService,
                                   MockEventService eventService,
-                                  CompanyService companyService)
+                                  CompanyService companyService,
+                                  org.springframework.jdbc.core.JdbcTemplate jdbcTemplate)
     {
         this.marketDataService = marketDataService;
         this.eventService = eventService;
         this.companyService = companyService;
         this.candidateBuilder = new SwingTradeCandidateBuilder();
+        this.jdbcTemplate = jdbcTemplate;
     }
+
+    public List<com.straube.jones.dto.OnVistaDto> getCandidates() {
+        // Get max day counter for ratings
+        String maxDaySql = "SELECT MAX(cDayCounter) FROM tRatings";
+        Long maxDay = jdbcTemplate.queryForObject(maxDaySql, Long.class);
+        
+        if (maxDay == null) {
+            return new ArrayList<>();
+        }
+
+        String sql = "select * from tOnVista where cIsin in (select distinct(cIsin) from tCompany where cSymbol in (select distinct(cSymbol) from tRatings where cDayCounter = ? and (cShort='BUY' or cMid='BUY' or cLong='BUY') )) order by cMarketCapitalization DESC";
+        
+        return jdbcTemplate.query(sql, new Object[]{maxDay}, (rs, rowNum) -> {
+            com.straube.jones.dto.OnVistaDto dto = new com.straube.jones.dto.OnVistaDto();
+            dto.setIsin(rs.getString("cIsin"));
+            dto.setName(rs.getString("cName"));
+            dto.setSymbol(rs.getString("cSymbol"));
+            dto.setBranch(rs.getString("cBranch"));
+            dto.setSector(rs.getString("cSector"));
+            dto.setCountryCode(rs.getString("cCountryCode"));
+            dto.setLast(rs.getObject("cLast") != null ? rs.getDouble("cLast") : null);
+            dto.setExchange(rs.getString("cExchange"));
+            dto.setDateLong(rs.getObject("cDateLong") != null ? rs.getDouble("cDateLong") : null);
+            dto.setCurrency(rs.getString("cCurrency"));
+            dto.setPerformance(rs.getObject("cPerformance") != null ? rs.getDouble("cPerformance") : null);
+            dto.setPerf1Year(rs.getObject("cPerf1Year") != null ? rs.getDouble("cPerf1Year") : null);
+            dto.setPerf6Months(rs.getObject("cPerf6Months") != null ? rs.getDouble("cPerf6Months") : null);
+            dto.setPerf4Weeks(rs.getObject("cPerf4Weeks") != null ? rs.getDouble("cPerf4Weeks") : null);
+            dto.setDividendYield(rs.getObject("cDividendYield") != null ? rs.getDouble("cDividendYield") : null);
+            dto.setDividend(rs.getObject("cDividend") != null ? rs.getDouble("cDividend") : null);
+            dto.setMarketCapitalization(rs.getObject("cMarketCapitalization") != null ? rs.getDouble("cMarketCapitalization") : null);
+            dto.setRiskRating(rs.getObject("cRiskRating") != null ? rs.getDouble("cRiskRating") : null);
+            dto.setEmployees(rs.getObject("cEmployees") != null ? rs.getDouble("cEmployees") : null);
+            dto.setTurnover(rs.getObject("cTurnover") != null ? rs.getDouble("cTurnover") : null);
+            dto.setUpdated(rs.getTimestamp("cUpdated"));
+            return dto;
+        });
+    }
+
 
 
     public List<SwingTradeOverviewDto> getWatchlist(String statusFilter, Double minCrv, Double maxRsi)

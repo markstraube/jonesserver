@@ -1,0 +1,224 @@
+ "/api/swing-trades/indicators": {
+      "post": {
+        "tags": [
+          "Swing Trading API"
+        ],
+        "summary": "Technische Indikatoren abrufen",
+        "description": "Liefert detaillierte technische Indikatoren für die übergebene Liste von Aktiensymbolen. Die Methode gibt historische Indikator-Daten aus der tIndicators-Tabelle zurück.\n\n**Zurückgegebene Indikatoren:**\n- **Bollinger Bänder**: Oberes, mittleres und unteres Band (15-Tage-Periode)\n- **RSI (Relative Strength Index)**: Momentum-Indikator (0-100)\n- **MACD**: Moving Average Convergence Divergence mit Signal-Linie\n- **Gleitende Durchschnitte**: SMA und EMA für 5, 10, 20 und 30 Tage\n- **RSI30-Wahrscheinlichkeiten**: Wahrscheinlichkeit für RSI \u003C 30 in verschiedenen Zeithorizonten (5, 10, 20, 30 Tage)\n- **Unterstützung/Widerstand**: Berechnete Support- und Resistance-Levels\n- **Volumen**: Handelsvolumen\n\n**Zeitraum-Filter:**\n- `startTime`: Unix-Timestamp in Millisekunden für den Beginn des Abfragezeitraums (optional, Standard: 1.1.2000)\n- `endTime`: Unix-Timestamp in Millisekunden für das Ende des Abfragezeitraums (optional, Standard: aktuelles Datum)\n\n**Sortierung:** Die Ergebnisse werden nach Symbol (aufsteigend) und Datum (absteigend) sortiert zurückgegeben.\n\n**Verwendungsbeispiel:**\n```json\nPOST /api/swing-trades/indicators?startTime=1704067200000&endTime=1735689600000\nBody: [\"AAPL\", \"MSFT\", \"TSLA\"]\n```\n\n**Response-Struktur:** Jedes IndicatorDto-Objekt enthält alle verfügbaren Indikatoren für ein Symbol und Datum. Felder können `null` sein, wenn für den jeweiligen Indikator keine Daten verfügbar sind.",
+        "operationId": "getIndicators",
+        "parameters": [
+          {
+            "name": "startTime",
+            "in": "query",
+            "description": "Startzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. Wenn nicht angegeben, werden Daten ab dem 1.1.2000 abgerufen.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1704067200000
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "description": "Endzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. Wenn nicht angegeben, wird das aktuelle Datum verwendet.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1735689600000
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "description": "Liste von Aktiensymbolen oder Codes (z.B. AAPL, MSFT, TSLA oder interne ISIN-Codes). Die Codes werden automatisch in die entsprechenden Handelssymbole aufgelöst.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Abfrage - Liste von Indikator-Objekten mit allen technischen Kennzahlen",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndicatorDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ungültige Anfrage - z.B. leere Symbol-Liste oder ungültige Zeitstempel",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IndicatorDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+
+    "IndicatorDto": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Aktiensymbol (z.B. AAPL, MSFT)",
+            "example": "AAPL"
+          },
+          "date": {
+            "type": "integer",
+            "description": "Datum als Unix-Timestamp in Millisekunden",
+            "format": "int64",
+            "example": 1735689600000
+          },
+          "bb15low": {
+            "type": "number",
+            "description": "Unteres Bollinger Band (15-Tage-Periode)",
+            "format": "double",
+            "example": 142.5
+          },
+          "bb15mid": {
+            "type": "number",
+            "description": "Mittleres Bollinger Band / SMA 15 (15-Tage-Periode)",
+            "format": "double",
+            "example": 150
+          },
+          "bb15high": {
+            "type": "number",
+            "description": "Oberes Bollinger Band (15-Tage-Periode)",
+            "format": "double",
+            "example": 157.5
+          },
+          "rsi": {
+            "type": "number",
+            "description": "Relative Strength Index (RSI) - Wert zwischen 0-100",
+            "format": "double",
+            "example": 45.6
+          },
+          "volume": {
+            "type": "number",
+            "description": "Handelsvolumen",
+            "format": "double",
+            "example": 75000000
+          },
+          "macdValue": {
+            "type": "number",
+            "description": "MACD-Wert (Moving Average Convergence Divergence)",
+            "format": "double",
+            "example": 1.23
+          },
+          "macdSignal": {
+            "type": "number",
+            "description": "MACD-Signal-Linie",
+            "format": "double",
+            "example": 0.98
+          },
+          "rsi30Days5": {
+            "type": "number",
+            "description": "RSI30-Wahrscheinlichkeit für 5-Tage-Horizont",
+            "format": "double",
+            "example": 0.12
+          },
+          "rsi30Days10": {
+            "type": "number",
+            "description": "RSI30-Wahrscheinlichkeit für 10-Tage-Horizont",
+            "format": "double",
+            "example": 0.25
+          },
+          "rsi30Days20": {
+            "type": "number",
+            "description": "RSI30-Wahrscheinlichkeit für 20-Tage-Horizont",
+            "format": "double",
+            "example": 0.42
+          },
+          "rsi30Days30": {
+            "type": "number",
+            "description": "RSI30-Wahrscheinlichkeit für 30-Tage-Horizont",
+            "format": "double",
+            "example": 0.58
+          },
+          "rsi30probability": {
+            "type": "number",
+            "description": "Gesamtwahrscheinlichkeit für RSI unter 30",
+            "format": "double",
+            "example": 0.34
+          },
+          "sma5": {
+            "type": "number",
+            "description": "Simple Moving Average über 5 Tage",
+            "format": "double",
+            "example": 148.3
+          },
+          "sma10": {
+            "type": "number",
+            "description": "Simple Moving Average über 10 Tage",
+            "format": "double",
+            "example": 147.8
+          },
+          "sma20": {
+            "type": "number",
+            "description": "Simple Moving Average über 20 Tage",
+            "format": "double",
+            "example": 146.5
+          },
+          "sma30": {
+            "type": "number",
+            "description": "Simple Moving Average über 30 Tage",
+            "format": "double",
+            "example": 145.2
+          },
+          "ema5": {
+            "type": "number",
+            "description": "Exponential Moving Average über 5 Tage",
+            "format": "double",
+            "example": 148.6
+          },
+          "ema10": {
+            "type": "number",
+            "description": "Exponential Moving Average über 10 Tage",
+            "format": "double",
+            "example": 148.1
+          },
+          "ema20": {
+            "type": "number",
+            "description": "Exponential Moving Average über 20 Tage",
+            "format": "double",
+            "example": 147.2
+          },
+          "ema30": {
+            "type": "number",
+            "description": "Exponential Moving Average über 30 Tage",
+            "format": "double",
+            "example": 146.5
+          },
+          "support": {
+            "type": "number",
+            "description": "Unterstützungsniveau (Support)",
+            "format": "double",
+            "example": 140
+          },
+          "resistance": {
+            "type": "number",
+            "description": "Widerstandsniveau (Resistance)",
+            "format": "double",
+            "example": 160
+          }
+        },
+        "description": "Technische Indikatoren einer Aktie zu einem bestimmten Datum"
+      }

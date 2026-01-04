@@ -1,0 +1,103 @@
+    "/api/swing-trades/candidates": {
+      "get": {
+        "tags": [
+          "Swing Trading API"
+        ],
+        "summary": "Kandidaten abrufen",
+        "description": "Liefert eine Liste mit Stammdaten zu Unternehmen aus der tOnVista Tabelle, die basierend auf Ratings ausgewählt wurden.",
+        "operationId": "getCandidates",
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Abfrage",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnVistaDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "OnVistaDto": {
+        "type": "object",
+        "properties": {
+          "isin": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "sector": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "last": {
+            "type": "number",
+            "format": "double"
+          },
+          "exchange": {
+            "type": "string"
+          },
+          "dateLong": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "performance": {
+            "type": "number",
+            "format": "double"
+          },
+          "perf1Year": {
+            "type": "number",
+            "format": "double"
+          },
+          "perf6Months": {
+            "type": "number",
+            "format": "double"
+          },
+          "perf4Weeks": {
+            "type": "number",
+            "format": "double"
+          },
+          "dividendYield": {
+            "type": "number",
+            "format": "double"
+          },
+          "dividend": {
+            "type": "number",
+            "format": "double"
+          },
+          "marketCapitalization": {
+            "type": "number",
+            "format": "double"
+          },
+          "riskRating": {
+            "type": "number",
+            "format": "double"
+          },
+          "employees": {
+            "type": "number",
+            "format": "double"
+          },
+          "turnover": {
+            "type": "number",
+            "format": "double"
+          },
+          "updated": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
