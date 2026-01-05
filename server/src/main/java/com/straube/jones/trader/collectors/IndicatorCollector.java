@@ -24,7 +24,6 @@ import com.straube.jones.trader.indicators.IndicatorCalculator;
 @Service
 public class IndicatorCollector
 {
-
     private final MarketDataService marketDataService;
     private final IndicatorCalculator indicatorCalculator;
 
@@ -66,7 +65,7 @@ public class IndicatorCollector
             return dtoDay >= startDayCounter && dtoDay <= endDayCounter;
         }).collect(Collectors.toList());
     }
-
+    
 
     public static void main(String[] args)
     {

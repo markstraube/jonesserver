@@ -11,7 +11,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -22,11 +21,11 @@ import com.straube.jones.db.DayCounter;
 public class YahooPriceImporter
 {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public void uploadPriceData(String folder)
+    public static void uploadPriceData()
     {
-        File yahooDir = new File(folder);
+        File yahooDir = new File(YahooPriceDownloader.DAILY_PRICE_FOLDER);
         if (!yahooDir.exists() || !yahooDir.isDirectory())
         {
             System.err.println("Yahoo directory not found: " + yahooDir.getAbsolutePath());
@@ -47,7 +46,7 @@ public class YahooPriceImporter
     }
 
 
-    private void processFile(File jsonFile)
+    private static void processFile(File jsonFile)
     {
         System.out.println("Processing file: " + jsonFile.getName());
         String filename = jsonFile.getName();
@@ -116,7 +115,7 @@ public class YahooPriceImporter
     }
 
 
-    private void upsertCompany(Connection conn, JsonNode meta, String isin)
+    private static void upsertCompany(Connection conn, JsonNode meta, String isin)
         throws SQLException
     {
         String symbol = meta.path("symbol").asText();
@@ -168,7 +167,7 @@ public class YahooPriceImporter
     }
 
 
-    private void fillCompanyStatement(PreparedStatement ps, JsonNode meta, String isin)
+    private static void fillCompanyStatement(PreparedStatement ps, JsonNode meta, String isin)
         throws SQLException
     {
         ps.setString(1, isin);
@@ -197,7 +196,7 @@ public class YahooPriceImporter
     }
 
 
-    private int importPriceData(Connection conn, JsonNode data, JsonNode meta, String isin)
+    private static int importPriceData(Connection conn, JsonNode data, JsonNode meta, String isin)
         throws SQLException
     {
         String symbol = meta.path("symbol").asText();
@@ -312,7 +311,7 @@ public class YahooPriceImporter
     }
 
 
-    private double getValue(JsonNode arr, int index)
+    private static double getValue(JsonNode arr, int index)
     {
         if (arr == null || !arr.has(index) || arr.get(index).isNull())
             return 0.0;
@@ -320,7 +319,7 @@ public class YahooPriceImporter
     }
 
 
-    private long getLongValue(JsonNode arr, int index)
+    private static long getLongValue(JsonNode arr, int index)
     {
         if (arr == null || !arr.has(index) || arr.get(index).isNull())
             return 0L;
@@ -337,8 +336,7 @@ public class YahooPriceImporter
         }
 
         System.out.println("Starting Yahoo Price Import from: " + rootFolder);
-        YahooPriceImporter importer = new YahooPriceImporter();
-        importer.uploadPriceData(rootFolder);
+        YahooPriceImporter.uploadPriceData();
         System.out.println("Import finished.");
     }
 }

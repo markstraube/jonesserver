@@ -21,10 +21,19 @@ import com.straube.jones.db.DBConnection;
 
 public class YahooPriceDownloader
 {
-
+    static final String DATA_ROOT = System.getProperty("data.root", "/home/mark/Software/data");
+    public static final String DAILY_PRICE_FOLDER = DATA_ROOT + "/yahoo/daily";
+    static
+    {
+        File t = new File(DAILY_PRICE_FOLDER);
+        if (!t.exists())
+        {
+            t.mkdirs();
+        }
+    }
     public static final java.util.logging.Logger LOGGER = java.util.logging.Logger.getLogger(YahooPriceDownloader.class.getName());
 
-    public static void fetchPrices(int daysBack, String rootFolder)
+    public static void fetchPrices(int daysBack)
         throws Exception
     {
         // String sql = "select cIsin, cSymbol from tStockCodes where cIsin in ("
@@ -42,25 +51,21 @@ public class YahooPriceDownloader
                 String symbol = rs.getString("cSymbol");
                 String isin = rs.getString("cIsin");
 
-                fetchPrices(daysBack, rootFolder, symbol, isin);
+                fetchPrices(daysBack, symbol, isin);
             }
         }
     }
 
 
-    public static void fetchPrices(int daysBack, String rootFolder, String symbol, String isin)
+    public static void fetchPrices(int daysBack, String symbol, String isin)
         throws Exception
     {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(daysBack);
 
         String rawJson = downloadRawJson(symbol, startDate, endDate);
-        File t = new File(rootFolder);
-        if (!t.exists())
-        {
-            t.mkdirs();
-        }
-        File f = new File(rootFolder, isin + "_" + symbol + ".json");
+
+        File f = new File(DAILY_PRICE_FOLDER, isin + "_" + symbol + ".json");
         Files.writeString(f.toPath(), rawJson, StandardCharsets.UTF_8);
     }
 
@@ -124,22 +129,18 @@ public class YahooPriceDownloader
     public static void main(String[] args)
         throws Exception
     {
-        String rootFolder = "./data/yahoo/daily";
         int daysBack = 2;
+
         if (args.length > 0)
         {
-            rootFolder = args[0];
-        }
-        if (args.length > 1)
-        {
-            String daysBackStr = args[1];
+            String daysBackStr = args[0];
             daysBack = Integer.parseInt(daysBackStr);
         }
-        System.out.println("Starting Yahoo Price download to: " + rootFolder
+        System.out.println("Starting Yahoo Price download to: " + DAILY_PRICE_FOLDER
                         + " for the past "
                         + daysBack
                         + " days.");
-        YahooPriceDownloader.fetchPrices(daysBack, rootFolder);
+        YahooPriceDownloader.fetchPrices(daysBack);
         System.out.println("Download finished.");
     }
 }

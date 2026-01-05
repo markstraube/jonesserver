@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.trader.collectors.IndicatorCollector;
 import com.straube.jones.trader.dto.IndicatorDto;
 
 /**
@@ -147,6 +148,7 @@ public class IndicatorService {
             return dto;
         });
     }
+
 
     /**
      * Speichert oder aktualisiert eine Liste von Indikatoren in der Datenbank.

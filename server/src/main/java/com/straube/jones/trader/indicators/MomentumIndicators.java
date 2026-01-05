@@ -1,9 +1,11 @@
 package com.straube.jones.trader.indicators;
 
 
+import java.lang.reflect.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -835,7 +837,8 @@ public class MomentumIndicators
 
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
-        List<String> symbols = marketDataService.getAllSymbols();
+        List<String> symbols = Arrays.asList("MU");//marketDataService.getAllSymbols();
+        MomentumSignal signal = null;
         for (String symbol : symbols)
         {
             List<DailyPrice> prices = marketDataService.getMarketData(symbol);
@@ -854,10 +857,24 @@ public class MomentumIndicators
             System.out.println("Aktueller RSI(14): " + String.format("%.2f", rsi));
 
             // 3. Momentum Signal generieren (inkl. ADX, Trend, Volumen, Exit-Levels)
-            MomentumSignal signal = generateMomentumSignal(prices, rsi);
+            signal = generateMomentumSignal(prices, rsi);
             scores.put(symbol, signal.score);
         }
-        if (!scores.isEmpty())
+        boolean bprintScores = true;
+        if (signal != null && bprintScores)
+        {
+            // 4. Ergebnis ausgeben
+            System.out.println("\n" + signal.toString());
+
+            // Zusätzliche Details ausgeben, falls gewünscht
+            System.out.println("--------------------------------------------------");
+            System.out.println("Zusätzliche Details:");
+            System.out.println("ADX Trendstärke: " + signal.adx.trendStrength);
+            System.out.println("Volumen Analyse: " + signal.volume.interpretation);
+            System.out.println("Dynamischer Stop-Loss: " + String.format("%.2f", signal.stopLoss));
+            System.out.println("Dynamischer Take-Profit: " + String.format("%.2f", signal.takeProfit));
+        }
+        else if (!scores.isEmpty())
         {
             String maxDaySql = "SELECT MAX(cDayCounter) FROM tIndicators";
             Long maxDay = jdbcTemplate.queryForObject(maxDaySql, Long.class);
@@ -886,15 +903,4 @@ public class MomentumIndicators
         }
 
     }
-
-    // // 4. Ergebnis ausgeben
-    // System.out.println("\n" + signal.toString());
-
-    // // Zusätzliche Details ausgeben, falls gewünscht
-    // System.out.println("--------------------------------------------------");
-    // System.out.println("Zusätzliche Details:");
-    // System.out.println("ADX Trendstärke: " + signal.adx.trendStrength);
-    // System.out.println("Volumen Analyse: " + signal.volume.interpretation);
-    // System.out.println("Dynamischer Stop-Loss: " + String.format("%.2f", signal.stopLoss));
-    // System.out.println("Dynamischer Take-Profit: " + String.format("%.2f", signal.takeProfit));
 }

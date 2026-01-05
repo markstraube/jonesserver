@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,9 +21,13 @@ import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.dataprovider.yahoo.YahooPriceDownloader;
 import com.straube.jones.dataprovider.yahoo.YahooPriceImporter;
 import com.straube.jones.db.DBConnection;
+import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.CompanyListItem;
 import com.straube.jones.dto.CompanyRequest;
 import com.straube.jones.dto.CompanyResponse;
+import com.straube.jones.service.IndicatorService;
+import com.straube.jones.trader.collectors.IndicatorCollector;
+import com.straube.jones.trader.dto.IndicatorDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,8 +43,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Masterdata API", description = "API for managing master data of companies and stocks. Provides functionality to create and update company information based on ISIN.")
 public class MasterdataController
 {
-
-    @Operation(summary = "Create or Update Company Master Data", description = "**Use Case:** Ensures that a company exists in the master data and its price data is initialized. **Logic:** Checks if the ISIN exists in `tSymbols`. If not, resolves the symbol via Yahoo Finance, downloads historical prices, and imports them. Finally, updates or creates the company record in `tCompany` based on the downloaded metadata. **Returns:** The updated company master data.")
+    private static final Logger logger = LoggerFactory.getLogger(MasterdataController.class);
+    
+    private final IndicatorCollector indicatorCollector;
+    private final IndicatorService indicatorService;
+    
+    public MasterdataController(IndicatorCollector indicatorCollector, IndicatorService indicatorService)
+    {
+        this.indicatorCollector = indicatorCollector;
+        this.indicatorService = indicatorService;
+    }
+    @Operation(summary = "Create or Update Company Master Data", description = "**Use Case:** Ensures that a company exists in the master data and its price data is initialized. **Logic:** Checks if the ISIN exists in `tSymbols`. If not, resolves the symbol via Yahoo Finance, downloads historical prices, and imports them. Then calculates technical indicators for the imported prices and stores them in the database. Finally, updates or creates the company record in `tCompany` based on the downloaded metadata. **Returns:** The updated company master data.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Company data successfully created or updated", content = @Content(schema = @Schema(implementation = CompanyResponse.class))),
                            @ApiResponse(responseCode = "500", description = "Internal server error, e.g., if symbol resolution fails or database error occurs")})
     @PostMapping("/company")
@@ -49,12 +64,19 @@ public class MasterdataController
         String isin = request.getIsin();
         String symbol = SymbolResolver.resolveCode(isin);
 
-        String path = System.getProperty("user.home") + "/Software/data/yahoo/prices/" + symbol;
-
-        YahooPriceDownloader.fetchPrices(365, path, symbol, isin);
-        YahooPriceImporter importer = new YahooPriceImporter();
-        importer.uploadPriceData(path);
-
+        // Download and import price data
+        YahooPriceDownloader.fetchPrices(400, symbol, isin);
+        YahooPriceImporter.uploadPriceData();
+        
+        // Calculate and save indicators for the imported prices
+        long endDay = DayCounter.now();
+        long startDay = endDay - 400; // Calculate indicators for the last 400 days (matching the download period)
+        
+        List<IndicatorDto> indicators = indicatorCollector.collect(symbol, startDay, endDay);
+        indicatorService.upsertIndicators(indicators);
+        
+        logger.info("Calculated and saved {} indicators for symbol: {}", indicators.size(), symbol);
+        
         // Return the current record from tCompany
         return getCompany(symbol);
     }
