@@ -108,7 +108,7 @@ public class SwingTradeQueryService
                 "JOIN tRatings r ON c.cSymbol = r.cSymbol " +
                 "LEFT JOIN tIndicators i ON c.cSymbol = i.cSymbol AND i.cDayCounter = (SELECT MAX(cDayCounter) FROM tIndicators) " +
                 "WHERE r.cDayCounter = ? " +
-                "AND (r.cShort='BUY' OR r.cMid='BUY' OR r.cLong='BUY') " +
+                "AND (i.cMomentumScore >= 4) " +
                 "ORDER BY o.cMarketCapitalization DESC";
 
         List<SwingTradeOverviewDto> list = jdbcTemplate.query(sql, new Object[]{maxDay}, (rs, rowNum) -> {
