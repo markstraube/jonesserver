@@ -3,7 +3,9 @@ package com.straube.jones.trader.indicators;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -112,5 +114,27 @@ public class RatingService
         }).toArray(MapSqlParameterSource[]::new);
 
         namedParameterJdbcTemplate.batchUpdate(sql, batch);
+    }
+
+    /**
+     * Get the maximum cDayCounter value for each symbol in tRatings table
+     * @return Map with symbol as key and max cDayCounter as value
+     */
+    public Map<String, Long> getMaxDayCounterPerSymbol()
+    {
+        String sql = "SELECT cSymbol, MAX(cDayCounter) as maxDay FROM tRatings GROUP BY cSymbol";
+        List<Map<String, Object>> results = namedParameterJdbcTemplate.query(sql, (rs, rowNum) -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("symbol", rs.getString("cSymbol"));
+            map.put("maxDay", rs.getLong("maxDay"));
+            return map;
+        });
+
+        Map<String, Long> maxDayMap = new HashMap<>();
+        for (Map<String, Object> result : results)
+        {
+            maxDayMap.put((String) result.get("symbol"), (Long) result.get("maxDay"));
+        }
+        return maxDayMap;
     }
 }

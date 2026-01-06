@@ -12,7 +12,9 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MarketDataService
@@ -59,5 +61,22 @@ public class MarketDataService
     {
         String sql = "SELECT DISTINCT cSymbol FROM tPriceData";
         return jdbcTemplate.queryForList(sql, String.class);
+    }
+
+    /**
+     * Get the maximum cDayCounter value for each symbol in tPriceData table
+     * @return Map with symbol as key and max cDayCounter as value
+     */
+    public Map<String, Long> getMaxDayCounterPerSymbol()
+    {
+        String sql = "SELECT cSymbol, MAX(cDayCounter) as maxDay FROM tPriceData GROUP BY cSymbol";
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(sql);
+
+        Map<String, Long> maxDayMap = new HashMap<>();
+        for (Map<String, Object> result : results)
+        {
+            maxDayMap.put((String) result.get("cSymbol"), (Long) result.get("maxDay"));
+        }
+        return maxDayMap;
     }
 }

@@ -44,7 +44,7 @@ public class Main
 
             break;      
         case "yahoo":
-            int daysBack = 3;
+            int daysBack = 5;
             String yahooFolder = dataRoot + "/yahoo/daily";
             System.out.println("Starting Yahoo Price download to: " + yahooFolder + " for the past " + daysBack + " days.");
             YahooPriceDownloader.fetchPrices(daysBack, yahooFolder);

@@ -4,10 +4,14 @@ package com.straube.jones.trader.collectors;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.straube.jones.db.DayCounter;
@@ -24,13 +28,19 @@ import com.straube.jones.trader.indicators.IndicatorCalculator;
 @Service
 public class IndicatorCollector
 {
+    private static final Logger logger = LoggerFactory.getLogger(IndicatorCollector.class);
+
     private final MarketDataService marketDataService;
     private final IndicatorCalculator indicatorCalculator;
+    private final IndicatorService indicatorService;
 
-    public IndicatorCollector(MarketDataService marketDataService, IndicatorCalculator indicatorCalculator)
+    public IndicatorCollector(MarketDataService marketDataService,
+                              IndicatorCalculator indicatorCalculator,
+                              IndicatorService indicatorService)
     {
         this.marketDataService = marketDataService;
         this.indicatorCalculator = indicatorCalculator;
+        this.indicatorService = indicatorService;
     }
 
 
@@ -65,7 +75,90 @@ public class IndicatorCollector
             return dtoDay >= startDayCounter && dtoDay <= endDayCounter;
         }).collect(Collectors.toList());
     }
-    
+
+
+    /**
+     * Updates indicators for all symbols from their last known day counter to today.
+     * If no indicators exist for a symbol, starts from the MAX(dayCounter) of price data.
+     */
+    @Scheduled(cron = "${indicator.collector.schedule.cron:0 30 6 * * ?}")
+    public void updateIndicators()
+    {
+        logger.info("Starting scheduled update of indicators...");
+        long today = DayCounter.get(LocalDate.now());
+
+        // Get MAX(cDayCounter) for each symbol from tIndicators table
+        Map<String, Long> maxDayCounterIndicators = indicatorService.getMaxDayCounterPerSymbol();
+
+        // Get MAX(cDayCounter) for each symbol from tPriceData table (fallback)
+        Map<String, Long> maxDayCounterPriceData = marketDataService.getMaxDayCounterPerSymbol();
+
+        List<String> symbols = marketDataService.getAllSymbols();
+        List<IndicatorDto> allIndicators = new ArrayList<>();
+
+        for (String symbol : symbols)
+        {
+            // Determine start day: use max from indicators + 1, or fallback to max from price data
+            Long maxDayIndicators = maxDayCounterIndicators.get(symbol);
+            Long maxDayPriceData = maxDayCounterPriceData.get(symbol);
+
+            long startDay;
+            if (maxDayIndicators != null)
+            {
+                // Indicators exist, continue from next day
+                startDay = maxDayIndicators + 1;
+            }
+            else if (maxDayPriceData != null)
+            {
+                // No indicators exist, use max day from price data
+                startDay = maxDayPriceData;
+            }
+            else
+            {
+                // No data available at all, skip this symbol
+                logger.warn("No price data available for symbol: {}", symbol);
+                continue;
+            }
+
+            // Skip if we're already up to date
+            if (startDay > today)
+            {
+                logger.debug("Symbol {} is already up to date (startDay: {}, today: {})",
+                             symbol,
+                             startDay,
+                             today);
+                continue;
+            }
+
+            logger.info("Processing symbol: {} from day {} to {}", symbol, startDay, today);
+
+            // Collect indicators for the date range
+            List<IndicatorDto> indicators = collect(symbol, startDay, today);
+
+            if (!indicators.isEmpty())
+            {
+                allIndicators.addAll(indicators);
+
+                // Batch save every 500 records to manage memory
+                if (allIndicators.size() >= 500)
+                {
+                    logger.info("Saving batch of {} indicators...", allIndicators.size());
+                    indicatorService.upsertIndicators(allIndicators);
+                    allIndicators.clear();
+                }
+            }
+        }
+
+        // Save remaining indicators
+        if (!allIndicators.isEmpty())
+        {
+            logger.info("Saving final batch of {} indicators...", allIndicators.size());
+            indicatorService.upsertIndicators(allIndicators);
+        }
+
+        logger.info("Finished scheduled update of indicators.");
+    }
+
 
     public static void main(String[] args)
     {
@@ -78,24 +171,13 @@ public class IndicatorCollector
 
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
+        IndicatorService indicatorService = new IndicatorService(jdbcTemplate);
         List<String> symbols = marketDataService.getAllSymbols();
         IndicatorCalculator indicatorCalculator = new IndicatorCalculator();
-        IndicatorCollector collector = new IndicatorCollector(marketDataService, indicatorCalculator);
+        IndicatorCollector collector = new IndicatorCollector(marketDataService,
+                                                              indicatorCalculator,
+                                                              indicatorService);
 
-        for (String symbol : symbols)
-        {
-            long endDay = DayCounter.now();
-            long startDay = endDay - 300; // Letzte 300 Tage
-
-            System.out.println("Starte Indikator-Berechnung für " + symbol + "...");
-
-            List<IndicatorDto> results = collector.collect(symbol, startDay, endDay);
-
-            IndicatorService indicatorService = new IndicatorService(jdbcTemplate);
-            // Speichere Ergebnisse in der Datenbank    
-            indicatorService.upsertIndicators(results);
-
-            System.out.println("Berechnung abgeschlossen. Anzahl Datensätze: " + results.size());
-        }
+        collector.updateIndicators();
     }
 }

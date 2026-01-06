@@ -5,6 +5,7 @@ import java.io.File;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -907,32 +908,42 @@ public class TradingIndicatorService
 
 
     @Scheduled(cron = "${trading.indicator.schedule.cron:0 0 6 * * ?}")
-    public void updateTodaysRating()
+    public void updateRatings()
     {
-        logger.info("Starting scheduled update of ratings for today...");
+        logger.info("Starting scheduled update of ratings...");
         long today = DayCounter.get(LocalDate.now());
 
+        // Get MAX(cDayCounter) for each symbol from tRatings table
+        Map<String, Long> maxDayCounterPerSymbol = ratingService.getMaxDayCounterPerSymbol();
+        
         List<String> symbols = marketDataService.getAllSymbols();
         List<RatingDto> ratings = new ArrayList<>();
 
         for (String symbol : symbols)
         {
-            Report report = getReport(symbol, today);
-
-            if (report != null)
+            // Get the starting day (max day counter + 1, or 0 if no data exists)
+            Long maxDay = maxDayCounterPerSymbol.getOrDefault(symbol, 0L);
+            long startDay = maxDay + 1;
+            
+            logger.info("Processing symbol: {} from day {} to {}", symbol, startDay, today);
+            
+            // Generate reports from startDay to today
+            for (long day = startDay; day <= today; day++)
             {
-                // Delete existing ratings for today to allow re-execution
-                long reportDay = DayCounter.get(report.getDate());
-                ratingService.deleteRatingsForDate(reportDay, symbol);
-                RatingDto rating = extractRatingsFromReport(report);
-                ratings.add(rating);
-            }
+                Report report = getReport(symbol, day);
 
-            // Batch save every 100 records to manage memory
-            if (ratings.size() >= 100)
-            {
-                ratingService.saveRatingsBatch(ratings);
-                ratings.clear();
+                if (report != null && DayCounter.get(report.getDate()) == day)
+                {
+                    RatingDto rating = extractRatingsFromReport(report);
+                    ratings.add(rating);
+                }
+
+                // Batch save every 100 records to manage memory
+                if (ratings.size() >= 100)
+                {
+                    ratingService.saveRatingsBatch(ratings);
+                    ratings.clear();
+                }
             }
         }
 
@@ -941,7 +952,7 @@ public class TradingIndicatorService
         {
             ratingService.saveRatingsBatch(ratings);
         }
-        logger.info("Finished scheduled update of ratings for today.");
+        logger.info("Finished scheduled update of ratings.");
     }
 
 
@@ -962,7 +973,7 @@ public class TradingIndicatorService
 
         TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService,
                                                                                ratingService);
-        indicatorService.updateAllRatings();
+        indicatorService.updateRatings();
 
         dataSource.close();
     }
