@@ -61,27 +61,27 @@ public class PriceTickerService
             if (bid.isEmpty())
             { throw new IOException("No price blocks found on Tradegate page"); }
             String bidValue = bid.first().text();
-            bidValue = bidValue.replace(".", "").replace(",", ".");
+            bidValue = bidValue.replace(".", "").replace(",", ".").replace(" ", "");
             BigDecimal bidPrice = new BigDecimal(bidValue);
 
             Elements ask = doc.select("#ask");
             String askValue = ask.first().text();
-            askValue = askValue.replace(".", "").replace(",", ".");
+            askValue = askValue.replace(".", "").replace(",", ".").replace(" ", "") ;
             BigDecimal askPrice = new BigDecimal(askValue);
 
             Elements high = doc.select("#high");
             String highValue = high.first().text();
-            highValue = highValue.replace(".", "").replace(",", ".");
+            highValue = highValue.replace(".", "").replace(",", ".").replace(" ", "");
             BigDecimal highPrice = new BigDecimal(highValue);
 
             Elements low = doc.select("#low");
             String lowValue = low.first().text();
-            lowValue = lowValue.replace(".", "").replace(",", ".");
+            lowValue = lowValue.replace(".", "").replace(",", ".").replace(" ", "");
             BigDecimal lowPrice = new BigDecimal(lowValue);
 
             Elements last = doc.select("#last");
             String lastValue = last.first().text();
-            lastValue = lastValue.replace(".", "").replace(",", ".");
+            lastValue = lastValue.replace(".", "").replace(",", ".").replace(" ", "");
             BigDecimal lastPrice = new BigDecimal(lastValue);
 
             PriceEntry price = new PriceEntry(PriceEntry.PriceType.REGULAR,
@@ -97,7 +97,7 @@ public class PriceTickerService
             List<PriceEntry> prices = new ArrayList<>();
             prices.add(price);
 
-            PriceTickerResponse response = new PriceTickerResponse(isin, "EURO");
+            PriceTickerResponse response = new PriceTickerResponse(isin, "EUR");
             response.setPrices(prices);
 
             return response;
