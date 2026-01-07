@@ -53,6 +53,11 @@ public class CompanyService
         return jdbcTemplate.queryForList(sql, String.class);
     }
 
+    public java.util.List<Company> getAllCompanies() {
+        String sql = "SELECT * FROM tCompany ORDER BY cSymbol";
+        return jdbcTemplate.query(sql, new CompanyRowMapper());
+    }
+
     private static class CompanyRowMapper
         implements
         RowMapper<Company>

@@ -6,6 +6,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -917,33 +920,75 @@ public class TradingIndicatorService
         Map<String, Long> maxDayCounterPerSymbol = ratingService.getMaxDayCounterPerSymbol();
         
         List<String> symbols = marketDataService.getAllSymbols();
+
+        // Partition symbols
+        int numThreads = 4;
+        List<List<String>> partitions = new ArrayList<>();
+        int chunkSize = (int) Math.ceil((double) symbols.size() / numThreads);
+        
+        for (int i = 0; i < symbols.size(); i += chunkSize) {
+            int end = Math.min(i + chunkSize, symbols.size());
+            partitions.add(symbols.subList(i, end));
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(partitions.size());
+        List<Future<?>> futures = new ArrayList<>();
+
+        for (List<String> partition : partitions)
+        {
+            futures.add(executor.submit(() -> processRatingBatch(partition, maxDayCounterPerSymbol, today)));
+        }
+
+        // Wait for all threads to finish
+        for (Future<?> f : futures) {
+            try {
+                f.get();
+            } catch (Exception e) {
+                 logger.error("Error in rating update thread", e);
+            }
+        }
+        
+        executor.shutdown();
+        logger.info("Finished scheduled update of ratings.");
+    }
+
+
+    private void processRatingBatch(List<String> symbols, Map<String, Long> maxDayCounterPerSymbol, long today)
+    {
         List<RatingDto> ratings = new ArrayList<>();
 
         for (String symbol : symbols)
         {
-            // Get the starting day (max day counter + 1, or 0 if no data exists)
-            Long maxDay = maxDayCounterPerSymbol.getOrDefault(symbol, 0L);
-            long startDay = maxDay + 1;
-            
-            logger.info("Processing symbol: {} from day {} to {}", symbol, startDay, today);
-            
-            // Generate reports from startDay to today
-            for (long day = startDay; day <= today; day++)
+            try
             {
-                Report report = getReport(symbol, day);
-
-                if (report != null && DayCounter.get(report.getDate()) == day)
+                // Get the starting day (max day counter + 1, or 0 if no data exists)
+                Long maxDay = maxDayCounterPerSymbol.getOrDefault(symbol, 0L);
+                long startDay = maxDay + 1;
+                
+                logger.info("Processing symbol: {} from day {} to {}", symbol, startDay, today);
+                
+                // Generate reports from startDay to today
+                for (long day = startDay; day <= today; day++)
                 {
-                    RatingDto rating = extractRatingsFromReport(report);
-                    ratings.add(rating);
-                }
+                    Report report = getReport(symbol, day);
 
-                // Batch save every 100 records to manage memory
-                if (ratings.size() >= 100)
-                {
-                    ratingService.saveRatingsBatch(ratings);
-                    ratings.clear();
+                    if (report != null && DayCounter.get(report.getDate()) == day)
+                    {
+                        RatingDto rating = extractRatingsFromReport(report);
+                        ratings.add(rating);
+                    }
+
+                    // Batch save every 100 records to manage memory
+                    if (ratings.size() >= 100)
+                    {
+                        ratingService.saveRatingsBatch(ratings);
+                        ratings.clear();
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                logger.error("Error calculating ratings for symbol " + symbol, e);
             }
         }
 
@@ -952,7 +997,6 @@ public class TradingIndicatorService
         {
             ratingService.saveRatingsBatch(ratings);
         }
-        logger.info("Finished scheduled update of ratings.");
     }
 
 

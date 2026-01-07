@@ -60,12 +60,23 @@ public class YahooPriceDownloader
     public static void fetchPrices(int daysBack, String symbol, String isin)
         throws Exception
     {
+        fetchPrices(daysBack, symbol, isin, DAILY_PRICE_FOLDER);
+    }
+
+    public static void fetchPrices(int daysBack, String symbol, String isin, String targetFolder)
+        throws Exception
+    {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(daysBack);
 
         String rawJson = downloadRawJson(symbol, startDate, endDate);
 
-        File f = new File(DAILY_PRICE_FOLDER, isin + "_" + symbol + ".json");
+        File dir = new File(targetFolder);
+        if (!dir.exists()) {
+             dir.mkdirs();
+        }
+
+        File f = new File(dir, isin + "_" + symbol + ".json");
         Files.writeString(f.toPath(), rawJson, StandardCharsets.UTF_8);
     }
 

@@ -25,10 +25,16 @@ public class YahooPriceImporter
 
     public static void uploadPriceData()
     {
-        File yahooDir = new File(YahooPriceDownloader.DAILY_PRICE_FOLDER);
+        uploadPriceData(YahooPriceDownloader.DAILY_PRICE_FOLDER);
+    }
+
+    public static void uploadPriceData(String sourceFolder)
+    {
+        File yahooDir = new File(sourceFolder);
         if (!yahooDir.exists() || !yahooDir.isDirectory())
         {
-            System.err.println("Yahoo directory not found: " + yahooDir.getAbsolutePath());
+            // System.err.println("Yahoo directory not found: " + yahooDir.getAbsolutePath());
+            // Silent return if folder doesn't exist (e.g. valid for empty thread folders)
             return;
         }
         File[] jsonFiles = yahooDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".json")
@@ -97,6 +103,17 @@ public class YahooPriceImporter
                                 + ". Imported "
                                 + importedRecords
                                 + " price records.");
+                
+                // Cleanup: Delete file after successful import
+                try {
+                    if (jsonFile.delete()) {
+                        System.out.println("Deleted file: " + jsonFile.getName());
+                    } else {
+                        System.err.println("Failed to delete file: " + jsonFile.getName());
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error deleting file: " + jsonFile.getName() + " - " + e.getMessage());
+                }
 
             }
             catch (Exception e)

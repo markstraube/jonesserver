@@ -5,6 +5,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -94,7 +97,42 @@ public class IndicatorCollector
         Map<String, Long> maxDayCounterPriceData = marketDataService.getMaxDayCounterPerSymbol();
 
         List<String> symbols = marketDataService.getAllSymbols();
-        List<IndicatorDto> allIndicators = new ArrayList<>();
+        
+        // Partition symbols
+        int numThreads = 4;
+        List<List<String>> partitions = new ArrayList<>();
+        int chunkSize = (int) Math.ceil((double) symbols.size() / numThreads);
+        
+        for (int i = 0; i < symbols.size(); i += chunkSize) {
+            int end = Math.min(i + chunkSize, symbols.size());
+            partitions.add(symbols.subList(i, end));
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(partitions.size());
+        List<Future<?>> futures = new ArrayList<>();
+
+        for (List<String> partition : partitions)
+        {
+            futures.add(executor.submit(() -> processBatch(partition, maxDayCounterIndicators, maxDayCounterPriceData, today)));
+        }
+
+        // Wait for all threads to finish
+        for (Future<?> f : futures) {
+            try {
+                f.get();
+            } catch (Exception e) {
+                logger.error("Error in indicator update thread", e);
+            }
+        }
+        
+        executor.shutdown();
+
+        logger.info("Finished scheduled update of indicators.");
+    }
+
+    private void processBatch(List<String> symbols, Map<String, Long> maxDayCounterIndicators, Map<String, Long> maxDayCounterPriceData, long today)
+    {
+        List<IndicatorDto> batchIndicators = new ArrayList<>();
 
         for (String symbol : symbols)
         {
@@ -133,30 +171,35 @@ public class IndicatorCollector
             logger.info("Processing symbol: {} from day {} to {}", symbol, startDay, today);
 
             // Collect indicators for the date range
-            List<IndicatorDto> indicators = collect(symbol, startDay, today);
-
-            if (!indicators.isEmpty())
+            try
             {
-                allIndicators.addAll(indicators);
+                List<IndicatorDto> indicators = collect(symbol, startDay, today);
 
-                // Batch save every 500 records to manage memory
-                if (allIndicators.size() >= 500)
+                if (!indicators.isEmpty())
                 {
-                    logger.info("Saving batch of {} indicators...", allIndicators.size());
-                    indicatorService.upsertIndicators(allIndicators);
-                    allIndicators.clear();
+                    batchIndicators.addAll(indicators);
+
+                    // Batch save every 500 records to manage memory
+                    if (batchIndicators.size() >= 500)
+                    {
+                        logger.info("Saving batch of {} indicators...", batchIndicators.size());
+                        indicatorService.upsertIndicators(batchIndicators);
+                        batchIndicators.clear();
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                logger.error("Error collecting indicators for symbol " + symbol, e);
             }
         }
 
         // Save remaining indicators
-        if (!allIndicators.isEmpty())
+        if (!batchIndicators.isEmpty())
         {
-            logger.info("Saving final batch of {} indicators...", allIndicators.size());
-            indicatorService.upsertIndicators(allIndicators);
+            logger.info("Saving final batch of {} indicators...", batchIndicators.size());
+            indicatorService.upsertIndicators(batchIndicators);
         }
-
-        logger.info("Finished scheduled update of indicators.");
     }
 
 
