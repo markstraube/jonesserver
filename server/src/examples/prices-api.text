@@ -1,4 +1,4 @@
-    "/api/stock/prices": {
+ "/api/stocks/prices": {
       "get": {
         "tags": [
           "Stocks API"
@@ -42,7 +42,7 @@
           {
             "name": "type",
             "in": "query",
-            "description": "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).",
+            "description": "Data type identifier (0=price data, 1=percentage development since start time, 2=percentage development since previous price). Defaults to 0 (price data).",
             "required": false,
             "schema": {
               "type": "integer",

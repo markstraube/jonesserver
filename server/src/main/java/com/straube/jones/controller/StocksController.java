@@ -139,7 +139,7 @@ public class StocksController
 										@Parameter(description = "End timestamp in milliseconds (Unix epoch time). Defaults to current time for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
 										@RequestParam(value = "end_time", required = false)
 										Long end,
-										@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time). Defaults to 0 (price data).")
+										@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time, 2=percentage development since previous price). Defaults to 0 (price data).")
 										@RequestParam(required = false)
 										Integer type)
 	{

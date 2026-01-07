@@ -68,9 +68,10 @@ public class PricePointLoader
                         + ") OR cSymbol IN ("
                         + codesString
                         + ")) AND cDayCounter >= ? AND cDayCounter <= ? ORDER BY cIsin, cDayCounter "
-                        + (type == 1 ? "ASC" : "DESC");
+                        + (type == 1 || type == 2 ? "ASC" : "DESC");
     
         Map<String, Double> normalizationValues = (type == 1) ? new HashMap<>() : null;
+        Map<String, Double> previousValues = (type == 2) ? new HashMap<>() : null;
 
         AtomicInteger rowCounter = new AtomicInteger(0);
         try (Connection connection = DBConnection.getStocksConnection();
@@ -129,6 +130,29 @@ public class PricePointLoader
                             close = (close / base - 1.0d) * 100.0d;
                             adjClose = (adjClose / base - 1.0d) * 100.0d;
                         }
+                    }
+                    else if (type == 2)
+                    {
+                        Double prev = previousValues.get(isin);
+                        double currentAdjClose = adjClose;
+
+                        if (prev != null && prev != 0.0d)
+                        {
+                            open = (open / prev - 1.0d) * 100.0d;
+                            high = (high / prev - 1.0d) * 100.0d;
+                            low = (low / prev - 1.0d) * 100.0d;
+                            close = (close / prev - 1.0d) * 100.0d;
+                            adjClose = (adjClose / prev - 1.0d) * 100.0d;
+                        }
+                        else
+                        {
+                            open = 0.0d;
+                            high = 0.0d;
+                            low = 0.0d;
+                            close = 0.0d;
+                            adjClose = 0.0d;
+                        }
+                        previousValues.put(isin, currentAdjClose);
                     }
                     data.addRow(isin,
                                 symbol,
