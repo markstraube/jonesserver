@@ -31,7 +31,6 @@ import com.straube.jones.dataprovider.stocks.PricePointLoader;
 import com.straube.jones.dataprovider.stocks.StockItem;
 import com.straube.jones.dataprovider.stocks.StockPointLoader;
 import com.straube.jones.dataprovider.stocks.StocksLoader;
-import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.dto.LastSharePriceResponse;
 import com.straube.jones.dto.OnVistaReportResponse;
@@ -39,7 +38,6 @@ import com.straube.jones.dto.ServiceInfoResponse;
 import com.straube.jones.dto.ShareSearchResponse;
 import com.straube.jones.dto.TableDataResponse;
 import com.straube.jones.dto.TablePriceDataResponse;
-import com.straube.jones.dto.UserPrefsResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,7 +48,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping(value = "/api")
+@RequestMapping(value = "/api/stocks")
 @Tag(name = "Stocks API", description = "Comprehensive stock market data API for financial analysis, portfolio management, and investment decision support. Provides real-time and historical stock data, technical analysis tools, and user preference management.")
 public class StocksController
 {
@@ -72,9 +70,9 @@ public class StocksController
 
 
 	@Operation(summary = "Retrieve OnVista Financial Report", description = "**Use Case:** Access detailed fundamental analysis and financial metrics from OnVista platform. Returns comprehensive company financials, ratios, and analysis data. **When to use:** For fundamental stock analysis, company valuation, financial health assessment, or when detailed financial metrics are needed for investment decisions. **Input:** OnVista short URL identifier (e.g., 'xyz-123' format).")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Financial report data successfully retrieved"),
-							@ApiResponse(responseCode = "404", description = "Report not found - invalid short URL or data not available")})
-	@GetMapping(path = "/onvista/aktien/kennzahlen/{short_url}", produces = "application/json")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Financial report data successfully retrieved", content = @Content(schema = @Schema(implementation = OnVistaReportResponse.class))),
+							@ApiResponse(responseCode = "404", description = "Report not found - invalid short URL or data not available", content = @Content(schema = @Schema(implementation = OnVistaReportResponse.class)))})
+	@GetMapping(path = "/fundamentals/{short_url}", produces = "application/json")
 	public OnVistaReportResponse getOnVistaReport(@Parameter(description = "OnVista short URL identifier (format: alphanumeric-number, e.g., 'apple-123')")
 	@PathVariable("short_url")
 	String shortUrl)
@@ -102,8 +100,8 @@ public class StocksController
 
 	
 	@Operation(summary = "Get Historical Stock Data", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock data successfully retrieved in tabular format")})
-	@GetMapping(path = "/stock/data", produces = "application/json")
+	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock data successfully retrieved in tabular format", content = @Content(schema = @Schema(implementation = TableDataResponse.class)))})
+	@GetMapping(path = "/data", produces = "application/json")
 	public TableDataResponse getRawData(@Parameter(description = "List of ISIN codes (International Securities Identification Numbers, e.g., ['US0378331005', 'DE0007164600'])")
 	@RequestParam
 	List<String> isin,
@@ -130,8 +128,8 @@ public class StocksController
 
 		
 	@Operation(summary = "Get Historical Daily Stock Price Data and Volume", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
-	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock price data successfully retrieved in tabular format")})
-	@GetMapping(path = "/stock/prices", produces = "application/json")
+	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock price data successfully retrieved in tabular format", content = @Content(schema = @Schema(implementation = TablePriceDataResponse.class)))})
+	@GetMapping(path = "/prices", produces = "application/json")
 	public TablePriceDataResponse getPriceData(@Parameter(description = "List of Yahoo symbol codes or ISIN codes (International Securities Identification Numbers, e.g., ['US0378331005', 'DE0007164600'])")
 	@RequestParam
 	List<String> codes,
@@ -164,9 +162,9 @@ public class StocksController
 
 
 	@Operation(summary = "Get Single Stock Item", description = "**Use Case:** Retrieve detailed information for a specific stock by ISIN. Returns a single StockItem with comprehensive metadata. **When to use:** For displaying stock details, getting stock information for a known ISIN, or retrieving metadata for a specific security. **Performance:** Fast single-record lookup optimized for detail views.")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Stock item successfully retrieved"),
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Stock item successfully retrieved", content = @Content(schema = @Schema(implementation = StockItem.class))),
 							@ApiResponse(responseCode = "404", description = "Stock not found for the given ISIN")})
-	@GetMapping(path = "/stock/item", produces = "application/json")
+	@GetMapping(path = "/item", produces = "application/json")
 	public ResponseEntity<StockItem> getStockItem(@Parameter(description = "ISIN code of the stock to retrieve (e.g., 'US0378331005' for Apple)")
 	@RequestParam
 	String isin)
@@ -187,8 +185,8 @@ public class StocksController
 
 
 	@Operation(summary = "Get Stock Universe Catalog", description = "**Use Case:** Stock discovery and universe definition. Returns comprehensive catalog of all available stocks with metadata. **When to use:** For portfolio construction, stock screening, building watchlists, or discovering investment opportunities. **Data structure:** Organized by categories with detailed stock information including symbols, names, sectors, and identifiers. **Performance note:** Large dataset - cache results when possible.")
-	@ApiResponse(responseCode = "200", description = "Complete stock catalog with metadata organized by categories")
-	@GetMapping(path = "/stock_items", produces = "application/json")
+	@ApiResponse(responseCode = "200", description = "Complete stock catalog with metadata organized by categories", content = @Content(schema = @Schema(implementation = Map.class)))
+	@GetMapping(path = "/items", produces = "application/json")
 	public Map<String, List<StockItem>> getStockItems()
 	{
 		return StocksLoader.load();
@@ -196,10 +194,10 @@ public class StocksController
 
 
 	@Operation(summary = "Get Last Share Price", description = "**Use Case:** Real-time price monitoring and current valuation. Retrieves the most recent known price for a specific stock. **When to use:** For current portfolio valuation, price alerts, real-time trading decisions, or displaying current market values. **Data source:** Uses the latest available price data from stock history. **Performance:** Fast lookup optimized for single stock queries.")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Last share price successfully retrieved"),
-							@ApiResponse(responseCode = "404", description = "No price data found for the given ISIN"),
-							@ApiResponse(responseCode = "500", description = "Internal server error during price lookup")})
-	@GetMapping(path = "/stock/price/last", produces = "application/json")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Last share price successfully retrieved", content = @Content(schema = @Schema(implementation = LastSharePriceResponse.class))),
+							@ApiResponse(responseCode = "404", description = "No price data found for the given ISIN", content = @Content(schema = @Schema(implementation = LastSharePriceResponse.class))),
+							@ApiResponse(responseCode = "500", description = "Internal server error during price lookup", content = @Content(schema = @Schema(implementation = LastSharePriceResponse.class)))})
+	@GetMapping(path = "/price/last", produces = "application/json")
 	public LastSharePriceResponse getLastSharePrice(@Parameter(description = "ISIN code of the stock to get the last price for")
 	@RequestParam
 	String isin)
@@ -250,10 +248,10 @@ public class StocksController
 		description = "**Use Case:** Stock discovery through fuzzy name matching. Finds stocks using tolerant similarity search that ignores special characters, whitespaces, and various dash types. **When to use:** For stock lookup when exact names are unknown, user input validation, or building search suggestions. **Algorithm:** Normalized string comparison with similarity scoring. **Results:** Multiple matches possible, sorted by relevance score."
 	)
 	@ApiResponses(value = {
-		@ApiResponse(responseCode = "200", description = "Search completed successfully, results include similarity scores"),
-		@ApiResponse(responseCode = "500", description = "Search operation failed - check system availability")
+		@ApiResponse(responseCode = "200", description = "Search completed successfully, results include similarity scores", content = @Content(schema = @Schema(implementation = ShareSearchResponse.class))),
+		@ApiResponse(responseCode = "500", description = "Search operation failed - check system availability", content = @Content(schema = @Schema(implementation = ShareSearchResponse.class)))
 	})
-	@GetMapping(path = "/stock/search/name", produces = "application/json")
+	@GetMapping(path = "/search/name", produces = "application/json")
 	public ShareSearchResponse getShareForName(@Parameter(description = "Stock name or partial name to search for (tolerant matching - ignores special characters, spaces, dashes)")
 	@RequestParam
 	String name)
@@ -378,71 +376,14 @@ public class StocksController
 	}
 
 
-	@Operation(summary = "Save User Preferences", description = "**Use Case:** Persistent user customization and personalization. Stores user-specific settings for different application areas. **When to use:** To save custom filters, stock selections, display preferences, or any user configuration that should persist across sessions. **Special topics:** 'filter' for search/display filters, or custom topic names for stock groupings. **Data format:** JSON string containing preference data.")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Preferences successfully saved with confirmation"),
-							@ApiResponse(responseCode = "500", description = "Save operation failed - check data format or system availability")})
-	@PostMapping(path = "/prefs/{topic}", produces = "application/json")
-	public UserPrefsResponse setUserPref(@Parameter(description = "Preference category (use 'filter' for global filters, or custom names for stock groups)")
-	@PathVariable
-	String topic,
-											@Parameter(description = "JSON string containing user preferences data structure. Format depends on topic - filters use filter criteria objects, stock groups use arrays of ISINs.")
-											@RequestBody
-											String userPrefs)
-	{
-		try
-		{
-			if ("filter".equals(topic))
-			{
-				UserPrefsRepo.saveFilter(userPrefs);
-			}
-			else
-			{
-				UserPrefsRepo.saveStocks(topic, userPrefs);
-			}
-			return UserPrefsResponse.success(topic, userPrefs);
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			return UserPrefsResponse.error(topic, "Failed to save preferences: " + e.getMessage());
-		}
-	}
 
-
-	@Operation(summary = "Load User Preferences", description = "**Use Case:** Retrieve stored user customizations and restore application state. **When to use:** On application startup, when switching contexts, or when user wants to apply saved settings. **Return format:** JSON string containing saved preference data for the specified topic. **Common topics:** 'filter' for global display filters, or custom topic names for specific stock groupings/watchlists.")
-	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Preferences successfully loaded as JSON string"),
-							@ApiResponse(responseCode = "500", description = "Load operation failed - topic may not exist or system error")})
-	@GetMapping(path = "/prefs/{topic}", produces = "application/json")
-	public UserPrefsResponse getUserPrefs(@Parameter(description = "Preference category to retrieve (use 'filter' for global filters, or custom names for stock groups)")
-	@PathVariable
-	String topic)
-	{
-		try
-		{
-			String preferences;
-			if ("filter".equals(topic))
-			{
-				preferences = UserPrefsRepo.getFilter();
-			}
-			else
-			{
-				preferences = UserPrefsRepo.getStocks(topic);
-			}
-			return UserPrefsResponse.success(topic, preferences);
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-			return UserPrefsResponse.error(topic, "Failed to load preferences: " + e.getMessage());
-		}
-	}
 
 
 	@Operation(summary = "Generate Stock Chart Image", description = "**Use Case:** Visual chart generation for reports, dashboards, or quick visual analysis. Returns pre-generated PNG chart images for specific stocks and timeframes. **When to use:** For embedding charts in documents, creating visual reports, thumbnail generation, or when lightweight image-based charts are preferred over interactive charts. **Customization:** Configurable dimensions and time periods. **Performance:** Fast delivery of cached chart images.")
 	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Chart image successfully generated and returned as PNG", content = @Content(mediaType = "image/png")),
 							@ApiResponse(responseCode = "404", description = "Chart not available - invalid ISIN or image not generated yet"),
 							@ApiResponse(responseCode = "500", description = "Image generation or file system error")})
-	@GetMapping(path = "/stock/image", produces = MediaType.IMAGE_PNG_VALUE)
+	@GetMapping(path = "/image", produces = MediaType.IMAGE_PNG_VALUE)
 	public ResponseEntity<byte[]> getStockImage(@Parameter(description = "ISIN code of the stock for chart generation")
 	@RequestParam
 	String isin,
@@ -482,10 +423,10 @@ public class StocksController
 
 	@Operation(summary = "Add or Update Stock", description = "**Use Case:** Add a new stock to the database or update an existing one. **When to use:** When you have new stock data to persist. **Input:** A StockItem object in the request body. **Output:** Success message.")
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "Stock successfully added or updated"),
-			@ApiResponse(responseCode = "500", description = "Database error")
+			@ApiResponse(responseCode = "200", description = "Stock successfully added or updated", content = @Content(schema = @Schema(type = "string", example = "Stock updated successfully"))),
+			@ApiResponse(responseCode = "500", description = "Database error", content = @Content(schema = @Schema(type = "string", example = "Database error: ...")))
 	})
-	@PostMapping(path = "/stock/add", consumes = "application/json", produces = "application/json")
+	@PostMapping(path = "/add", consumes = "application/json", produces = "application/json")
 	public ResponseEntity<String> addStock(
 			@Parameter(description = "StockItem object containing stock details", required = true, schema = @Schema(implementation = StockItem.class))
 			@RequestBody StockItem stockItem)
