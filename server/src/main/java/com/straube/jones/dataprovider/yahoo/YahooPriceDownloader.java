@@ -21,7 +21,7 @@ import com.straube.jones.db.DBConnection;
 
 public class YahooPriceDownloader
 {
-    static final String DATA_ROOT = System.getProperty("data.root", "/home/mark/Software/data");
+    static final String DATA_ROOT = System.getProperty("data.root", "/opt/tomcat/data");
     public static final String DAILY_PRICE_FOLDER = DATA_ROOT + "/yahoo/daily";
     static
     {

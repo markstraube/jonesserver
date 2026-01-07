@@ -13,8 +13,6 @@ import com.straube.jones.dto.TableDataResponse;
 
 public class StockPointLoader
 {
-    public static final String DATA_FOLDER = System.getProperty("data.root", "/home/mark/Software/data");
-
     private StockPointLoader()
     {}
 

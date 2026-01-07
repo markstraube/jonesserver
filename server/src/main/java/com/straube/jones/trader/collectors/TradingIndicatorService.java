@@ -29,7 +29,7 @@ import com.zaxxer.hikari.HikariDataSource;
 public class TradingIndicatorService
 {
     private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
-                                                                      "/home/mark/Software/data");
+                                                                      "/opt/tomcat/data");
 
     private static final String ANALYSIS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/analysis";
     private static final Logger logger = LoggerFactory.getLogger(TradingIndicatorService.class);

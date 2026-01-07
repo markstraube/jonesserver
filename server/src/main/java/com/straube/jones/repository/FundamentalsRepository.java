@@ -20,7 +20,7 @@ import com.straube.jones.model.StockFundamentals;
 public class FundamentalsRepository
 {
     private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
-                                                                      "/home/mark/Software/data");
+                                                                      "/opt/tomcat/data");
 
     private static final String FUNDAMENTALS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/fundamentals";
     static

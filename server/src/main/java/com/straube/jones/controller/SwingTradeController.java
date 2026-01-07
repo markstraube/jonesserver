@@ -43,7 +43,7 @@ public class SwingTradeController
 {
 
     private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
-                                                                      "/home/mark/Software/data");
+                                                                      "/opt/tomcat/data");
     private final SwingTradeQueryService queryService;
     private final TradingIndicatorService indicatorService;
     private final RatingService ratingService;

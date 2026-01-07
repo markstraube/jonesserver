@@ -16,8 +16,6 @@ import com.straube.jones.dto.TablePriceDataResponse;
 
 public class PricePointLoader
 {
-    public static final String DATA_FOLDER = System.getProperty("data.root", "/home/mark/Software/data");
-
     private PricePointLoader()
     {}
 
