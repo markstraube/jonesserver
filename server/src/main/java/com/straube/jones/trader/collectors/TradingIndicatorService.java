@@ -910,7 +910,6 @@ public class TradingIndicatorService
     }
 
 
-    @Scheduled(cron = "${trading.indicator.schedule.cron:0 0 6 * * ?}")
     public void updateRatings()
     {
         logger.info("Starting scheduled update of ratings...");

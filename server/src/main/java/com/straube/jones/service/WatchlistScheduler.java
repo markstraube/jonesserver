@@ -29,7 +29,7 @@ public class WatchlistScheduler
     }
 
 
-    @Scheduled(cron = "${scheduler.watchlist.cron}", zone = "${scheduler.watchlist.zone}")
+    //@Scheduled(cron = "${scheduler.watchlist.cron}", zone = "${scheduler.watchlist.zone}")
     public void saveWatchlistIsins()
     {
         try

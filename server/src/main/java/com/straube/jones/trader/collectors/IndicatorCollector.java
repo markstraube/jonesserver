@@ -84,7 +84,6 @@ public class IndicatorCollector
      * Updates indicators for all symbols from their last known day counter to today.
      * If no indicators exist for a symbol, starts from the MAX(dayCounter) of price data.
      */
-    @Scheduled(cron = "${indicator.collector.schedule.cron:0 30 6 * * ?}")
     public void updateIndicators()
     {
         logger.info("Starting scheduled update of indicators...");
