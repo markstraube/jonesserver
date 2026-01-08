@@ -84,7 +84,7 @@ public class YahooPriceDownloader
     /**
     * Lädt die rohen JSON-Daten von Yahoo Finance
     */
-    private static String downloadRawJson(String symbol, LocalDate startDate, LocalDate endDate)
+    public static String downloadRawJson(String symbol, LocalDate startDate, LocalDate endDate)
         throws IOException
     {
         // Konvertiere LocalDate zu Unix Timestamps

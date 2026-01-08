@@ -6,7 +6,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.straube.jones.dataprovider.yahoo.CompanyResolver;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.dataprovider.yahoo.YahooPriceDownloader;
 import com.straube.jones.dataprovider.yahoo.YahooPriceImporter;
@@ -44,15 +47,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class MasterdataController
 {
     private static final Logger logger = LoggerFactory.getLogger(MasterdataController.class);
-    
+
     private final IndicatorCollector indicatorCollector;
     private final IndicatorService indicatorService;
-    
+
     public MasterdataController(IndicatorCollector indicatorCollector, IndicatorService indicatorService)
     {
         this.indicatorCollector = indicatorCollector;
         this.indicatorService = indicatorService;
     }
+
+
     @Operation(summary = "Create or Update Company Master Data", description = "**Use Case:** Ensures that a company exists in the master data and its price data is initialized. **Logic:** Checks if the ISIN exists in `tSymbols`. If not, resolves the symbol via Yahoo Finance, downloads historical prices, and imports them. Then calculates technical indicators for the imported prices and stores them in the database. Finally, updates or creates the company record in `tCompany` based on the downloaded metadata. **Returns:** The updated company master data.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Company data successfully created or updated", content = @Content(schema = @Schema(implementation = CompanyResponse.class))),
                            @ApiResponse(responseCode = "500", description = "Internal server error, e.g., if symbol resolution fails or database error occurs")})
@@ -67,19 +72,20 @@ public class MasterdataController
         // Download and import price data
         YahooPriceDownloader.fetchPrices(400, symbol, isin);
         YahooPriceImporter.uploadPriceData();
-        
+
         // Calculate and save indicators for the imported prices
         long endDay = DayCounter.now();
         long startDay = endDay - 400; // Calculate indicators for the last 400 days (matching the download period)
-        
+
         List<IndicatorDto> indicators = indicatorCollector.collect(symbol, startDay, endDay);
         indicatorService.upsertIndicators(indicators);
-        
+
         logger.info("Calculated and saved {} indicators for symbol: {}", indicators.size(), symbol);
-        
+
         // Return the current record from tCompany
         return getCompany(symbol);
     }
+
 
     /**
      * Retrieves a list of all companies from the database.
@@ -120,44 +126,32 @@ public class MasterdataController
      * @return List of CompanyListItem objects containing symbol and name pairs
      * @throws SQLException if database access fails
      */
-    @Operation(
-        summary = "Get List of All Companies", 
-        description = "Retrieves a simplified list of all companies in the database, containing only the stock symbol and full company name. The list is ordered alphabetically by company name. This endpoint is optimized for dropdown lists, autocomplete features, and overview displays where only basic company identification is needed."
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200", 
-            description = "Successfully retrieved the list of companies. Returns an array of company items, each containing the stock symbol (cSymbol) and full company name (cLongName). The list is sorted alphabetically by company name.",
-            content = @Content(
-                mediaType = "application/json",
-                array = @ArraySchema(schema = @Schema(implementation = CompanyListItem.class))
-            )
-        ),
-        @ApiResponse(
-            responseCode = "500", 
-            description = "Internal server error occurred while accessing the database or processing the request."
-        )
-    })
+    @Operation(summary = "Get List of All Companies", description = "Retrieves a simplified list of all companies in the database, containing only the stock symbol and full company name. The list is ordered alphabetically by company name. This endpoint is optimized for dropdown lists, autocomplete features, and overview displays where only basic company identification is needed.")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Successfully retrieved the list of companies. Returns an array of company items, each containing the stock symbol (cSymbol) and full company name (cLongName). The list is sorted alphabetically by company name.", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = CompanyListItem.class)))),
+                           @ApiResponse(responseCode = "500", description = "Internal server error occurred while accessing the database or processing the request.")})
     @GetMapping("/company/list")
-    public List<CompanyListItem> getCompanyList() throws SQLException {
+    public List<CompanyListItem> getCompanyList()
+        throws SQLException
+    {
         List<CompanyListItem> companies = new ArrayList<>();
         String sql = "SELECT cSymbol, cLongName FROM tCompany ORDER BY cLongName";
-        
+
         try (Connection conn = DBConnection.getStocksConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            
-            while (rs.next()) {
-                CompanyListItem item = new CompanyListItem(
-                    rs.getString("cSymbol"),
-                    rs.getString("cLongName")
-                );
+                        PreparedStatement ps = conn.prepareStatement(sql);
+                        ResultSet rs = ps.executeQuery())
+        {
+
+            while (rs.next())
+            {
+                CompanyListItem item = new CompanyListItem(rs.getString("cSymbol"),
+                                                           rs.getString("cLongName"));
                 companies.add(item);
             }
         }
-        
+
         return companies;
     }
+
 
     /**
      * Retrieves detailed information for a specific company by its symbol.
@@ -222,48 +216,29 @@ public class MasterdataController
      * @return CompanyResponse object with complete company data, or null if not found
      * @throws SQLException if database access fails
      */
-    @Operation(
-        summary = "Get Company Details by Symbol", 
-        description = "Retrieves complete master data for a specific company identified by its stock symbol. Returns all available information including identifiers, names, exchange details, trading metadata, and timestamps. This endpoint provides comprehensive company information needed for detailed views, analysis, and trading operations."
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200", 
-            description = "Successfully retrieved company details. Returns a complete CompanyResponse object with all available fields populated from the tCompany table. If no company with the given symbol exists, returns null.",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = CompanyResponse.class)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "404", 
-            description = "Company with the specified symbol was not found in the database."
-        ),
-        @ApiResponse(
-            responseCode = "500", 
-            description = "Internal server error occurred while accessing the database or processing the request."
-        )
-    })
+    @Operation(summary = "Get Company Details by Symbol", description = "Retrieves complete master data for a specific company identified by its stock symbol. Returns all available information including identifiers, names, exchange details, trading metadata, and timestamps. This endpoint provides comprehensive company information needed for detailed views, analysis, and trading operations.")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Successfully retrieved company details. Returns a complete CompanyResponse object with all available fields populated from the tCompany table. If no company with the given symbol exists, returns null.", content = @Content(mediaType = "application/json", schema = @Schema(implementation = CompanyResponse.class))),
+                           @ApiResponse(responseCode = "404", description = "Company with the specified symbol was not found in the database."),
+                           @ApiResponse(responseCode = "500", description = "Internal server error occurred while accessing the database or processing the request.")})
     @GetMapping("/company/{symbol}")
-    public CompanyResponse getCompanyBySymbol(
-        @Parameter(
-            description = "The stock ticker symbol of the company to retrieve. This is case-sensitive and should match the symbol stored in the database.",
-            example = "AAPL",
-            required = true
-        )
-        @PathVariable String symbol
-    ) throws SQLException {
+    public CompanyResponse getCompanyBySymbol(@Parameter(description = "The stock ticker symbol of the company to retrieve. This is case-sensitive and should match the symbol stored in the database.", example = "AAPL", required = true)
+    @PathVariable
+    String symbol)
+        throws SQLException
+    {
         return getCompany(symbol);
     }
+
 
     private CompanyResponse getCompany(String symbol)
         throws SQLException
     {
-        String sql = "SELECT cId, cSymbol, cIsin, cShortName, cLongName, cCurrency, cInstrumentType, " +
-                     "cFirstTradeDate, cExchangeName, cFullExchangeName, cExchangeTimezoneName, cTimezone, " +
-                     "cHasPrePostMarketData, cPriceHint, cDataGranularity, cCreated, cUpdated " +
-                     "FROM tCompany WHERE cSymbol = ?";
-        try (Connection conn = DBConnection.getStocksConnection(); PreparedStatement ps = conn.prepareStatement(sql))
+        String sql = "SELECT cId, cSymbol, cIsin, cShortName, cLongName, cCurrency, cInstrumentType, "
+                        + "cFirstTradeDate, cExchangeName, cFullExchangeName, cExchangeTimezoneName, cTimezone, "
+                        + "cHasPrePostMarketData, cPriceHint, cDataGranularity, cCreated, cUpdated "
+                        + "FROM tCompany WHERE cSymbol = ?";
+        try (Connection conn = DBConnection.getStocksConnection();
+                        PreparedStatement ps = conn.prepareStatement(sql))
         {
             ps.setString(1, symbol);
             try (ResultSet rs = ps.executeQuery())
@@ -293,5 +268,30 @@ public class MasterdataController
             }
         }
         return null;
+    }
+
+
+    @Operation(summary = "Resolve Companies from ISINs", description = "Accepts a list of ISIN strings and resolves each to its corresponding company. "
+                    + "If the symbol is not found in the local database, it attempts to resolve it via an external provider (Yahoo Finance), "
+                    + "stores it, and then looks up for the company. The retrieved company details are not stored to database.")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "A list of CompanyResponse objects containing company details for the resolved ISINs. "
+                    + "If resolution fails for a specific ISIN, it may be omitted from the list.", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = CompanyResponse.class))))})
+    @PostMapping("/resolve")
+    public List<CompanyResponse> resolveSymbol(@RequestBody
+    List<String> isins)
+    {
+        List<CompanyResponse> result = new ArrayList<>();
+        if (isins != null)
+        {
+            for (String isin : isins)
+            {
+                CompanyResponse response = CompanyResolver.resolve(isin);
+                if (response != null)
+                {
+                    result.add(response);
+                }
+            }
+        }
+        return result;
     }
 }

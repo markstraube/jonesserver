@@ -81,7 +81,7 @@ public class SymbolResolver
      */
     public static String resolveCode(String code)
     {
-        String symbol = code;
+        String symbol = null;
         if (code != null && code.length() == "US0378331005".length())
         {
             //assuming it is a ISIN and lookup the symbol in tStockCodes Table
