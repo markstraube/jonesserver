@@ -53,7 +53,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class StocksController
 {
 	private static final String DATA_ROOT_FOLDER = System.getProperty(	"data.root",
-																		"/opt/tomcat/data");
+																		"/home/mark/Software/data");
 	private static final String FUNDAMENTALS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/onVista/fundamentals/cache/";
 	static
 	{
