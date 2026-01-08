@@ -1,0 +1,132 @@
+ "/api/masterdata/resolve": {
+      "post": {
+        "tags": [
+          "Masterdata API"
+        ],
+        "summary": "Resolve Companies from ISINs",
+        "description": "Accepts a list of ISIN strings and resolves each to its corresponding company. If the symbol is not found in the local database, it attempts to resolve it via an external provider (Yahoo Finance), stores it, and then looks up for the company. The retrieved company details are not stored to database.",
+        "operationId": "resolveSymbol",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "A list of CompanyResponse objects containing company details for the resolved ISINs. If resolution fails for a specific ISIN, it may be omitted from the list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "CompanyResponse": {
+        "type": "object",
+        "properties": {
+          "getcId": {
+            "type": "string",
+            "description": "Unique identifier for the company record.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "getcSymbol": {
+            "type": "string",
+            "description": "The stock symbol (ticker) used by the exchange.",
+            "example": "AAPL"
+          },
+          "getcIsin": {
+            "type": "string",
+            "description": "The International Securities Identification Number (ISIN).",
+            "example": "US0378331005"
+          },
+          "getcShortName": {
+            "type": "string",
+            "description": "Short name of the company.",
+            "example": "Apple Inc."
+          },
+          "getcLongName": {
+            "type": "string",
+            "description": "Full legal name of the company.",
+            "example": "Apple Inc."
+          },
+          "getcCurrency": {
+            "type": "string",
+            "description": "Currency code for the stock prices.",
+            "example": "USD"
+          },
+          "getcInstrumentType": {
+            "type": "string",
+            "description": "Type of financial instrument.",
+            "example": "EQUITY"
+          },
+          "getcFirstTradeDate": {
+            "type": "string",
+            "description": "Date of the first trade recorded.",
+            "format": "date-time"
+          },
+          "getcExchangeName": {
+            "type": "string",
+            "description": "Name of the exchange where the stock is traded.",
+            "example": "NasdaqGS"
+          },
+          "getcFullExchangeName": {
+            "type": "string",
+            "description": "Full name of the exchange.",
+            "example": "Nasdaq Global Select"
+          },
+          "getcExchangeTimezoneName": {
+            "type": "string",
+            "description": "Name of the timezone for the exchange.",
+            "example": "America/New_York"
+          },
+          "getcTimezone": {
+            "type": "string",
+            "description": "Timezone abbreviation.",
+            "example": "EST"
+          },
+          "iscHasPrePostMarketData": {
+            "type": "boolean",
+            "description": "Indicates if pre-market and post-market data is available.",
+            "example": true
+          },
+          "getcPriceHint": {
+            "type": "integer",
+            "description": "Price hint for formatting.",
+            "format": "int32",
+            "example": 2
+          },
+          "getcDataGranularity": {
+            "type": "string",
+            "description": "Granularity of the data available.",
+            "example": "1d"
+          },
+          "getcCreated": {
+            "type": "string",
+            "description": "Timestamp when the record was created.",
+            "format": "date-time",
+            "example": "2023-01-01T12:00:00Z"
+          },
+          "getcUpdated": {
+            "type": "string",
+            "description": "Timestamp when the record was last updated.",
+            "format": "date-time",
+            "example": "2023-01-02T12:00:00Z"
+          }
+        },
+        "description": "Response object containing detailed company master data."
+      }
