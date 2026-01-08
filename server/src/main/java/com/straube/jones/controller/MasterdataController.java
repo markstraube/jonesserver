@@ -246,23 +246,23 @@ public class MasterdataController
                 if (rs.next())
                 {
                     CompanyResponse response = new CompanyResponse();
-                    response.setcId(rs.getString("cId"));
-                    response.setcSymbol(rs.getString("cSymbol"));
-                    response.setcIsin(rs.getString("cIsin"));
-                    response.setcShortName(rs.getString("cShortName"));
-                    response.setcLongName(rs.getString("cLongName"));
-                    response.setcCurrency(rs.getString("cCurrency"));
-                    response.setcInstrumentType(rs.getString("cInstrumentType"));
-                    response.setcFirstTradeDate(rs.getDate("cFirstTradeDate"));
-                    response.setcExchangeName(rs.getString("cExchangeName"));
-                    response.setcFullExchangeName(rs.getString("cFullExchangeName"));
-                    response.setcExchangeTimezoneName(rs.getString("cExchangeTimezoneName"));
-                    response.setcTimezone(rs.getString("cTimezone"));
-                    response.setcHasPrePostMarketData(rs.getBoolean("cHasPrePostMarketData"));
-                    response.setcPriceHint(rs.getInt("cPriceHint"));
-                    response.setcDataGranularity(rs.getString("cDataGranularity"));
-                    response.setcCreated(rs.getTimestamp("cCreated"));
-                    response.setcUpdated(rs.getTimestamp("cUpdated"));
+                    response.setId(rs.getString("cId"));
+                    response.setSymbol(rs.getString("cSymbol"));
+                    response.setIsin(rs.getString("cIsin"));
+                    response.setShortName(rs.getString("cShortName"));
+                    response.setLongName(rs.getString("cLongName"));
+                    response.setCurrency(rs.getString("cCurrency"));
+                    response.setInstrumentType(rs.getString("cInstrumentType"));
+                    response.setFirstTradeDate(rs.getDate("cFirstTradeDate"));
+                    response.setExchangeName(rs.getString("cExchangeName"));
+                    response.setFullExchangeName(rs.getString("cFullExchangeName"));
+                    response.setExchangeTimezoneName(rs.getString("cExchangeTimezoneName"));
+                    response.setTimezone(rs.getString("cTimezone"));
+                    response.setHasPrePostMarketData(rs.getBoolean("cHasPrePostMarketData"));
+                    response.setPriceHint(rs.getInt("cPriceHint"));
+                    response.setDataGranularity(rs.getString("cDataGranularity"));
+                    response.setCreated(rs.getTimestamp("cCreated"));
+                    response.setUpdated(rs.getTimestamp("cUpdated"));
                     return response;
                 }
             }

@@ -73,26 +73,26 @@ public class CompanyResolver
             }
 
             CompanyResponse company = new CompanyResponse();
-            company.setcIsin(isin);
-            company.setcSymbol(meta.path("symbol").asText(symbol));
-            company.setcShortName(meta.path("shortName").asText(""));
-            company.setcLongName(meta.path("longName").asText(""));
-            company.setcCurrency(meta.path("currency").asText(""));
-            company.setcInstrumentType(meta.path("instrumentType").asText(""));
+            company.setIsin(isin);
+            company.setSymbol(meta.path("symbol").asText(symbol));
+            company.setShortName(meta.path("shortName").asText(""));
+            company.setLongName(meta.path("longName").asText(""));
+            company.setCurrency(meta.path("currency").asText(""));
+            company.setInstrumentType(meta.path("instrumentType").asText(""));
 
             long firstTradeDateSec = meta.path("firstTradeDate").asLong(0);
             if (firstTradeDateSec > 0)
             {
-                company.setcFirstTradeDate(new Date(firstTradeDateSec * 1000));
+                company.setFirstTradeDate(new Date(firstTradeDateSec * 1000));
             }
 
-            company.setcExchangeName(meta.path("exchangeName").asText(""));
-            company.setcFullExchangeName(meta.path("fullExchangeName").asText(""));
-            company.setcExchangeTimezoneName(meta.path("exchangeTimezoneName").asText(""));
-            company.setcTimezone(meta.path("timezone").asText(""));
-            company.setcHasPrePostMarketData(meta.path("hasPrePostMarketData").asBoolean(false));
-            company.setcPriceHint(meta.path("priceHint").asInt(0));
-            company.setcDataGranularity(meta.path("dataGranularity").asText(""));
+            company.setExchangeName(meta.path("exchangeName").asText(""));
+            company.setFullExchangeName(meta.path("fullExchangeName").asText(""));
+            company.setExchangeTimezoneName(meta.path("exchangeTimezoneName").asText(""));
+            company.setTimezone(meta.path("timezone").asText(""));
+            company.setHasPrePostMarketData(meta.path("hasPrePostMarketData").asBoolean(false));
+            company.setPriceHint(meta.path("priceHint").asInt(0));
+            company.setDataGranularity(meta.path("dataGranularity").asText(""));
 
             // Set timestamps? cCreated/cUpdated are usually DB managed. 
             // We'll leave them null or set them to now if needed, but the requirement was "Company Daten"

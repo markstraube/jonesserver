@@ -8,104 +8,104 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class CompanyResponse {
     
     @Schema(description = "Unique identifier for the company record.", example = "550e8400-e29b-41d4-a716-446655440000")
-    private String cId;
+    private String id;
     
     @Schema(description = "The stock symbol (ticker) used by the exchange.", example = "AAPL")
-    private String cSymbol;
+    private String symbol;
     
     @Schema(description = "The International Securities Identification Number (ISIN).", example = "US0378331005")
-    private String cIsin;
+    private String isin;
     
     @Schema(description = "Short name of the company.", example = "Apple Inc.")
-    private String cShortName;
+    private String shortName;
     
     @Schema(description = "Full legal name of the company.", example = "Apple Inc.")
-    private String cLongName;
+    private String longName;
     
     @Schema(description = "Currency code for the stock prices.", example = "USD")
-    private String cCurrency;
+    private String currency;
     
     @Schema(description = "Type of financial instrument.", example = "EQUITY")
-    private String cInstrumentType;
+    private String instrumentType;
     
     @Schema(description = "Date of the first trade recorded.", example = "1980-12-12")
-    private Date cFirstTradeDate;
+    private Date firstTradeDate;
     
     @Schema(description = "Name of the exchange where the stock is traded.", example = "NasdaqGS")
-    private String cExchangeName;
+    private String exchangeName;
     
     @Schema(description = "Full name of the exchange.", example = "Nasdaq Global Select")
-    private String cFullExchangeName;
+    private String fullExchangeName;
     
     @Schema(description = "Name of the timezone for the exchange.", example = "America/New_York")
-    private String cExchangeTimezoneName;
+    private String exchangeTimezoneName;
     
     @Schema(description = "Timezone abbreviation.", example = "EST")
-    private String cTimezone;
+    private String timezone;
     
     @Schema(description = "Indicates if pre-market and post-market data is available.", example = "true")
-    private boolean cHasPrePostMarketData;
+    private boolean hasPrePostMarketData;
     
     @Schema(description = "Price hint for formatting.", example = "2")
-    private Integer cPriceHint;
+    private Integer priceHint;
     
     @Schema(description = "Granularity of the data available.", example = "1d")
-    private String cDataGranularity;
+    private String dataGranularity;
     
     @Schema(description = "Timestamp when the record was created.", example = "2023-01-01T12:00:00Z")
-    private Timestamp cCreated;
+    private Timestamp created;
     
     @Schema(description = "Timestamp when the record was last updated.", example = "2023-01-02T12:00:00Z")
-    private Timestamp cUpdated;
+    private Timestamp updated;
 
-    public String getcId() { return cId; }
-    public void setcId(String cId) { this.cId = cId; }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public String getcSymbol() { return cSymbol; }
-    public void setcSymbol(String cSymbol) { this.cSymbol = cSymbol; }
+    public String getSymbol() { return symbol; }
+    public void setSymbol(String symbol) { this.symbol = symbol; }
 
-    public String getcIsin() { return cIsin; }
-    public void setcIsin(String cIsin) { this.cIsin = cIsin; }
+    public String getIsin() { return isin; }
+    public void setIsin(String isin) { this.isin = isin; }
 
-    public String getcShortName() { return cShortName; }
-    public void setcShortName(String cShortName) { this.cShortName = cShortName; }
+    public String getShortName() { return shortName; }
+    public void setShortName(String shortName) { this.shortName = shortName; }
 
-    public String getcLongName() { return cLongName; }
-    public void setcLongName(String cLongName) { this.cLongName = cLongName; }
+    public String getLongName() { return longName; }
+    public void setLongName(String longName) { this.longName = longName; }
 
-    public String getcCurrency() { return cCurrency; }
-    public void setcCurrency(String cCurrency) { this.cCurrency = cCurrency; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
 
-    public String getcInstrumentType() { return cInstrumentType; }
-    public void setcInstrumentType(String cInstrumentType) { this.cInstrumentType = cInstrumentType; }
+    public String getInstrumentType() { return instrumentType; }
+    public void setInstrumentType(String instrumentType) { this.instrumentType = instrumentType; }
 
-    public Date getcFirstTradeDate() { return cFirstTradeDate; }
-    public void setcFirstTradeDate(Date cFirstTradeDate) { this.cFirstTradeDate = cFirstTradeDate; }
+    public Date getFirstTradeDate() { return firstTradeDate; }
+    public void setFirstTradeDate(Date firstTradeDate) { this.firstTradeDate = firstTradeDate; }
 
-    public String getcExchangeName() { return cExchangeName; }
-    public void setcExchangeName(String cExchangeName) { this.cExchangeName = cExchangeName; }
+    public String getExchangeName() { return exchangeName; }
+    public void setExchangeName(String exchangeName) { this.exchangeName = exchangeName; }
 
-    public String getcFullExchangeName() { return cFullExchangeName; }
-    public void setcFullExchangeName(String cFullExchangeName) { this.cFullExchangeName = cFullExchangeName; }
+    public String getFullExchangeName() { return fullExchangeName; }
+    public void setFullExchangeName(String fullExchangeName) { this.fullExchangeName = fullExchangeName; }
 
-    public String getcExchangeTimezoneName() { return cExchangeTimezoneName; }
-    public void setcExchangeTimezoneName(String cExchangeTimezoneName) { this.cExchangeTimezoneName = cExchangeTimezoneName; }
+    public String getExchangeTimezoneName() { return exchangeTimezoneName; }
+    public void setExchangeTimezoneName(String exchangeTimezoneName) { this.exchangeTimezoneName = exchangeTimezoneName; }
 
-    public String getcTimezone() { return cTimezone; }
-    public void setcTimezone(String cTimezone) { this.cTimezone = cTimezone; }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
 
-    public boolean iscHasPrePostMarketData() { return cHasPrePostMarketData; }
-    public void setcHasPrePostMarketData(boolean cHasPrePostMarketData) { this.cHasPrePostMarketData = cHasPrePostMarketData; }
+    public boolean isHasPrePostMarketData() { return hasPrePostMarketData; }
+    public void setHasPrePostMarketData(boolean hasPrePostMarketData) { this.hasPrePostMarketData = hasPrePostMarketData; }
 
-    public Integer getcPriceHint() { return cPriceHint; }
-    public void setcPriceHint(Integer cPriceHint) { this.cPriceHint = cPriceHint; }
+    public Integer getPriceHint() { return priceHint; }
+    public void setPriceHint(Integer priceHint) { this.priceHint = priceHint; }
 
-    public String getcDataGranularity() { return cDataGranularity; }
-    public void setcDataGranularity(String cDataGranularity) { this.cDataGranularity = cDataGranularity; }
+    public String getDataGranularity() { return dataGranularity; }
+    public void setDataGranularity(String dataGranularity) { this.dataGranularity = dataGranularity; }
 
-    public Timestamp getcCreated() { return cCreated; }
-    public void setcCreated(Timestamp cCreated) { this.cCreated = cCreated; }
+    public Timestamp getCreated() { return created; }
+    public void setCreated(Timestamp created) { this.created = created; }
 
-    public Timestamp getcUpdated() { return cUpdated; }
-    public void setcUpdated(Timestamp cUpdated) { this.cUpdated = cUpdated; }
+    public Timestamp getUpdated() { return updated; }
+    public void setUpdated(Timestamp updated) { this.updated = updated; }
 }
