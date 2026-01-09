@@ -6,7 +6,7 @@ public class WinCalc
     public static void main(String[] args)
     {
 
-        Double Startcapital = 100000.0;
+        Double Startcapital = 10_000.0;
         Double capital = Startcapital;
         for (int i = 0; i < 24; i++ )
         {

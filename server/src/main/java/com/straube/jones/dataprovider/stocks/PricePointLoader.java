@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.straube.jones.dataprovider.eurorates.CurrencyDB;
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.TablePriceDataResponse;
@@ -39,6 +40,7 @@ public class PricePointLoader
         long minVolume = Long.MAX_VALUE;
         long maxVolume = 0;
         long averageVolume = 0;
+        String currency = null;
 
         if (codes == null || codes.isEmpty())
         { return data; }
@@ -69,7 +71,7 @@ public class PricePointLoader
                         + codesString
                         + ")) AND cDayCounter >= ? AND cDayCounter <= ? ORDER BY cIsin, cDayCounter "
                         + (type == 1 || type == 2 ? "ASC" : "DESC");
-    
+
         Map<String, Double> normalizationValues = (type == 1) ? new HashMap<>() : null;
         Map<String, Double> previousValues = (type == 2) ? new HashMap<>() : null;
 
@@ -80,7 +82,7 @@ public class PricePointLoader
             // Parameter setzen
             int paramIndex = 1;
             ps.setLong(paramIndex, DayCounter.get(start));
-            paramIndex++;
+            paramIndex++ ;
             ps.setLong(paramIndex, DayCounter.get(end));
             // Query ausführen
             try (ResultSet rs = ps.executeQuery())
@@ -96,7 +98,7 @@ public class PricePointLoader
                     Double low = rs.getDouble("cLow");
                     Double close = rs.getDouble("cClose");
                     Double adjClose = rs.getDouble("cAdjClose");
-                    String currency = rs.getString("cCurrency");
+                    currency = rs.getString("cCurrency");
                     Long volume = rs.getLong("cVolume");
                     Integer dayCounter = rs.getInt("cDayCounter");
 
@@ -107,6 +109,14 @@ public class PricePointLoader
                     if (volume > maxVolume)
                     {
                         maxVolume = volume;
+                    }
+                    if (type == 0)
+                    {
+                        open = CurrencyDB.getAsEuro(currency, open, dayCounter);
+                        high = CurrencyDB.getAsEuro(currency, high, dayCounter);
+                        low = CurrencyDB.getAsEuro(currency, low, dayCounter);
+                        close = CurrencyDB.getAsEuro(currency, close, dayCounter);
+                        adjClose = CurrencyDB.getAsEuro(currency, adjClose, dayCounter);
                     }
                     if (type == 1)
                     {
@@ -157,11 +167,11 @@ public class PricePointLoader
                     data.addRow(isin,
                                 symbol,
                                 dateLong,
-                                open,
-                                high,
-                                low,
-                                close,
-                                adjClose,
+                                Math.round(open * 100.0d) / 100.0d,
+                                Math.round(high * 100.0d) / 100.0d,
+                                Math.round(low * 100.0d) / 100.0d,
+                                Math.round(close * 100.0d) / 100.0d,
+                                Math.round(adjClose * 100.0d) / 100.0d,
                                 currency,
                                 volume,
                                 dayCounter);
@@ -184,7 +194,8 @@ public class PricePointLoader
         {
             averageVolume = averageVolume / rowCounter.get();
         }
-        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume, averageVolume));
+        String displayCurrency = type == 0 ? "EUR" : currency;
+        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume, averageVolume, currency, displayCurrency));
         return data;
     }
 }

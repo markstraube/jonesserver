@@ -192,22 +192,58 @@ public class TablePriceDataResponse
 
         @JsonProperty("averageVolume")
         private long averageVolume;
-        public MetaData(long minVolume, long maxVolume, long averageVolume)
+
+        @JsonProperty("originalCurrency")
+        private String originalCurrency;
+
+        @JsonProperty("displayCurrency")
+        private String displayCurrency;
+
+        public MetaData(long minVolume, long maxVolume, long averageVolume, String originalCurrency, String displayCurrency)
         {
             this.minVolume = minVolume;
             this.maxVolume = maxVolume;
-            this.averageVolume = averageVolume; 
+            this.averageVolume = averageVolume;
+            this.originalCurrency = originalCurrency;
+            this.displayCurrency = displayCurrency;
         }
+
+
+        public String getOriginalCurrency()
+        {
+            return originalCurrency;
+        }
+
+
+        public void setOriginalCurrency(String originalCurrency)
+        {
+            this.originalCurrency = originalCurrency;
+        }
+
+
+        public String getDisplayCurrency()
+        {
+            return displayCurrency;
+        }
+
+
+        public void setDisplayCurrency(String displayCurrency)
+        {
+            this.displayCurrency = displayCurrency;
+        }
+
 
         public long getAverageVolume()
         {
             return averageVolume;
-        }   
+        }
+
 
         public void setAverageVolume(long averageVolume)
         {
             this.averageVolume = averageVolume;
-        }   
+        }
+
 
         public long getMinVolume()
         {
