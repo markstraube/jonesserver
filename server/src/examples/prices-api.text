@@ -63,4 +63,93 @@
           }
         }
       }
-    }
+    },
+    "TablePriceDataResponse": {
+        "type": "object",
+        "properties": {
+          "headers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaData"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceTableRow"
+            }
+          }
+        }
+      },
+      "MetaData": {
+        "type": "object",
+        "properties": {
+          "minVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "maxVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "averageVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "originalCurrency": {
+            "type": "string"
+          },
+          "displayCurrency": {
+            "type": "string"
+          }
+        }
+      },
+            "PriceTableRow": {
+        "type": "object",
+        "properties": {
+          "isin": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "date_long": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "open": {
+            "type": "number",
+            "format": "double"
+          },
+          "high": {
+            "type": "number",
+            "format": "double"
+          },
+          "low": {
+            "type": "number",
+            "format": "double"
+          },
+          "close": {
+            "type": "number",
+            "format": "double"
+          },
+          "adjClose": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "volume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dayCounter": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }

@@ -40,7 +40,7 @@ public class PricePointLoader
         long minVolume = Long.MAX_VALUE;
         long maxVolume = 0;
         long averageVolume = 0;
-        String currency = null;
+        String originalCurrency = null;
 
         if (codes == null || codes.isEmpty())
         { return data; }
@@ -87,6 +87,7 @@ public class PricePointLoader
             // Query ausführen
             try (ResultSet rs = ps.executeQuery())
             {
+                boolean firstRow = true;
                 while (rs.next())
                 {
                     String isin = rs.getString("cIsin");
@@ -98,10 +99,15 @@ public class PricePointLoader
                     Double low = rs.getDouble("cLow");
                     Double close = rs.getDouble("cClose");
                     Double adjClose = rs.getDouble("cAdjClose");
-                    currency = rs.getString("cCurrency");
+                    String currency = rs.getString("cCurrency");
                     Long volume = rs.getLong("cVolume");
                     Integer dayCounter = rs.getInt("cDayCounter");
 
+                    if (firstRow)
+                    {
+                        originalCurrency = currency;
+                        firstRow = false;
+                    }
                     if (volume < minVolume)
                     {
                         minVolume = volume;
@@ -117,6 +123,7 @@ public class PricePointLoader
                         low = CurrencyDB.getAsEuro(currency, low, dayCounter);
                         close = CurrencyDB.getAsEuro(currency, close, dayCounter);
                         adjClose = CurrencyDB.getAsEuro(currency, adjClose, dayCounter);
+                        currency = "EUR";
                     }
                     if (type == 1)
                     {
@@ -139,6 +146,7 @@ public class PricePointLoader
                             low = (low / base - 1.0d) * 100.0d;
                             close = (close / base - 1.0d) * 100.0d;
                             adjClose = (adjClose / base - 1.0d) * 100.0d;
+                            currency = "%";
                         }
                     }
                     else if (type == 2)
@@ -153,6 +161,7 @@ public class PricePointLoader
                             low = (low / prev - 1.0d) * 100.0d;
                             close = (close / prev - 1.0d) * 100.0d;
                             adjClose = (adjClose / prev - 1.0d) * 100.0d;
+                            currency = "%";
                         }
                         else
                         {
@@ -194,8 +203,8 @@ public class PricePointLoader
         {
             averageVolume = averageVolume / rowCounter.get();
         }
-        String displayCurrency = type == 0 ? "EUR" : currency;
-        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume, averageVolume, currency, displayCurrency));
+        String displayCurrency = type == 0 ? "EUR" : "%";
+        data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume, averageVolume, originalCurrency, displayCurrency));
         return data;
     }
 }
