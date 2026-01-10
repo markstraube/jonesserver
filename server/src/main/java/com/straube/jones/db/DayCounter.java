@@ -38,6 +38,10 @@ public class DayCounter
         return get(LocalDate.now());
     }
 
+    public static long yesterday()
+    {
+        return now() - 1;
+    }
 
     public static long before(long days)
     {

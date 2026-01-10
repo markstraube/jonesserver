@@ -139,6 +139,11 @@ public class SymbolResolver
                 throw new RuntimeException("Error resolving symbol for ISIN: " + isin, e);
             }
         }
+        else
+        {
+            //not a ISIN, return the code itself
+            symbol = code;
+        }
         return symbol;
     }
 

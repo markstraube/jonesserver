@@ -29,12 +29,12 @@ public class MarketDataService
 
     public List<DailyPrice> getMarketData(String symbol)
     {
-    return  getMarketData(symbol, DayCounter.now());
+        return  getMarketData(symbol, DayCounter.now());
     }
 
     public List<DailyPrice> getMarketData(String symbol, long fromDayCounterDesc)
     {
-        String sql = "SELECT cDate, cOpen, cHigh, cLow, cClose, cAdjClose, cVolume FROM tPriceData WHERE cSymbol = ? and cDayCounter <= ? ORDER BY cDayCounter DESC";
+        String sql = "SELECT cDate, cCurrency, cOpen, cHigh, cLow, cClose, cAdjClose, cVolume FROM tPriceData WHERE cSymbol = ? and cDayCounter <= ? ORDER BY cDayCounter DESC";
         return jdbcTemplate.query(sql, new RowMapper<DailyPrice>()
         {
             @Override
@@ -45,6 +45,7 @@ public class MarketDataService
                 long dateLong = rs.getDate("cDate").getTime();
                 LocalDate date = Instant.ofEpochMilli(dateLong).atZone(ZoneId.systemDefault()).toLocalDate();
                 dp.setDate(date);
+                dp.setCurrency(rs.getString("cCurrency"));
 
                 dp.setOpen(rs.getDouble("cOpen"));
                 dp.setHigh(rs.getDouble("cHigh"));

@@ -43,8 +43,7 @@ import java.util.Map;
 public class SwingTradeController
 {
 
-    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
-                                                                      "/opt/tomcat/data");
+    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root", "/opt/tomcat/data");
     private final SwingTradeQueryService queryService;
     private final TradingIndicatorService indicatorService;
     private final RatingService ratingService;
@@ -52,12 +51,12 @@ public class SwingTradeController
     private final MarketDataService marketDataService;
     private final Updater updater;
 
-    public SwingTradeController(SwingTradeQueryService queryService, 
-                               TradingIndicatorService indicatorService, 
-                               RatingService ratingService,
-                               IndicatorService indicatorDtoService,
-                               MarketDataService marketDataService,
-                               Updater updater)
+    public SwingTradeController(SwingTradeQueryService queryService,
+                                TradingIndicatorService indicatorService,
+                                RatingService ratingService,
+                                IndicatorService indicatorDtoService,
+                                MarketDataService marketDataService,
+                                Updater updater)
     {
         this.queryService = queryService;
         this.indicatorService = indicatorService;
@@ -69,9 +68,9 @@ public class SwingTradeController
 
 
     @GetMapping
-    @Operation(summary = "Watchlist abrufen", description = "Liefert eine Liste von Swing-Trading-Kandidaten basierend auf technischen Indikatoren und Ratings. " +
-            "Die Liste enthält Stammdaten von OnVista, aktuelle Indikatoren (RSI, MACD, Volumen) und Swing-Trading-Kennzahlen (CRV, Support-Abstand). " +
-            "Die Kandidaten werden vorab gefiltert nach Ratings (BUY in Short/Mid/Long).")
+    @Operation(summary = "Watchlist abrufen", description = "Liefert eine Liste von Swing-Trading-Kandidaten basierend auf technischen Indikatoren und Ratings. "
+                    + "Die Liste enthält Stammdaten von OnVista, aktuelle Indikatoren (RSI, MACD, Volumen) und Swing-Trading-Kennzahlen (CRV, Support-Abstand). "
+                    + "Die Kandidaten werden vorab gefiltert nach Ratings (BUY in Short/Mid/Long).")
     @ApiResponse(responseCode = "200", description = "Erfolgreiche Abfrage der Watchlist", content = @Content(schema = @Schema(implementation = SwingTradeOverviewDto.class)))
     public ResponseEntity<List<SwingTradeOverviewDto>> getWatchlist(@Parameter(description = "Filter nach Status (GREEN, YELLOW, RED)")
     @RequestParam(required = false)
@@ -117,9 +116,9 @@ public class SwingTradeController
     public ResponseEntity<TradingIndicatorService.Report> getReport(@Parameter(description = "Aktiensymbol (z. B. AAPL)", required = true)
     @RequestParam
     String symbol,
-    @Parameter(description = "Optionaler Endzeitpunkt (Timestamp in ms) für die Analyse", required = false)
-    @RequestParam(required = false)
-    Long endTime)
+                                                                    @Parameter(description = "Optionaler Endzeitpunkt (Timestamp in ms) für die Analyse", required = false)
+                                                                    @RequestParam(required = false)
+                                                                    Long endTime)
     {
         long day = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
         TradingIndicatorService.Report report = indicatorService.getReport(symbol, day);
@@ -131,66 +130,53 @@ public class SwingTradeController
 
     @PostMapping("/ratings")
     @Operation(summary = "Ratings abrufen", description = "Liefert Ratings für die übergebene Liste von Symbolen.")
-    public ResponseEntity<List<RatingDto>> getRatings(
-            @RequestBody List<String> codes,
-            @Parameter(description = "Startzeitpunkt (Timestamp ms)", required = false) @RequestParam(required = false) Long startTime,
-            @Parameter(description = "Endzeitpunkt (Timestamp ms)", required = false) @RequestParam(required = false) Long endTime)
+    public ResponseEntity<List<RatingDto>> getRatings(@RequestBody
+    List<String> codes,
+                                                      @Parameter(description = "Startzeitpunkt (Timestamp ms)", required = false)
+                                                      @RequestParam(required = false)
+                                                      Long startTime,
+                                                      @Parameter(description = "Endzeitpunkt (Timestamp ms)", required = false)
+                                                      @RequestParam(required = false)
+                                                      Long endTime)
     {
         return ResponseEntity.ok(ratingService.getRatings(codes, startTime, endTime));
     }
 
 
     @PostMapping("/indicators")
-    @Operation(
-        summary = "Technische Indikatoren abrufen",
-        description = "Liefert detaillierte technische Indikatoren für die übergebene Liste von Aktiensymbolen. " +
-                      "Die Methode gibt historische Indikator-Daten aus der tIndicators-Tabelle zurück.\n\n" +
-                      "**Zurückgegebene Indikatoren:**\n" +
-                      "- **Bollinger Bänder**: Oberes, mittleres und unteres Band (15-Tage-Periode)\n" +
-                      "- **RSI (Relative Strength Index)**: Momentum-Indikator (0-100)\n" +
-                      "- **MACD**: Moving Average Convergence Divergence mit Signal-Linie\n" +
-                      "- **Gleitende Durchschnitte**: SMA und EMA für 5, 10, 20 und 30 Tage\n" +
-                      "- **RSI30-Wahrscheinlichkeiten**: Wahrscheinlichkeit für RSI < 30 in verschiedenen Zeithorizonten (5, 10, 20, 30 Tage)\n" +
-                      "- **Unterstützung/Widerstand**: Berechnete Support- und Resistance-Levels\n" +
-                      "- **Volumen**: Handelsvolumen\n\n" +
-                      "**Zeitraum-Filter:**\n" +
-                      "- `startTime`: Unix-Timestamp in Millisekunden für den Beginn des Abfragezeitraums (optional, Standard: 1.1.2000)\n" +
-                      "- `endTime`: Unix-Timestamp in Millisekunden für das Ende des Abfragezeitraums (optional, Standard: aktuelles Datum)\n\n" +
-                      "**Sortierung:** Die Ergebnisse werden nach Symbol (aufsteigend) und Datum (absteigend) sortiert zurückgegeben.\n\n" +
-                      "**Verwendungsbeispiel:**\n" +
-                      "```json\n" +
-                      "POST /api/swing-trades/indicators?startTime=1704067200000&endTime=1735689600000\n" +
-                      "Body: [\"AAPL\", \"MSFT\", \"TSLA\"]\n" +
-                      "```\n\n" +
-                      "**Response-Struktur:** Jedes IndicatorDto-Objekt enthält alle verfügbaren Indikatoren für ein Symbol und Datum. " +
-                      "Felder können `null` sein, wenn für den jeweiligen Indikator keine Daten verfügbar sind."
-    )
-    @ApiResponse(
-        responseCode = "200",
-        description = "Erfolgreiche Abfrage - Liste von Indikator-Objekten mit allen technischen Kennzahlen",
-        content = @Content(schema = @Schema(implementation = IndicatorDto.class))
-    )
-    @ApiResponse(
-        responseCode = "400",
-        description = "Ungültige Anfrage - z.B. leere Symbol-Liste oder ungültige Zeitstempel"
-    )
-    public ResponseEntity<List<IndicatorDto>> getIndicators(
-            @Parameter(
-                description = "Liste von Aktiensymbolen oder Codes (z.B. AAPL, MSFT, TSLA oder interne ISIN-Codes). " +
-                             "Die Codes werden automatisch in die entsprechenden Handelssymbole aufgelöst.",
-                required = true,
-                example = "[\"AAPL\", \"MSFT\", \"TSLA\"]"
-            )
-            @RequestBody List<String> codes,
-            
-            @Parameter(
-                description = "Startzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. " +
-                             "Wenn nicht angegeben, werden Daten ab dem 1.1.2000 abgerufen.",
-                required = false,
-                example = "1704067200000"
-            )
-            @RequestParam(required = false) Long startTime,
-            
+    @Operation(summary = "Technische Indikatoren abrufen", description = "Liefert detaillierte technische Indikatoren für die übergebene Liste von Aktiensymbolen. "
+                    + "Die Methode gibt historische Indikator-Daten aus der tIndicators-Tabelle zurück.\n\n"
+                    + "**Zurückgegebene Indikatoren:**\n"
+                    + "- **Bollinger Bänder**: Oberes, mittleres und unteres Band (15-Tage-Periode)\n"
+                    + "- **RSI (Relative Strength Index)**: Momentum-Indikator (0-100)\n"
+                    + "- **MACD**: Moving Average Convergence Divergence mit Signal-Linie\n"
+                    + "- **Gleitende Durchschnitte**: SMA und EMA für 5, 10, 20 und 30 Tage\n"
+                    + "- **RSI30-Wahrscheinlichkeiten**: Wahrscheinlichkeit für RSI < 30 in verschiedenen Zeithorizonten (5, 10, 20, 30 Tage)\n"
+                    + "- **Unterstützung/Widerstand**: Berechnete Support- und Resistance-Levels\n"
+                    + "- **Volumen**: Handelsvolumen\n\n"
+                    + "**Zeitraum-Filter:**\n"
+                    + "- `startTime`: Unix-Timestamp in Millisekunden für den Beginn des Abfragezeitraums (optional, Standard: 1.1.2000)\n"
+                    + "- `endTime`: Unix-Timestamp in Millisekunden für das Ende des Abfragezeitraums (optional, Standard: aktuelles Datum)\n\n"
+                    + "**Sortierung:** Die Ergebnisse werden nach Symbol (aufsteigend) und Datum (absteigend) sortiert zurückgegeben.\n\n"
+                    + "**Verwendungsbeispiel:**\n"
+                    + "```json\n"
+                    + "POST /api/swing-trades/indicators?startTime=1704067200000&endTime=1735689600000\n"
+                    + "Body: [\"AAPL\", \"MSFT\", \"TSLA\"]\n"
+                    + "```\n\n"
+                    + "**Response-Struktur:** Jedes IndicatorDto-Objekt enthält alle verfügbaren Indikatoren für ein Symbol und Datum. "
+                    + "Felder können `null` sein, wenn für den jeweiligen Indikator keine Daten verfügbar sind.")
+    @ApiResponse(responseCode = "200", description = "Erfolgreiche Abfrage - Liste von Indikator-Objekten mit allen technischen Kennzahlen", content = @Content(schema = @Schema(implementation = IndicatorDto.class)))
+    @ApiResponse(responseCode = "400", description = "Ungültige Anfrage - z.B. leere Symbol-Liste oder ungültige Zeitstempel")
+    public ResponseEntity<List<IndicatorDto>> getIndicators(@Parameter(description = "Liste von Aktiensymbolen oder Codes (z.B. AAPL, MSFT, TSLA oder interne ISIN-Codes). "
+                    + "Die Codes werden automatisch in die entsprechenden Handelssymbole aufgelöst.", required = true, example = "[\"AAPL\", \"MSFT\", \"TSLA\"]")
+    @RequestBody
+    List<String> codes,
+
+                                                            @Parameter(description = "Startzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. "
+                                                                            + "Wenn nicht angegeben, werden Daten ab dem 1.1.2000 abgerufen.", required = false, example = "1704067200000")
+                                                            @RequestParam(required = false)
+                                                            Long startTime,
+
             @Parameter(
                 description = "Endzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. " +
                              "Wenn nicht angegeben, wird das aktuelle Datum verwendet.",
@@ -199,7 +185,7 @@ public class SwingTradeController
             )
             @RequestParam(required = false) Long endTime)
     {
-        return ResponseEntity.ok(indicatorDtoService.getIndicators(codes, startTime, endTime));
+        return ResponseEntity.ok(indicatorDtoService.getIndicatorsFromDB(codes, startTime, endTime, true));
     }
 
 
@@ -266,82 +252,60 @@ public class SwingTradeController
         return ResponseEntity.ok(result);
     }
 
+
     @GetMapping("/prediction/rsi30")
-    @Operation(
-        summary = "RSI30 Vorhersage abrufen",
-        description = "Analysiert die Wahrscheinlichkeit, dass der RSI-Wert einer Aktie innerhalb der nächsten 30 Tage unter 30 fällt. " +
-                      "Die Analyse basiert auf historischen Preisdaten der letzten 60 Tage und technischen Indikatoren. " +
-                      "Die Methode liefert:\n" +
-                      "- **Wahrscheinlichkeitseinschätzung**: Prozentuale Wahrscheinlichkeit für RSI < 30\n" +
-                      "- **Analysefaktoren**: Detaillierte Aufschlüsselung der berücksichtigten Faktoren (RSI-Abstand, MACD, Bollinger Bands, Volatilität, Verlust-Serien, Trends)\n" +
-                      "- **Historische Analyse**: Volatilität, Drawdowns, Verlusttage der letzten 30 Tage\n" +
-                      "- **Kaufpreis-Ziele**: Geschätzte Zielpreise für verschiedene Zeithorizonte (5, 10, 20, 30 Tage)\n\n" +
-                      "**Verwendung:**\n" +
-                      "- `end_time` definiert den Analysezeitpunkt (in der Regel aktueller Zeitpunkt oder ein Datum in der Vergangenheit)\n" +
-                      "- Das System ermittelt automatisch den optimalen Start-Zeitpunkt für die Datenabfrage (60 Handelstage zurück)\n" +
-                      "- Mindestens 35 Handelstage an Preisdaten werden für eine zuverlässige Analyse benötigt"
-    )
-    @ApiResponse(
-        responseCode = "200",
-        description = "RSI30 Vorhersage erfolgreich erstellt",
-        content = @Content(schema = @Schema(implementation = RSI30PredictionDto.class))
-    )
-    @ApiResponse(
-        responseCode = "404",
-        description = "Symbol nicht gefunden oder nicht genügend historische Daten verfügbar"
-    )
-    @ApiResponse(
-        responseCode = "400",
-        description = "Ungültige Parameter"
-    )
-    public ResponseEntity<RSI30PredictionDto> getRSI30Prediction(
-        @Parameter(
-            description = "Aktiensymbol (Yahoo Finance Identifier, z.B. TSLA, AAPL, MSFT)",
-            required = true,
-            example = "TSLA"
-        )
-        @RequestParam String symbol,
-        
-        @Parameter(
-            description = "Endzeitpunkt für die Analyse als Java Timestamp in Millisekunden. " +
-                         "Die Analyse verwendet Daten bis zu diesem Zeitpunkt. " +
-                         "Wenn nicht angegeben, wird der aktuelle Zeitpunkt verwendet.",
-            required = false,
-            example = "1735689600000"
-        )
-        @RequestParam(required = false) Long endTime
-    )
+    @Operation(summary = "RSI30 Vorhersage abrufen", description = "Analysiert die Wahrscheinlichkeit, dass der RSI-Wert einer Aktie innerhalb der nächsten 30 Tage unter 30 fällt. "
+                    + "Die Analyse basiert auf historischen Preisdaten der letzten 60 Tage und technischen Indikatoren. "
+                    + "Die Methode liefert:\n"
+                    + "- **Wahrscheinlichkeitseinschätzung**: Prozentuale Wahrscheinlichkeit für RSI < 30\n"
+                    + "- **Analysefaktoren**: Detaillierte Aufschlüsselung der berücksichtigten Faktoren (RSI-Abstand, MACD, Bollinger Bands, Volatilität, Verlust-Serien, Trends)\n"
+                    + "- **Historische Analyse**: Volatilität, Drawdowns, Verlusttage der letzten 30 Tage\n"
+                    + "- **Kaufpreis-Ziele**: Geschätzte Zielpreise für verschiedene Zeithorizonte (5, 10, 20, 30 Tage)\n\n"
+                    + "**Verwendung:**\n"
+                    + "- `end_time` definiert den Analysezeitpunkt (in der Regel aktueller Zeitpunkt oder ein Datum in der Vergangenheit)\n"
+                    + "- Das System ermittelt automatisch den optimalen Start-Zeitpunkt für die Datenabfrage (60 Handelstage zurück)\n"
+                    + "- Mindestens 35 Handelstage an Preisdaten werden für eine zuverlässige Analyse benötigt")
+    @ApiResponse(responseCode = "200", description = "RSI30 Vorhersage erfolgreich erstellt", content = @Content(schema = @Schema(implementation = RSI30PredictionDto.class)))
+    @ApiResponse(responseCode = "404", description = "Symbol nicht gefunden oder nicht genügend historische Daten verfügbar")
+    @ApiResponse(responseCode = "400", description = "Ungültige Parameter")
+    public ResponseEntity<RSI30PredictionDto> getRSI30Prediction(@Parameter(description = "Aktiensymbol (Yahoo Finance Identifier, z.B. TSLA, AAPL, MSFT)", required = true, example = "TSLA")
+    @RequestParam
+    String symbol,
+
+                                                                 @Parameter(description = "Endzeitpunkt für die Analyse als Java Timestamp in Millisekunden. "
+                                                                                 + "Die Analyse verwendet Daten bis zu diesem Zeitpunkt. "
+                                                                                 + "Wenn nicht angegeben, wird der aktuelle Zeitpunkt verwendet.", required = false, example = "1735689600000")
+                                                                 @RequestParam(required = false)
+                                                                 Long endTime)
     {
         // 1. Bestimme den Endzeitpunkt
         long endDayCounter = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
-        
+
         // 2. Erstelle technischen Report für den Analysezeitpunkt
         // Hinweis: Der Report benötigt mindestens 60 Handelstage an Daten für zuverlässige Indikator-Berechnungen
         TradingIndicatorService.Report report = indicatorService.getReport(symbol, endDayCounter);
-        
+
         if (report == null)
-        {
-            return ResponseEntity.notFound().build();
-        }
-        
+        { return ResponseEntity.notFound().build(); }
+
         // 3. Hole historische Preisdaten
         List<DailyPrice> prices = marketDataService.getMarketData(symbol, endDayCounter);
-        
+
         if (prices == null || prices.size() < 35)
         {
             // Nicht genug Daten für eine verlässliche Analyse
             return ResponseEntity.notFound().build();
         }
-        
+
         // 4. Führe RSI30-Vorhersage durch
         RSIPrediction.RSI30Probability probability = RSIPrediction.estimateRSI30Probability(report, prices);
         RSIPrediction.BuyPriceTargets buyTargets = RSIPrediction.calculateBuyPriceTargets(report, prices);
-        
+
         // 5. Konvertiere in DTO
         RSI30PredictionDto predictionDto = new RSI30PredictionDto();
         predictionDto.setSymbol(symbol);
         predictionDto.setTimestamp(endTime != null ? endTime : System.currentTimeMillis());
-        
+
         // Extrahiere aktuelle Werte aus dem Report (Mid-Term Analyse)
         TradingIndicatorService.Analysis midTermAnalysis = null;
         for (TradingIndicatorService.ReportEntry entry : report.getAnalyses())
@@ -352,19 +316,19 @@ public class SwingTradeController
                 break;
             }
         }
-        
+
         if (midTermAnalysis != null)
         {
             predictionDto.setCurrentPrice(midTermAnalysis.getCurrentPrice());
             predictionDto.setCurrentRsi(midTermAnalysis.getRsi());
         }
-        
+
         // Setze Wahrscheinlichkeits-Daten
         predictionDto.setProbabilityPercent(probability.getProbabilityPercent());
         predictionDto.setAssessment(probability.getAssessment());
         predictionDto.setEstimatedDaysToRSI30(probability.getDaysToReachRSI30Estimate());
         predictionDto.setFactors(probability.getFactors());
-        
+
         // Konvertiere historische Analyse
         if (probability.getHistoricalAnalysis() != null)
         {
@@ -379,7 +343,7 @@ public class SwingTradeController
             histDto.setPriceChange30Days(hist.getPriceChange30Days());
             predictionDto.setHistoricalAnalysis(histDto);
         }
-        
+
         // Konvertiere Kaufpreis-Ziele
         BuyPriceTargetsDto targetsDto = new BuyPriceTargetsDto();
         targetsDto.setCurrentPrice(buyTargets.getCurrentPrice());
@@ -390,7 +354,7 @@ public class SwingTradeController
         targetsDto.setRequiredDailyDecline(buyTargets.getRequiredDailyDecline());
         targetsDto.setVolatilityAssessment(buyTargets.getVolatilityAssessment());
         predictionDto.setBuyPriceTargets(targetsDto);
-        
+
         return ResponseEntity.ok(predictionDto);
     }
 
@@ -402,7 +366,5 @@ public class SwingTradeController
         new Thread(updater::updateAllJob).start();
         return ResponseEntity.accepted().body("Update job started");
     }
-
-
 
 }

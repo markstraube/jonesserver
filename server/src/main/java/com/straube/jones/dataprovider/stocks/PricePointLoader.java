@@ -34,7 +34,7 @@ public class PricePointLoader
     }
 
 
-    public static TablePriceDataResponse loadPrices(List<String> codes, long start, long end, int type)
+    public static TablePriceDataResponse loadPrices(List<String> codes, long start, long end, int type, boolean convertToEuro)
     {
         TablePriceDataResponse data = new TablePriceDataResponse();
         long minVolume = Long.MAX_VALUE;
@@ -118,11 +118,11 @@ public class PricePointLoader
                     }
                     if (type == 0)
                     {
-                        open = CurrencyDB.getAsEuro(currency, open, dayCounter);
-                        high = CurrencyDB.getAsEuro(currency, high, dayCounter);
-                        low = CurrencyDB.getAsEuro(currency, low, dayCounter);
-                        close = CurrencyDB.getAsEuro(currency, close, dayCounter);
-                        adjClose = CurrencyDB.getAsEuro(currency, adjClose, dayCounter);
+                        open = CurrencyDB.getAsEuroOrOriginal(currency, open, DayCounter.yesterday(), convertToEuro);
+                        high = CurrencyDB.getAsEuroOrOriginal(currency, high, DayCounter.yesterday(), convertToEuro);
+                        low = CurrencyDB.getAsEuroOrOriginal(currency, low, DayCounter.yesterday(), convertToEuro);
+                        close = CurrencyDB.getAsEuroOrOriginal(currency, close, DayCounter.yesterday(), convertToEuro);
+                        adjClose = CurrencyDB.getAsEuroOrOriginal(currency, adjClose, DayCounter.yesterday(), convertToEuro);
                         currency = "EUR";
                     }
                     if (type == 1)
@@ -203,7 +203,18 @@ public class PricePointLoader
         {
             averageVolume = averageVolume / rowCounter.get();
         }
-        String displayCurrency = type == 0 ? "EUR" : "%";
+        String displayCurrency = "%";   
+        if (type == 0)
+        {
+            if (convertToEuro)
+            {
+                displayCurrency = "EUR";
+            }
+            else
+            {
+                displayCurrency = originalCurrency;
+            }
+        }
         data.setMeta(new TablePriceDataResponse.MetaData(minVolume, maxVolume, averageVolume, originalCurrency, displayCurrency));
         return data;
     }

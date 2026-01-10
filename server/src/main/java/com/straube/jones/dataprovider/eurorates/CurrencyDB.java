@@ -41,6 +41,16 @@ public class CurrencyDB
 
     static long OneDayMillis = 24 * 60 * 60 * 1000;
 
+    public static Double getAsEuroOrOriginal(String currency, Double value, long dayCounter, boolean convertToEuro)
+    {
+        if (!convertToEuro)
+        { return value; }
+        else
+        {
+            return getAsEuro(currency, value, dayCounter);
+        }
+    }
+
     public static Double getAsEuro(String currency, Double value, long dayCounter)
     {
         if ("EUR".equals(currency.toUpperCase()))

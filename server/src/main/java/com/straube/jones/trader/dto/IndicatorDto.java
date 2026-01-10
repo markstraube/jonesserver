@@ -15,7 +15,10 @@ public class IndicatorDto {
     
     @Schema(description = "Datum als Unix-Timestamp in Millisekunden", example = "1735689600000")
     private Long date;
-    
+
+    @Schema(description = "Currency of the bases of calculated indicators", example = "USD")
+    private String currency;
+
     @Schema(description = "Unteres Bollinger Band (15-Tage-Periode)", example = "142.50")
     private Double bb15low;
     
@@ -100,6 +103,13 @@ public class IndicatorDto {
         this.date = date;
     }
 
+    public String getCurrency() {
+        return currency;
+    } 
+    
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
     public Double getBb15low() {
         return bb15low;
     }

@@ -157,7 +157,7 @@ public class StocksController
 		}
 
 		// TableData direkt laden und zurückgeben
-		return PricePointLoader.loadPrices(codes, start, end, type);
+		return PricePointLoader.loadPrices(codes, start, end, type, true);
 	}
 
 

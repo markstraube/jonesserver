@@ -72,6 +72,7 @@ public class IndicatorCalculator
             dto.setSymbol(symbol);
             // Convert LocalDate to Long timestamp
             dto.setDate(DayCounter.toTimestamp(DayCounter.get(price.getDate())));
+            dto.setCurrency(price.getCurrency());
             dto.setVolume((double)price.getVolume());
 
             dto.setSma5(sma5[i]);

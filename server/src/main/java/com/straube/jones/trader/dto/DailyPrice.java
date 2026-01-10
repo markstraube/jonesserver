@@ -28,6 +28,9 @@ public class DailyPrice
     /** Gehandeltes Volumen (Stückzahl) */
     private long volume;
 
+    /** Währung des Handelstags (z.B. EUR, USD) */
+    private String currency;
+
     /**
      * Adjustierter Schlusskurs.
      * Berücksichtigt Dividenden, Splits usw.
@@ -39,7 +42,7 @@ public class DailyPrice
     {}
 
 
-    public DailyPrice(double open, double high, double low, double close, double adjClose, long volume)
+    public DailyPrice(double open, double high, double low, double close, double adjClose, long volume, String currency)
     {
         this.open = open;
         this.high = high;
@@ -47,6 +50,7 @@ public class DailyPrice
         this.close = close;
         this.adjClose = adjClose;
         this.volume = volume;
+        this.currency = currency;
     }
 
 
@@ -131,5 +135,15 @@ public class DailyPrice
     public void setAdjClose(double adjClose)
     {
         this.adjClose = adjClose;
+    }
+
+    public String getCurrency()
+    {
+        return currency;
+    }
+
+    public void setCurrency(String currency)
+    {
+        this.currency = currency;
     }
 }
