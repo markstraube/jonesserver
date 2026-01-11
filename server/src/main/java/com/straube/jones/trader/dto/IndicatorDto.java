@@ -34,10 +34,10 @@ public class IndicatorDto {
     @Schema(description = "Handelsvolumen", example = "75000000")
     private Double volume;
     
-    @Schema(description = "MACD-Wert (Moving Average Convergence Divergence)", example = "1.23")
+    @Schema(description = "MACD-Wert (Moving Average Convergence Divergence) (short-period 12 Tage, mid-period 26 Tage, signal-period 9 Tage)", example = "1.23")
     private Double macdValue;
     
-    @Schema(description = "MACD-Signal-Linie", example = "0.98")
+    @Schema(description = "MACD-Signal-Linie (short-period 12 Tage, mid-period 26 Tage, signal-period 9 Tage)", example = "0.98")
     private Double macdSignal;
     
     @Schema(description = "Simple Moving Average über 5 Tage", example = "148.30")
@@ -64,25 +64,25 @@ public class IndicatorDto {
     @Schema(description = "Exponential Moving Average über 30 Tage", example = "146.50")
     private Double ema30;
     
-    @Schema(description = "Unterstützungsniveau (Support)", example = "140.00")
+    @Schema(description = "Unterstützungsniveau (Support) (20-Tage period)", example = "140.00")
     private Double support;
     
-    @Schema(description = "Widerstandsniveau (Resistance)", example = "160.00")
+    @Schema(description = "Widerstandsniveau (Resistance) (20-Tage period)", example = "160.00")
     private Double resistance;
 
     @Schema(description = "Relative Stärke nach Levy (RSL)", example = "1.05")
     private Double rsl;
 
-    @Schema(description = "Rate of Change (ROC)", example = "5.4")
+    @Schema(description = "Rate of Change (ROC) (12-Tage-Periode)", example = "5.4")
     private Double roc;
 
-    @Schema(description = "Average Directional Index (ADX)", example = "25.5")
+    @Schema(description = "Average Directional Index (ADX) (14-Tage-Periode)", example = "25.5")
     private Double adx;
 
-    @Schema(description = "Positive Directional Indicator (+DI)", example = "28.0")
+    @Schema(description = "Positive Directional Indicator (+DI) (14-Tage-Periode)", example = "28.0")
     private Double adxPlusDI;
 
-    @Schema(description = "Negative Directional Indicator (-DI)", example = "15.0")
+    @Schema(description = "Negative Directional Indicator (-DI) (14-Tage-Periode)", example = "15.0")
     private Double adxMinusDI;
 
     // Getters and Setters
