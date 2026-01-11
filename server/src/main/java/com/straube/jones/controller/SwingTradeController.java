@@ -151,7 +151,6 @@ public class SwingTradeController
                     + "- **RSI (Relative Strength Index)**: Momentum-Indikator (0-100)\n"
                     + "- **MACD**: Moving Average Convergence Divergence mit Signal-Linie\n"
                     + "- **Gleitende Durchschnitte**: SMA und EMA für 5, 10, 20 und 30 Tage\n"
-                    + "- **RSI30-Wahrscheinlichkeiten**: Wahrscheinlichkeit für RSI < 30 in verschiedenen Zeithorizonten (5, 10, 20, 30 Tage)\n"
                     + "- **Unterstützung/Widerstand**: Berechnete Support- und Resistance-Levels\n"
                     + "- **Volumen**: Handelsvolumen\n\n"
                     + "**Zeitraum-Filter:**\n"

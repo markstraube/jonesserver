@@ -180,7 +180,7 @@ public class ADXcalculator
     }
 
     // Ergänzende Klasse für das Ergebnis
-    class ADXResult
+    static class ADXResult
     {
         double adx;
         double plusDI;

@@ -60,10 +60,10 @@ public class IndicatorService
                         + "cBB15low, cBB15mid, cBB15high, "
                         + "cRSI, cVolume, "
                         + "cMACDvalue, cMACDsignal, "
-                        + "cRSI30_5, cRSI30_10, cRSI30_20, cRSI30_30, cRSI30probability, "
                         + "cSMA5, cSMA10, cSMA20, cSMA30, "
                         + "cEMA5, cEMA10, cEMA20, cEMA30, "
-                        + "cSupport, cResistance "
+                        + "cSupport, cResistance, "
+                        + "cRSL, cROC, cADX, cADXplusDI, cADXminusDI "
                         + "FROM tIndicators "
                         + "WHERE cSymbol IN (:symbols) "
                         + "AND cDayCounter >= :startDay "
@@ -123,26 +123,6 @@ public class IndicatorService
             if (rs.wasNull())
                 dto.setMacdSignal(null);
 
-            // RSI30 Probabilities
-            dto.setRsi30Days5(rs.getDouble("cRSI30_5"));
-            if (rs.wasNull())
-                dto.setRsi30Days5(null);
-
-            dto.setRsi30Days10(rs.getDouble("cRSI30_10"));
-            if (rs.wasNull())
-                dto.setRsi30Days10(null);
-
-            dto.setRsi30Days20(rs.getDouble("cRSI30_20"));
-            if (rs.wasNull())
-                dto.setRsi30Days20(null);
-
-            dto.setRsi30Days30(rs.getDouble("cRSI30_30"));
-            if (rs.wasNull())
-                dto.setRsi30Days30(null);
-
-            dto.setRsi30probability(rs.getDouble("cRSI30probability"));
-            if (rs.wasNull())
-                dto.setRsi30probability(null);
 
             // Simple Moving Averages
             dto.setSma5(CurrencyDB.getAsEuroOrOriginal(currency,
@@ -218,6 +198,22 @@ public class IndicatorService
             if (rs.wasNull())
                 dto.setResistance(null);
 
+            // New fields: RSL, ROC, ADX
+            dto.setRsl(rs.getDouble("cRSL"));
+            if (rs.wasNull()) dto.setRsl(null);
+
+            dto.setRoc(rs.getDouble("cROC"));
+            if (rs.wasNull()) dto.setRoc(null);
+
+            dto.setAdx(rs.getDouble("cADX"));
+            if (rs.wasNull()) dto.setAdx(null);
+
+            dto.setAdxPlusDI(rs.getDouble("cADXplusDI"));
+            if (rs.wasNull()) dto.setAdxPlusDI(null);
+            
+            dto.setAdxMinusDI(rs.getDouble("cADXminusDI"));
+            if (rs.wasNull()) dto.setAdxMinusDI(null);
+
             return dto;
         });
     }
@@ -238,27 +234,28 @@ public class IndicatorService
                         + "cBB15low, cBB15mid, cBB15high, "
                         + "cRSI, cVolume, "
                         + "cMACDvalue, cMACDsignal, "
-                        + "cRSI30_5, cRSI30_10, cRSI30_20, cRSI30_30, cRSI30probability, "
                         + "cSMA5, cSMA10, cSMA20, cSMA30, "
                         + "cEMA5, cEMA10, cEMA20, cEMA30, "
-                        + "cSupport, cResistance"
+                        + "cSupport, cResistance, "
+                        + "cRSL, cROC, cADX, cADXplusDI, cADXminusDI"
                         + ") VALUES ("
-                        + ":symbol, :dateLong, :dayCounter, "
+                        + ":symbol, :dateLong, :currency, :dayCounter, "
                         + ":bb15low, :bb15mid, :bb15high, "
                         + ":rsi, :volume, "
                         + ":macdValue, :macdSignal, "
-                        + ":rsi30_5, :rsi30_10, :rsi30_20, :rsi30_30, :rsi30probability, "
                         + ":sma5, :sma10, :sma20, :sma30, "
                         + ":ema5, :ema10, :ema20, :ema30, "
-                        + ":support, :resistance"
+                        + ":support, :resistance, "
+                        + ":rsl, :roc, :adx, :adxPlusDI, :adxMinusDI"
                         + ") ON DUPLICATE KEY UPDATE "
                         + "cBB15low = VALUES(cBB15low), cBB15mid = VALUES(cBB15mid), cBB15high = VALUES(cBB15high), "
                         + "cRSI = VALUES(cRSI), cVolume = VALUES(cVolume), "
                         + "cMACDvalue = VALUES(cMACDvalue), cMACDsignal = VALUES(cMACDsignal), "
-                        + "cRSI30_5 = VALUES(cRSI30_5), cRSI30_10 = VALUES(cRSI30_10), cRSI30_20 = VALUES(cRSI30_20), cRSI30_30 = VALUES(cRSI30_30), cRSI30probability = VALUES(cRSI30probability), "
                         + "cSMA5 = VALUES(cSMA5), cSMA10 = VALUES(cSMA10), cSMA20 = VALUES(cSMA20), cSMA30 = VALUES(cSMA30), "
                         + "cEMA5 = VALUES(cEMA5), cEMA10 = VALUES(cEMA10), cEMA20 = VALUES(cEMA20), cEMA30 = VALUES(cEMA30), "
-                        + "cSupport = VALUES(cSupport), cResistance = VALUES(cResistance)";
+                        + "cSupport = VALUES(cSupport), cResistance = VALUES(cResistance), "
+                        + "cRSL = VALUES(cRSL), cROC = VALUES(cROC), cADX = VALUES(cADX), "
+                        + "cADXplusDI = VALUES(cADXplusDI), cADXminusDI = VALUES(cADXminusDI)";
 
         MapSqlParameterSource[] batch = indicators.stream().map(dto -> {
             MapSqlParameterSource params = new MapSqlParameterSource();
@@ -278,13 +275,6 @@ public class IndicatorService
 
             params.addValue("macdValue", dto.getMacdValue());
             params.addValue("macdSignal", dto.getMacdSignal());
-
-            params.addValue("rsi30_5", dto.getRsi30Days5());
-            params.addValue("rsi30_10", dto.getRsi30Days10());
-            params.addValue("rsi30_20", dto.getRsi30Days20());
-            params.addValue("rsi30_30", dto.getRsi30Days30());
-            params.addValue("rsi30probability", dto.getRsi30probability());
-
             params.addValue("sma5", dto.getSma5());
             params.addValue("sma10", dto.getSma10());
             params.addValue("sma20", dto.getSma20());
@@ -297,6 +287,12 @@ public class IndicatorService
 
             params.addValue("support", dto.getSupport());
             params.addValue("resistance", dto.getResistance());
+
+            params.addValue("rsl", dto.getRsl());
+            params.addValue("roc", dto.getRoc());
+            params.addValue("adx", dto.getAdx());
+            params.addValue("adxPlusDI", dto.getAdxPlusDI());
+            params.addValue("adxMinusDI", dto.getAdxMinusDI());
 
             return params;
         }).toArray(MapSqlParameterSource[]::new);

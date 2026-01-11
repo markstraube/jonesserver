@@ -28,7 +28,7 @@ public class IndicatorDto {
     @Schema(description = "Oberes Bollinger Band (15-Tage-Periode)", example = "157.50")
     private Double bb15high;
     
-    @Schema(description = "Relative Strength Index (RSI) - Wert zwischen 0-100", example = "45.6")
+    @Schema(description = "Relative Strength Index (RSI) (14-Tage-Periode) - Wert zwischen 0-100", example = "45.6")
     private Double rsi;
     
     @Schema(description = "Handelsvolumen", example = "75000000")
@@ -39,21 +39,6 @@ public class IndicatorDto {
     
     @Schema(description = "MACD-Signal-Linie", example = "0.98")
     private Double macdSignal;
-    
-    @Schema(description = "RSI30-Wahrscheinlichkeit für 5-Tage-Horizont", example = "0.12")
-    private Double rsi30Days5;
-    
-    @Schema(description = "RSI30-Wahrscheinlichkeit für 10-Tage-Horizont", example = "0.25")
-    private Double rsi30Days10;
-    
-    @Schema(description = "RSI30-Wahrscheinlichkeit für 20-Tage-Horizont", example = "0.42")
-    private Double rsi30Days20;
-    
-    @Schema(description = "RSI30-Wahrscheinlichkeit für 30-Tage-Horizont", example = "0.58")
-    private Double rsi30Days30;
-    
-    @Schema(description = "Gesamtwahrscheinlichkeit für RSI unter 30", example = "0.34")
-    private Double rsi30probability;
     
     @Schema(description = "Simple Moving Average über 5 Tage", example = "148.30")
     private Double sma5;
@@ -84,6 +69,21 @@ public class IndicatorDto {
     
     @Schema(description = "Widerstandsniveau (Resistance)", example = "160.00")
     private Double resistance;
+
+    @Schema(description = "Relative Stärke nach Levy (RSL)", example = "1.05")
+    private Double rsl;
+
+    @Schema(description = "Rate of Change (ROC)", example = "5.4")
+    private Double roc;
+
+    @Schema(description = "Average Directional Index (ADX)", example = "25.5")
+    private Double adx;
+
+    @Schema(description = "Positive Directional Indicator (+DI)", example = "28.0")
+    private Double adxPlusDI;
+
+    @Schema(description = "Negative Directional Indicator (-DI)", example = "15.0")
+    private Double adxMinusDI;
 
     // Getters and Setters
     
@@ -166,46 +166,6 @@ public class IndicatorDto {
         this.macdSignal = macdSignal;
     }
 
-    public Double getRsi30Days5() {
-        return rsi30Days5;
-    }
-
-    public void setRsi30Days5(Double rsi30Days5) {
-        this.rsi30Days5 = rsi30Days5;
-    }
-
-    public Double getRsi30Days10() {
-        return rsi30Days10;
-    }
-
-    public void setRsi30Days10(Double rsi30Days10) {
-        this.rsi30Days10 = rsi30Days10;
-    }
-
-    public Double getRsi30Days20() {
-        return rsi30Days20;
-    }
-
-    public void setRsi30Days20(Double rsi30Days20) {
-        this.rsi30Days20 = rsi30Days20;
-    }
-
-    public Double getRsi30Days30() {
-        return rsi30Days30;
-    }
-
-    public void setRsi30Days30(Double rsi30Days30) {
-        this.rsi30Days30 = rsi30Days30;
-    }
-
-    public Double getRsi30probability() {
-        return rsi30probability;
-    }
-
-    public void setRsi30probability(Double rsi30probability) {
-        this.rsi30probability = rsi30probability;
-    }
-
     public Double getSma5() {
         return sma5;
     }
@@ -284,5 +244,45 @@ public class IndicatorDto {
 
     public void setResistance(Double resistance) {
         this.resistance = resistance;
+    }
+
+    public Double getRsl() {
+        return rsl;
+    }
+
+    public void setRsl(Double rsl) {
+        this.rsl = rsl;
+    }
+
+    public Double getRoc() {
+        return roc;
+    }
+
+    public void setRoc(Double roc) {
+        this.roc = roc;
+    }
+
+    public Double getAdx() {
+        return adx;
+    }
+
+    public void setAdx(Double adx) {
+        this.adx = adx;
+    }
+
+    public Double getAdxPlusDI() {
+        return adxPlusDI;
+    }
+
+    public void setAdxPlusDI(Double adxPlusDI) {
+        this.adxPlusDI = adxPlusDI;
+    }
+
+    public Double getAdxMinusDI() {
+        return adxMinusDI;
+    }
+
+    public void setAdxMinusDI(Double adxMinusDI) {
+        this.adxMinusDI = adxMinusDI;
     }
 }
