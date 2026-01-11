@@ -46,8 +46,6 @@ public class SymbolResolver
         String isin = null;
         try (Connection conn = DBConnection.getStocksConnection())
         {
-            // 1. Check tSelectedStocks for existing symbol
-            // Using cIndex as per text instructions. If DB has cImdex, this will fail and need adjustment.
             String selectSymbolSql = "SELECT cIsin FROM tStockCodes WHERE cSymbol = ?";
             try (PreparedStatement ps = conn.prepareStatement(selectSymbolSql))
             {
@@ -89,8 +87,6 @@ public class SymbolResolver
 
             try (Connection conn = DBConnection.getStocksConnection())
             {
-                // 1. Check tSelectedStocks for existing symbol
-                // Using cIndex as per text instructions. If DB has cImdex, this will fail and need adjustment.
                 String selectSymbolSql = "SELECT cSymbol FROM tStockCodes WHERE cIsin = ? AND cIndex = 1";
                 try (PreparedStatement ps = conn.prepareStatement(selectSymbolSql))
                 {
@@ -110,7 +106,6 @@ public class SymbolResolver
                     if (symbols.isEmpty())
                     { throw new RuntimeException("No symbol found for ISIN: " + isin); }
 
-                    // Insert into tSelectedStocks
                     String insertCodesSql = "INSERT INTO tStockCodes (cSymbol, cIsin, cIndex) VALUES (?, ?, ?)";
                     try (PreparedStatement psInsert = conn.prepareStatement(insertCodesSql))
                     {
