@@ -34,10 +34,10 @@ public class IndicatorDto {
     @Schema(description = "Handelsvolumen", example = "75000000")
     private Double volume;
     
-    @Schema(description = "MACD-Wert (Moving Average Convergence Divergence) (short-period 12 Tage, mid-period 26 Tage, signal-period 9 Tage)", example = "1.23")
+    @Schema(description = "MACD-Wert (Moving Average Convergence Divergence) (short-period 12 Tage, long-period 26 Tage)", example = "1.23")
     private Double macdValue;
     
-    @Schema(description = "MACD-Signal-Linie (short-period 12 Tage, mid-period 26 Tage, signal-period 9 Tage)", example = "0.98")
+    @Schema(description = "MACD-Signal-Linie (signal-period 9 Tage)", example = "0.98")
     private Double macdSignal;
     
     @Schema(description = "Simple Moving Average über 5 Tage", example = "148.30")
@@ -70,7 +70,7 @@ public class IndicatorDto {
     @Schema(description = "Widerstandsniveau (Resistance) (20-Tage period)", example = "160.00")
     private Double resistance;
 
-    @Schema(description = "Relative Stärke nach Levy (RSL)", example = "1.05")
+    @Schema(description = "Relative Stärke nach Levy (RSL) (63-Tage-period)", example = "1.05")
     private Double rsl;
 
     @Schema(description = "Rate of Change (ROC) (12-Tage-Periode)", example = "5.4")

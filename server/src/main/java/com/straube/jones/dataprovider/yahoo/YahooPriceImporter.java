@@ -28,6 +28,7 @@ public class YahooPriceImporter
         uploadPriceData(YahooPriceDownloader.DAILY_PRICE_FOLDER);
     }
 
+
     public static void uploadPriceData(String sourceFolder)
     {
         File yahooDir = new File(sourceFolder);
@@ -103,15 +104,21 @@ public class YahooPriceImporter
                                 + ". Imported "
                                 + importedRecords
                                 + " price records.");
-                
+
                 // Cleanup: Delete file after successful import
-                try {
-                    if (jsonFile.delete()) {
+                try
+                {
+                    if (jsonFile.delete())
+                    {
                         System.out.println("Deleted file: " + jsonFile.getName());
-                    } else {
+                    }
+                    else
+                    {
                         System.err.println("Failed to delete file: " + jsonFile.getName());
                     }
-                } catch (Exception e) {
+                }
+                catch (Exception e)
+                {
                     System.err.println("Error deleting file: " + jsonFile.getName() + " - " + e.getMessage());
                 }
 
@@ -281,7 +288,14 @@ public class YahooPriceImporter
                     ZoneId zoneId;
                     try
                     {
-                        zoneId = ZoneId.of(timezone);
+                        if (timezone.length() <= 6)
+                        {
+                            zoneId = ZoneId.of(timezone, ZoneId.SHORT_IDS);
+                        }
+                        else
+                        {
+                            zoneId = ZoneId.of(timezone);
+                        }
                     }
                     catch (Exception e)
                     {

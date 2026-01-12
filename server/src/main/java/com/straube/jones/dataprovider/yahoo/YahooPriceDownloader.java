@@ -151,7 +151,7 @@ public class YahooPriceDownloader
                         + " for the past "
                         + daysBack
                         + " days.");
-        YahooPriceDownloader.fetchPrices(daysBack);
+        YahooPriceDownloader.fetchPrices(daysBack, "^IXIC", "US6311011026", DAILY_PRICE_FOLDER);
         System.out.println("Download finished.");
     }
 }

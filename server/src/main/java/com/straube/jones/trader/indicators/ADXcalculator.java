@@ -4,6 +4,7 @@ package com.straube.jones.trader.indicators;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.straube.jones.trader.dto.ADXResult;
 import com.straube.jones.trader.dto.DailyPrice;
 
 public class ADXcalculator
@@ -27,10 +28,10 @@ public class ADXcalculator
         // Mindestens period*2 + 1 Tage benötigt für aussagekräftigen ADX
         if (prices == null || prices.size() < period * 2 + 1)
         {
-            result.adx = 0.0;
-            result.plusDI = 0.0;
-            result.minusDI = 0.0;
-            result.trendStrength = "Nicht genug Daten";
+            result.setAdx(0.0);
+            result.setPlusDI(0.0);
+            result.setMinusDI(0.0);
+            result.setTrendStrength("Nicht genug Daten");
             return result;
         }
 
@@ -122,10 +123,10 @@ public class ADXcalculator
         // Berechne ADX (geglätteter Durchschnitt der DX-Werte)
         if (dxValues.size() < period)
         {
-            result.adx = 0.0;
-            result.plusDI = 0.0;
-            result.minusDI = 0.0;
-            result.trendStrength = "Nicht genug Daten für ADX";
+            result.setAdx(0.0);
+            result.setPlusDI(0.0);
+            result.setMinusDI(0.0);
+            result.setTrendStrength("Nicht genug Daten für ADX");
             return result;
         }
 
@@ -154,47 +155,28 @@ public class ADXcalculator
         }
 
         // Setze Ergebnisse
-        result.adx = adx;
-        result.plusDI = finalPlusDI;
-        result.minusDI = finalMinusDI;
+        result.setAdx(adx);
+        result.setPlusDI(finalPlusDI);
+        result.setMinusDI(finalMinusDI);
 
         // Interpretiere ADX-Wert
         if (adx < 20)
         {
-            result.trendStrength = "Schwacher oder kein Trend";
+            result.setTrendStrength("Schwacher oder kein Trend");
         }
         else if (adx < 25)
         {
-            result.trendStrength = "Beginnender Trend";
+            result.setTrendStrength("Beginnender Trend");
         }
         else if (adx < 50)
         {
-            result.trendStrength = "Starker Trend";
+            result.setTrendStrength("Starker Trend");
         }
         else
         {
-            result.trendStrength = "Sehr starker Trend";
+            result.setTrendStrength("Sehr starker Trend");
         }
 
         return result;
-    }
-
-    // Ergänzende Klasse für das Ergebnis
-    static class ADXResult
-    {
-        double adx;
-        double plusDI;
-        double minusDI;
-        String trendStrength;
-
-        @Override
-        public String toString()
-        {
-            return String.format("ADX: %.2f | +DI: %.2f | -DI: %.2f | Bewertung: %s",
-                                 adx,
-                                 plusDI,
-                                 minusDI,
-                                 trendStrength);
-        }
     }
 }

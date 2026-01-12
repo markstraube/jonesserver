@@ -1,24 +1,37 @@
 package com.straube.jones.controller;
 
 
-import com.straube.jones.trader.dto.SwingTradeDetailDto;
-import com.straube.jones.trader.dto.SwingTradeOverviewDto;
-import com.straube.jones.trader.dto.RatingDto;
-import com.straube.jones.trader.dto.IndicatorDto;
-import com.straube.jones.trader.dto.TradingAnalysisResult;
-import com.straube.jones.trader.indicators.RSIPrediction;
-import com.straube.jones.trader.indicators.RatingService;
-import com.straube.jones.trader.dto.RSI30PredictionDto;
-import com.straube.jones.trader.dto.HistoricalAnalysisDto;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.straube.jones.db.DayCounter;
+import com.straube.jones.service.IndicatorService;
+import com.straube.jones.service.MarketDataService;
+import com.straube.jones.trader.TradingStrategyAnalyzer;
+import com.straube.jones.trader.Updater;
 import com.straube.jones.trader.collectors.SwingTradeQueryService;
 import com.straube.jones.trader.collectors.TradingIndicatorService;
 import com.straube.jones.trader.dto.BuyPriceTargetsDto;
 import com.straube.jones.trader.dto.DailyPrice;
-import com.straube.jones.trader.Updater;
-import com.straube.jones.agent.StocksAgent;
-import com.straube.jones.db.DayCounter;
-import com.straube.jones.service.IndicatorService;
-import com.straube.jones.service.MarketDataService;
+import com.straube.jones.trader.dto.HistoricalAnalysisDto;
+import com.straube.jones.trader.dto.IndicatorDto;
+import com.straube.jones.trader.dto.RSI30PredictionDto;
+import com.straube.jones.trader.dto.RatingDto;
+import com.straube.jones.trader.dto.SwingTradeDetailDto;
+import com.straube.jones.trader.dto.SwingTradeOverviewDto;
+import com.straube.jones.trader.indicators.MomentumIndicators;
+import com.straube.jones.trader.indicators.RSIPrediction;
+import com.straube.jones.trader.indicators.RatingService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,16 +39,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDateTime;
-import java.time.LocalDate;
-import java.io.File;
-import java.io.IOException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/swing-trades")
@@ -50,13 +53,15 @@ public class SwingTradeController
     private final IndicatorService indicatorDtoService;
     private final MarketDataService marketDataService;
     private final Updater updater;
+    private final MomentumIndicators momentumIndicators;
 
     public SwingTradeController(SwingTradeQueryService queryService,
                                 TradingIndicatorService indicatorService,
                                 RatingService ratingService,
                                 IndicatorService indicatorDtoService,
                                 MarketDataService marketDataService,
-                                Updater updater)
+                                Updater updater,
+                                MomentumIndicators momentumIndicators)
     {
         this.queryService = queryService;
         this.indicatorService = indicatorService;
@@ -64,6 +69,7 @@ public class SwingTradeController
         this.indicatorDtoService = indicatorDtoService;
         this.marketDataService = marketDataService;
         this.updater = updater;
+        this.momentumIndicators = momentumIndicators;
     }
 
 
@@ -197,58 +203,42 @@ public class SwingTradeController
 
 
     @GetMapping("/{symbol}/analyze")
-    @Operation(summary = "Detaillierte AI-Analyse erstellen", description = "Erstellt einen technischen Report basierend auf Indikatoren und lässt diesen vom AI Agent analysieren. Das Ergebnis ist ein strukturierter JSON-Bericht mit Handlungsempfehlungen.")
-    @ApiResponse(responseCode = "200", description = "Erfolgreiche Analyse", content = @Content(schema = @Schema(implementation = TradingAnalysisResult.class)))
+    @Operation(summary = "Detaillierte algorithmische Analyse erstellen", description = "Erstellt einen technischen Analyse-Report basierend auf der TradingStrategyAnalyzer-Logik. "
+            + "Die Analyse umfasst:\n"
+            + "- **Swing Trading Score**: Bewertung für kurzfristige Trends (RSI, Bollinger Bänder)\n"
+            + "- **Momentum Score**: Trendstärke und relative Stärke\n"
+            + "- **Gesamtempfehlung**: KAUFEN, HALTEN oder VERKAUFEN mit Konfidenzwert")
+    @ApiResponse(responseCode = "200", description = "Erfolgreiche Analyse", content = @Content(schema = @Schema(implementation = TradingStrategyAnalyzer.StrategyAnalysis.class)))
     @ApiResponse(responseCode = "404", description = "Symbol nicht gefunden oder keine Daten verfügbar")
-    public ResponseEntity<TradingAnalysisResult> analyzeReport(@Parameter(description = "Symbol der Aktie (z.B. US0378331005)", required = true)
-    @PathVariable
-    String symbol)
+    public ResponseEntity<TradingStrategyAnalyzer.StrategyAnalysis> analyzeReport(
+            @Parameter(description = "Symbol der Aktie (z.B. US0378331005)", required = true) @PathVariable String symbol,
+            @Parameter(description = "Optionaler Endzeitpunkt (Timestamp in ms)", required = false) @RequestParam(required = false) Long endTime)
     {
-        // Cache Logic
-        String dateStr = LocalDate.now().toString();
-        String filename = symbol + "-" + dateStr + ".json";
-        File cacheDir = new File(DATA_ROOT_FOLDER, "cache");
-        if (!cacheDir.exists())
-        {
-            cacheDir.mkdirs();
-        }
-        File cacheFile = new File(cacheDir, filename);
+        long endTimestamp = (endTime != null) ? endTime : System.currentTimeMillis();
 
-        ObjectMapper mapper = new ObjectMapper();
+        // 1. Indikatoren abrufen (in Originalwährung für präzise Analyse)
+        List<IndicatorDto> indicators = indicatorDtoService.getIndicatorsFromDB(List.of(symbol), null, endTimestamp, false);
 
-        if (cacheFile.exists())
+        if (indicators == null || indicators.isEmpty())
         {
-            try
-            {
-                TradingAnalysisResult cachedResult = mapper.readValue(cacheFile, TradingAnalysisResult.class);
-                return ResponseEntity.ok(cachedResult);
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
+            return ResponseEntity.notFound().build();
         }
 
-        // 1. Erstelle den technischen Report mit Indikatoren
-        TradingIndicatorService.Report report = indicatorService.getReport(symbol);
+        // 2. Aktuellen Preis abrufen
+        long dayCounter = DayCounter.get(endTimestamp);
+        List<DailyPrice> prices = marketDataService.getMarketData(symbol, dayCounter);
 
-        if (report == null)
-        { return ResponseEntity.notFound().build(); }
-
-        // 2. Lasse den Report vom AI Agent analysieren
-        TradingAnalysisResult result = StocksAgent.analyzeReport(report);
-
-        // Save to cache
-        try
+        if (prices == null || prices.isEmpty())
         {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(cacheFile, result);
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
+            return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok(result);
+        DailyPrice latestPrice = prices.get(0);
+
+        // 3. Analyse durchführen
+        TradingStrategyAnalyzer.StrategyAnalysis analysis = TradingStrategyAnalyzer.analyzeStock(indicators, latestPrice.getAdjClose());
+
+        return ResponseEntity.ok(analysis);
     }
 
 
@@ -362,7 +352,8 @@ public class SwingTradeController
     @Operation(summary = "Update Everything", description = "Triggers async update of prices, indicators and ratings.")
     public ResponseEntity<String> updateAll()
     {
-        new Thread(updater::updateAllJob).start();
+        //new Thread(updater::updateAllJob).start();
+        new Thread(momentumIndicators::updateAllJob).start();
         return ResponseEntity.accepted().body("Update job started");
     }
 
