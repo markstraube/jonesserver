@@ -352,8 +352,7 @@ public class SwingTradeController
     @Operation(summary = "Update Everything", description = "Triggers async update of prices, indicators and ratings.")
     public ResponseEntity<String> updateAll()
     {
-        //new Thread(updater::updateAllJob).start();
-        new Thread(momentumIndicators::updateAllJob).start();
+        new Thread(updater::updateAllJob).start();
         return ResponseEntity.accepted().body("Update job started");
     }
 

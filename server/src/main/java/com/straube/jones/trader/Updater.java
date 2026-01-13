@@ -1,23 +1,25 @@
 package com.straube.jones.trader;
 
 
-import com.straube.jones.db.DayCounter;
-import com.straube.jones.model.Company;
-import com.straube.jones.service.CompanyService;
-import com.straube.jones.service.MarketDataService;
-import com.straube.jones.trader.collectors.IndicatorCollector;
-import com.straube.jones.trader.collectors.TradingIndicatorService;
-import com.straube.jones.dataprovider.yahoo.YahooPriceDownloader;
-import com.straube.jones.dataprovider.yahoo.YahooPriceImporter;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import com.straube.jones.dataprovider.yahoo.YahooPriceDownloader;
+import com.straube.jones.dataprovider.yahoo.YahooPriceImporter;
+import com.straube.jones.db.DayCounter;
+import com.straube.jones.model.Company;
+import com.straube.jones.service.CompanyService;
+import com.straube.jones.service.MarketDataService;
+import com.straube.jones.trader.collectors.IndicatorCollector;
+import com.straube.jones.trader.collectors.TradingIndicatorService;
+import com.straube.jones.trader.indicators.MomentumIndicators;
 
 @Component
 public class Updater
@@ -27,16 +29,19 @@ public class Updater
     private final MarketDataService marketDataService;
     private final TradingIndicatorService indicatorService;
     private final IndicatorCollector indicatorCollector;
+    private final MomentumIndicators momentumIndicators;
 
     public Updater(CompanyService companyService,
                    MarketDataService marketDataService,
                    TradingIndicatorService indicatorService,
-                   IndicatorCollector indicatorCollector)
+                   IndicatorCollector indicatorCollector,
+                   MomentumIndicators momentumIndicators)
     {
         this.companyService = companyService;
         this.marketDataService = marketDataService;
         this.indicatorService = indicatorService;
         this.indicatorCollector = indicatorCollector;
+        this.momentumIndicators = momentumIndicators;
     }
 
 
@@ -90,6 +95,9 @@ public class Updater
 
             // 4. updateIndicators
             indicatorCollector.updateIndicators();
+
+            // 5. update Momentum Indicators
+            momentumIndicators.update();
         }
         catch (Exception e)
         {

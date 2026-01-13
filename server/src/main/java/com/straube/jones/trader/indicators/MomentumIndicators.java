@@ -37,7 +37,7 @@ public class MomentumIndicators
     }
 
 
-    public void updateAllJob()
+    public void update()
     {
         List<Company> companies = this.companyService.getAllCompanies();
         Map<String, Long> maxDays = marketDataService.getMaxDayCounterPerSymbolFromIndicators();
