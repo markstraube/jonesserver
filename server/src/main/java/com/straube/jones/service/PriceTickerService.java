@@ -11,6 +11,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 
+import com.straube.jones.dataprovider.eurorates.CurrencyDB;
+import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.PriceEntry;
 import com.straube.jones.dto.PriceTickerResponse;
 
@@ -90,6 +92,7 @@ public class PriceTickerService
                                               highPrice,
                                               lowPrice,
                                               lastPrice,
+                                              BigDecimal.valueOf(CurrencyDB.convert("EUR", "USD", lastPrice.doubleValue(), DayCounter.now())),
                                               Instant.now().toString(),
                                               "tradegate");
 

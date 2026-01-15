@@ -36,6 +36,10 @@ public class PriceEntry
     @JsonSerialize(using = ToStringSerializer.class)
     private BigDecimal lastPrice;
 
+    @JsonProperty("reference-price")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private BigDecimal referencePrice;
+
     @JsonProperty("timestamp")
     private String timestamp;
 
@@ -57,6 +61,7 @@ public class PriceEntry
                       BigDecimal highPrice,
                       BigDecimal lowPrice,
                       BigDecimal lastPrice,
+                      BigDecimal referencePrice,
                       String timestamp,
                       String exchange)
     {
@@ -66,6 +71,7 @@ public class PriceEntry
         this.highPrice = highPrice;
         this.lowPrice = lowPrice;
         this.lastPrice = lastPrice;
+        this.referencePrice = referencePrice;
         this.timestamp = timestamp;
         this.exchange = exchange;
     }
@@ -143,6 +149,18 @@ public class PriceEntry
         this.lastPrice = lastPrice;
     }
 
+
+    public BigDecimal getReferencePrice()
+    {
+        return referencePrice;
+    }
+
+
+    public void setReferencePrice(BigDecimal referencePrice)
+    {
+        this.referencePrice = referencePrice;
+    }
+  
 
     public String getTimestamp()
     {
