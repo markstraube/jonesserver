@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.straube.jones.dataprovider.eurorates.CurrencyDB;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
+import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.PriceTickerErrorResponse;
 import com.straube.jones.dto.PriceTickerResponse;
 import com.straube.jones.service.PriceTickerService;
@@ -190,6 +192,110 @@ public class PriceTickerController
                 .body(PriceTickerErrorResponse.create(
                     "INTERNAL_ERROR",
                     "Unexpected error during processing",
+                    e.getMessage()
+                ));
+        }
+    }
+    
+    /**
+     * Converts a currency value to Euro using exchange rates.
+     * 
+     * GET /api/price-ticker/asEuro?currency={CURRENCY}&value={VALUE}
+     * 
+     * This endpoint converts a given currency value to Euro using the exchange rates 
+     * from the previous trading day. The conversion uses historical exchange rate data 
+     * from the CurrencyDB, which contains daily rates for various currencies.
+     * 
+     * The method automatically handles weekends and missing data by looking back 
+     * to the most recent available trading day.
+     * 
+     * @param currency The ISO currency code (e.g., "USD", "GBP", "GBp", "JPY")
+     * @param value The numeric value to convert to Euro
+     * @return ResponseEntity with the Euro value rounded to 2 decimal places (200) or error response
+     */
+    @GetMapping("/asEuro")
+    @Operation(
+        summary = "Convert currency value to Euro",
+        description = "Converts a given currency value to Euro using the exchange rates from the previous trading day. " +
+                      "The conversion automatically handles weekends and missing data by looking back to the most recent available trading day. " +
+                      "Supported currencies include USD, GBP, GBp, JPY, CHF, and many others available in the CurrencyDB. " +
+                      "The result is rounded to 2 decimal places for precision."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Currency successfully converted to Euro. Returns a Double value rounded to 2 decimal places.",
+            content = @Content(schema = @Schema(implementation = Double.class))
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invalid or missing parameters (currency or value)",
+            content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "Unexpected error during conversion",
+            content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))
+        )
+    })
+    public ResponseEntity<?> convertToEuro(
+        @Parameter(
+            description = "ISO currency code (e.g., 'USD', 'GBP', 'GBp', 'JPY', 'CHF'). " +
+                         "Use 'GBp' for British Pence. The currency code is case-insensitive.",
+            required = true,
+            example = "USD"
+        )
+        @RequestParam(required = true) String currency,
+        
+        @Parameter(
+            description = "The numeric value to convert to Euro. Must be a valid number (can include decimals).",
+            required = true,
+            example = "100.50"
+        )
+        @RequestParam(required = true) Double value)
+    {
+        try
+        {
+            // Validate currency parameter
+            if (currency == null || currency.trim().isEmpty())
+            {
+                return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(PriceTickerErrorResponse.create(
+                        "INVALID_CURRENCY",
+                        "Missing or invalid currency parameter",
+                        "The 'currency' query parameter is required and cannot be empty"
+                    ));
+            }
+            
+            // Validate value parameter
+            if (value == null || value.isNaN() || value.isInfinite())
+            {
+                return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(PriceTickerErrorResponse.create(
+                        "INVALID_VALUE",
+                        "Missing or invalid value parameter",
+                        "The 'value' query parameter is required and must be a valid number"
+                    ));
+            }
+            
+            // Convert to Euro using yesterday's exchange rate
+            Double euroValue = CurrencyDB.getAsEuro(currency.trim(), value, DayCounter.yesterday());
+            
+            // Round to 2 decimal places
+            Double roundedValue = Math.round(euroValue * 100.0) / 100.0;
+            
+            return ResponseEntity.ok(roundedValue);
+        }
+        catch (Exception e)
+        {
+            // Handle unexpected errors
+            return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(PriceTickerErrorResponse.create(
+                    "CONVERSION_ERROR",
+                    "Error during currency conversion",
                     e.getMessage()
                 ));
         }

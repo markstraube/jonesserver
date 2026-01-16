@@ -1,0 +1,66 @@
+ "/api/price-ticker/asEuro": {
+      "get": {
+        "tags": [
+          "Price Ticker API"
+        ],
+        "summary": "Convert currency value to Euro",
+        "description": "Converts a given currency value to Euro using the exchange rates from the previous trading day. The conversion automatically handles weekends and missing data by looking back to the most recent available trading day. Supported currencies include USD, GBP, GBp, JPY, CHF, and many others available in the CurrencyDB. The result is rounded to 2 decimal places for precision.",
+        "operationId": "convertToEuro",
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "description": "ISO currency code (e.g., 'USD', 'GBP', 'GBp', 'JPY', 'CHF'). Use 'GBp' for British Pence. The currency code is case-insensitive.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "USD"
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "description": "The numeric value to convert to Euro. Must be a valid number (can include decimals).",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            },
+            "example": 100.5
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Currency successfully converted to Euro. Returns a Double value rounded to 2 decimal places.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "number",
+                  "format": "double"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or missing parameters (currency or value)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error during conversion",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
