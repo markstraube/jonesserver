@@ -88,6 +88,42 @@ public class CurrencyDB
         return value / rate;
     }
 
+    public static Double convertFromEuro(String currencyTo, Double value, long dayCounter)
+    {
+        if ("EUR".equals(currencyTo.toUpperCase()))
+        { return value; }
+
+        double rate = 1;
+        long time = DayCounter.toTimestamp(dayCounter);
+        if (currencyDB.has(currencyTo.toUpperCase()))
+        {
+            while (true)
+            {
+                Instant timeStamp = Instant.ofEpochMilli(time);
+                ZonedDateTime zonedDate = timeStamp.atZone(ZoneId.systemDefault());
+                DayOfWeek dayOfWeek = zonedDate.getDayOfWeek();
+                if (dayOfWeek.equals(DayOfWeek.SUNDAY) || dayOfWeek.equals(DayOfWeek.SATURDAY))
+                {
+                    time = time - OneDayMillis;
+                    continue;
+                }
+                String date = zonedDate.format(DF);
+                if (!currencyDB.getJSONObject(currencyTo.toUpperCase()).has(date))
+                {
+                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyTo.toUpperCase()));
+                    time = time - OneDayMillis;
+                    continue;
+                }
+                rate = currencyDB.getJSONObject(currencyTo.toUpperCase()).getDouble(date);
+                break;
+            }
+        }
+        else
+        {
+            System.out.println(String.format("... unknown currency: %s -> skipping", currencyTo));
+        }
+        return value * rate;
+    }
 
     public static Double convert(String currencyFrom, String currencyTo, Double value, long dayCounter)
     {

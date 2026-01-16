@@ -68,7 +68,7 @@ public class PriceTickerService
 
             Elements ask = doc.select("#ask");
             String askValue = ask.first().text();
-            askValue = askValue.replace(".", "").replace(",", ".").replace(" ", "") ;
+            askValue = askValue.replace(".", "").replace(",", ".").replace(" ", "");
             BigDecimal askPrice = new BigDecimal(askValue);
 
             Elements high = doc.select("#high");
@@ -92,7 +92,10 @@ public class PriceTickerService
                                               highPrice,
                                               lowPrice,
                                               lastPrice,
-                                              BigDecimal.valueOf(CurrencyDB.convert("EUR", "USD", lastPrice.doubleValue(), DayCounter.now())),
+                                              BigDecimal.valueOf(Math.round(CurrencyDB.convertFromEuro("USD",
+                                                                                               lastPrice.doubleValue(),
+                                                                                               DayCounter.yesterday())
+                                                              * 100.0) / 100.0),
                                               Instant.now().toString(),
                                               "tradegate");
 
