@@ -3,6 +3,7 @@ package com.straube.jones.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
+import com.straube.jones.model.User;
 import com.straube.jones.trader.collectors.SwingTradeQueryService;
 import com.straube.jones.trader.dto.SwingTradeOverviewDto;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -46,7 +47,7 @@ public class WatchlistScheduler
             String json = objectMapper.writeValueAsString(isins);
 
             // Save to user prefs
-            UserPrefsRepo.saveStocks("data-X", json);
+            UserPrefsRepo.savePrefs(null,"data-X", json);
 
             System.out.println("Saved " + isins.size() + " ISINs to data-X user preference.");
 

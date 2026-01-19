@@ -19,6 +19,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -98,7 +99,7 @@ public class StocksController
 		return OnVistaReportResponse.notFound(shortUrl);
 	}
 
-	
+
 	@Operation(summary = "Get Historical Stock Data", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock data successfully retrieved in tabular format", content = @Content(schema = @Schema(implementation = TableDataResponse.class)))})
 	@GetMapping(path = "/data", produces = "application/json")
@@ -126,22 +127,21 @@ public class StocksController
 	}
 
 
-		
 	@Operation(summary = "Get Historical Daily Stock Price Data and Volume", description = "**Use Case:** Technical analysis and quantitative research. Retrieves time-series price data for multiple stocks simultaneously. **When to use:** For portfolio analysis, backtesting strategies, correlation analysis, or building custom charts. **Input:** One or more ISIN codes. **Output:** Structured time-series data with timestamps and values. **Performance:** Optimized for bulk data retrieval and analysis workflows. **Default timeframe:** 6 months.")
 	@ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Time-series stock price data successfully retrieved in tabular format", content = @Content(schema = @Schema(implementation = TablePriceDataResponse.class)))})
 	@GetMapping(path = "/prices", produces = "application/json")
 	public TablePriceDataResponse getPriceData(@Parameter(description = "List of Yahoo symbol codes or ISIN codes (International Securities Identification Numbers, e.g., ['US0378331005', 'DE0007164600'])")
 	@RequestParam
 	List<String> codes,
-										@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
-										@RequestParam(value = "start_time", required = false)
-										Long start,
-										@Parameter(description = "End timestamp in milliseconds (Unix epoch time). Defaults to current time for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
-										@RequestParam(value = "end_time", required = false)
-										Long end,
-										@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time, 2=percentage development since previous price). Defaults to 0 (price data).")
-										@RequestParam(required = false)
-										Integer type)
+												@Parameter(description = "Start timestamp in milliseconds (Unix epoch time). Defaults to 1 months ago for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
+												@RequestParam(value = "start_time", required = false)
+												Long start,
+												@Parameter(description = "End timestamp in milliseconds (Unix epoch time). Defaults to current time for sufficient historical data.", schema = @Schema(type = "integer", format = "int64"))
+												@RequestParam(value = "end_time", required = false)
+												Long end,
+												@Parameter(description = "Data type identifier (0=price data, 1=percentage development since start time, 2=percentage development since previous price). Defaults to 0 (price data).")
+												@RequestParam(required = false)
+												Integer type)
 	{
 		if (start == null)
 		{
@@ -172,7 +172,7 @@ public class StocksController
 		List<String> isinList = List.of(isin);
 		Map<String, List<StockItem>> result = StocksLoader.load(isinList);
 		List<StockItem> items = result.get("stockItems");
-		
+
 		if (items != null && !items.isEmpty())
 		{
 			return ResponseEntity.ok(items.get(0));
@@ -243,14 +243,9 @@ public class StocksController
 	}
 
 
-	@Operation(
-		summary = "Search Stocks by Name", 
-		description = "**Use Case:** Stock discovery through fuzzy name matching. Finds stocks using tolerant similarity search that ignores special characters, whitespaces, and various dash types. **When to use:** For stock lookup when exact names are unknown, user input validation, or building search suggestions. **Algorithm:** Normalized string comparison with similarity scoring. **Results:** Multiple matches possible, sorted by relevance score."
-	)
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "200", description = "Search completed successfully, results include similarity scores", content = @Content(schema = @Schema(implementation = ShareSearchResponse.class))),
-		@ApiResponse(responseCode = "500", description = "Search operation failed - check system availability", content = @Content(schema = @Schema(implementation = ShareSearchResponse.class)))
-	})
+	@Operation(summary = "Search Stocks by Name", description = "**Use Case:** Stock discovery through fuzzy name matching. Finds stocks using tolerant similarity search that ignores special characters, whitespaces, and various dash types. **When to use:** For stock lookup when exact names are unknown, user input validation, or building search suggestions. **Algorithm:** Normalized string comparison with similarity scoring. **Results:** Multiple matches possible, sorted by relevance score.")
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Search completed successfully, results include similarity scores", content = @Content(schema = @Schema(implementation = ShareSearchResponse.class))),
+							@ApiResponse(responseCode = "500", description = "Search operation failed - check system availability", content = @Content(schema = @Schema(implementation = ShareSearchResponse.class)))})
 	@GetMapping(path = "/search/name", produces = "application/json")
 	public ShareSearchResponse getShareForName(@Parameter(description = "Stock name or partial name to search for (tolerant matching - ignores special characters, spaces, dashes)")
 	@RequestParam
@@ -261,34 +256,38 @@ public class StocksController
 			// Get all available stocks
 			Map<String, List<StockItem>> allStocks = StocksLoader.load();
 			List<StockItem> stockList = new ArrayList<>();
-			
+
 			// Flatten all stock categories into one list
 			for (List<StockItem> stocks : allStocks.values())
 			{
 				stockList.addAll(stocks);
 			}
-			
+
 			// Normalize search query
 			String normalizedQuery = normalizeString(name);
-			
+
 			if (normalizedQuery.isEmpty())
-			{
-				return ShareSearchResponse.success(name, new ArrayList<>());
-			}
-			
+			{ return ShareSearchResponse.success(name, new ArrayList<>()); }
+
 			// Find matching stocks with similarity scores
 			List<ShareSearchResponse.StockMatch> matches = stockList.stream()
-				.filter(stock -> stock.getName() != null && !stock.getName().trim().isEmpty())
-				.map(stock -> {
-					String normalizedStockName = normalizeString(stock.getName());
-					double similarity = calculateSimilarity(normalizedQuery, normalizedStockName);
-					return new ShareSearchResponse.StockMatch(stock, similarity);
-				})
-				.filter(match -> match.getSimilarityScore() > 0.3) // Only include matches with > 30% similarity
-				.sorted(Comparator.comparing(ShareSearchResponse.StockMatch::getSimilarityScore).reversed())
-				.limit(20) // Limit to top 20 matches
-				.collect(Collectors.toList());
-			
+																	.filter(stock -> stock.getName() != null
+																					&& !stock	.getName()
+																								.trim()
+																								.isEmpty())
+																	.map(stock -> {
+																		String normalizedStockName = normalizeString(stock.getName());
+																		double similarity = calculateSimilarity(normalizedQuery,
+																												normalizedStockName);
+																		return new ShareSearchResponse.StockMatch(	stock,
+																													similarity);
+																	})
+																	.filter(match -> match.getSimilarityScore() > 0.3) // Only include matches with > 30% similarity
+																	.sorted(Comparator	.comparing(ShareSearchResponse.StockMatch::getSimilarityScore)
+																						.reversed())
+																	.limit(20) // Limit to top 20 matches
+																	.collect(Collectors.toList());
+
 			return ShareSearchResponse.success(name, matches);
 		}
 		catch (Exception e)
@@ -298,6 +297,7 @@ public class StocksController
 		}
 	}
 
+
 	/**
 	 * Normalizes a string for tolerant comparison by removing special characters,
 	 * whitespaces, and various types of dashes, then converting to lowercase.
@@ -305,15 +305,14 @@ public class StocksController
 	private String normalizeString(String input)
 	{
 		if (input == null)
-		{
-			return "";
-		}
-		
+		{ return ""; }
+
 		// Convert to lowercase and remove all special characters, whitespaces, and dashes
 		return input.toLowerCase()
-				.replaceAll("[\\s\\-\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212]", "") // Remove spaces and all dash types
-				.replaceAll("[^a-z0-9]", ""); // Remove all non-alphanumeric characters
+					.replaceAll("[\\s\\-\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212]", "") // Remove spaces and all dash types
+					.replaceAll("[^a-z0-9]", ""); // Remove all non-alphanumeric characters
 	}
+
 
 	/**
 	 * Calculates similarity between two normalized strings using a combination of
@@ -325,40 +324,40 @@ public class StocksController
 		{
 			return 1.0; // Exact match
 		}
-		
+
 		if (target.contains(query))
 		{
 			return 0.9; // Query is contained in target
 		}
-		
+
 		if (query.contains(target))
 		{
 			return 0.8; // Target is contained in query
 		}
-		
+
 		// Check for partial matches (at least 3 characters)
 		if (query.length() >= 3 && target.length() >= 3)
 		{
 			int maxLength = Math.max(query.length(), target.length());
 			int commonChars = 0;
-			
+
 			// Count common characters
-			for (int i = 0; i < Math.min(query.length(), target.length()); i++)
+			for (int i = 0; i < Math.min(query.length(), target.length()); i++ )
 			{
 				if (query.charAt(i) == target.charAt(i))
 				{
-					commonChars++;
+					commonChars++ ;
 				}
 				else
 				{
 					break; // Stop at first non-matching character from start
 				}
 			}
-			
+
 			// Check for common substrings
-			for (int len = 3; len <= Math.min(query.length(), target.length()); len++)
+			for (int len = 3; len <= Math.min(query.length(), target.length()); len++ )
 			{
-				for (int i = 0; i <= query.length() - len; i++)
+				for (int i = 0; i <= query.length() - len; i++ )
 				{
 					String substring = query.substring(i, i + len);
 					if (target.contains(substring))
@@ -367,16 +366,13 @@ public class StocksController
 					}
 				}
 			}
-			
-			double similarity = (double) commonChars / maxLength;
+
+			double similarity = (double)commonChars / maxLength;
 			return similarity > 0.3 ? similarity : 0.0;
 		}
-		
+
 		return 0.0; // No meaningful similarity
 	}
-
-
-
 
 
 	@Operation(summary = "Generate Stock Chart Image", description = "**Use Case:** Visual chart generation for reports, dashboards, or quick visual analysis. Returns pre-generated PNG chart images for specific stocks and timeframes. **When to use:** For embedding charts in documents, creating visual reports, thumbnail generation, or when lightweight image-based charts are preferred over interactive charts. **Customization:** Configurable dimensions and time periods. **Performance:** Fast delivery of cached chart images.")
@@ -422,14 +418,13 @@ public class StocksController
 
 
 	@Operation(summary = "Add or Update Stock", description = "**Use Case:** Add a new stock to the database or update an existing one. **When to use:** When you have new stock data to persist. **Input:** A StockItem object in the request body. **Output:** Success message.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "Stock successfully added or updated", content = @Content(schema = @Schema(type = "string", example = "Stock updated successfully"))),
-			@ApiResponse(responseCode = "500", description = "Database error", content = @Content(schema = @Schema(type = "string", example = "Database error: ...")))
-	})
+	@ApiResponses(value = {	@ApiResponse(responseCode = "200", description = "Stock successfully added or updated", content = @Content(schema = @Schema(type = "string", example = "Stock updated successfully"))),
+							@ApiResponse(responseCode = "500", description = "Database error", content = @Content(schema = @Schema(type = "string", example = "Database error: ...")))})
 	@PostMapping(path = "/add", consumes = "application/json", produces = "application/json")
-	public ResponseEntity<String> addStock(
-			@Parameter(description = "StockItem object containing stock details", required = true, schema = @Schema(implementation = StockItem.class))
-			@RequestBody StockItem stockItem)
+	@PreAuthorize("hasAuthority('PORTFOLIO_EXECUTE_ADD') or hasAuthority('PORTFOLIO_CREATE')")
+	public ResponseEntity<String> addStock(@Parameter(description = "StockItem object containing stock details", required = true, schema = @Schema(implementation = StockItem.class))
+	@RequestBody
+	StockItem stockItem)
 	{
 
 		String checkQuery = "SELECT count(*) FROM tOnVista WHERE cIsin = ?";
@@ -457,14 +452,18 @@ public class StocksController
 				{
 					updatePs.setString(1, stockItem.getName());
 					updatePs.setString(2, stockItem.getCountryCode());
-					updatePs.setDouble(3, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
+					updatePs.setDouble(	3,
+										stockItem.getCapitalization() != null ? stockItem.getCapitalization()
+														: 0.0);
 					updatePs.setString(4, stockItem.getIndustry());
 					updatePs.setDouble(5, parseDoubleSafe(stockItem.getPerf4()));
 					updatePs.setDouble(6, parseDoubleSafe(stockItem.getPerf26()));
 					updatePs.setDouble(7, parseDoubleSafe(stockItem.getPerf52()));
 					updatePs.setDouble(8, parseDoubleSafe(stockItem.getLast()));
 					updatePs.setString(9, stockItem.getCurrency());
-					updatePs.setDouble(10, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
+					updatePs.setDouble(	10,
+										stockItem.getDividendYield() != null ? stockItem.getDividendYield()
+														: 0.0);
 					updatePs.setDouble(11, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
 					updatePs.setString(12, stockItem.getISIN());
 					updatePs.executeUpdate();
@@ -479,14 +478,18 @@ public class StocksController
 					insertPs.setString(1, stockItem.getISIN());
 					insertPs.setString(2, stockItem.getName());
 					insertPs.setString(3, stockItem.getCountryCode());
-					insertPs.setDouble(4, stockItem.getCapitalization() != null ? stockItem.getCapitalization() : 0.0);
+					insertPs.setDouble(	4,
+										stockItem.getCapitalization() != null ? stockItem.getCapitalization()
+														: 0.0);
 					insertPs.setString(5, stockItem.getIndustry());
 					insertPs.setDouble(6, parseDoubleSafe(stockItem.getPerf4()));
 					insertPs.setDouble(7, parseDoubleSafe(stockItem.getPerf26()));
 					insertPs.setDouble(8, parseDoubleSafe(stockItem.getPerf52()));
 					insertPs.setDouble(9, parseDoubleSafe(stockItem.getLast()));
 					insertPs.setString(10, stockItem.getCurrency());
-					insertPs.setDouble(11, stockItem.getDividendYield() != null ? stockItem.getDividendYield() : 0.0);
+					insertPs.setDouble(	11,
+										stockItem.getDividendYield() != null ? stockItem.getDividendYield()
+														: 0.0);
 					insertPs.setDouble(12, stockItem.getTurnover() != null ? stockItem.getTurnover() : 0.0);
 					insertPs.executeUpdate();
 				}
@@ -505,9 +508,7 @@ public class StocksController
 	private double parseDoubleSafe(String value)
 	{
 		if (value == null || value.trim().isEmpty())
-		{
-			return 0.0;
-		}
+		{ return 0.0; }
 		try
 		{
 			return Double.parseDouble(value.replace(",", "."));

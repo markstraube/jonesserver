@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -182,13 +183,10 @@ public class SwingTradeController
                                                             @RequestParam(required = false)
                                                             Long startTime,
 
-            @Parameter(
-                description = "Endzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. " +
-                             "Wenn nicht angegeben, wird das aktuelle Datum verwendet.",
-                required = false,
-                example = "1735689600000"
-            )
-            @RequestParam(required = false) Long endTime)
+                                                            @Parameter(description = "Endzeitpunkt für die Abfrage als Unix-Timestamp in Millisekunden. "
+                                                                            + "Wenn nicht angegeben, wird das aktuelle Datum verwendet.", required = false, example = "1735689600000")
+                                                            @RequestParam(required = false)
+                                                            Long endTime)
     {
         return ResponseEntity.ok(indicatorDtoService.getIndicatorsFromDB(codes, startTime, endTime, true));
     }
@@ -204,39 +202,42 @@ public class SwingTradeController
 
     @GetMapping("/{symbol}/analyze")
     @Operation(summary = "Detaillierte algorithmische Analyse erstellen", description = "Erstellt einen technischen Analyse-Report basierend auf der TradingStrategyAnalyzer-Logik. "
-            + "Die Analyse umfasst:\n"
-            + "- **Swing Trading Score**: Bewertung für kurzfristige Trends (RSI, Bollinger Bänder)\n"
-            + "- **Momentum Score**: Trendstärke und relative Stärke\n"
-            + "- **Gesamtempfehlung**: KAUFEN, HALTEN oder VERKAUFEN mit Konfidenzwert")
+                    + "Die Analyse umfasst:\n"
+                    + "- **Swing Trading Score**: Bewertung für kurzfristige Trends (RSI, Bollinger Bänder)\n"
+                    + "- **Momentum Score**: Trendstärke und relative Stärke\n"
+                    + "- **Gesamtempfehlung**: KAUFEN, HALTEN oder VERKAUFEN mit Konfidenzwert")
     @ApiResponse(responseCode = "200", description = "Erfolgreiche Analyse", content = @Content(schema = @Schema(implementation = TradingStrategyAnalyzer.StrategyAnalysis.class)))
     @ApiResponse(responseCode = "404", description = "Symbol nicht gefunden oder keine Daten verfügbar")
-    public ResponseEntity<TradingStrategyAnalyzer.StrategyAnalysis> analyzeReport(
-            @Parameter(description = "Symbol der Aktie (z.B. US0378331005)", required = true) @PathVariable String symbol,
-            @Parameter(description = "Optionaler Endzeitpunkt (Timestamp in ms)", required = false) @RequestParam(required = false) Long endTime)
+    public ResponseEntity<TradingStrategyAnalyzer.StrategyAnalysis> analyzeReport(@Parameter(description = "Symbol der Aktie (z.B. US0378331005)", required = true)
+    @PathVariable
+    String symbol,
+                                                                                  @Parameter(description = "Optionaler Endzeitpunkt (Timestamp in ms)", required = false)
+                                                                                  @RequestParam(required = false)
+                                                                                  Long endTime)
     {
         long endTimestamp = (endTime != null) ? endTime : System.currentTimeMillis();
 
         // 1. Indikatoren abrufen (in Originalwährung für präzise Analyse)
-        List<IndicatorDto> indicators = indicatorDtoService.getIndicatorsFromDB(List.of(symbol), null, endTimestamp, false);
+        List<IndicatorDto> indicators = indicatorDtoService.getIndicatorsFromDB(List.of(symbol),
+                                                                                null,
+                                                                                endTimestamp,
+                                                                                false);
 
         if (indicators == null || indicators.isEmpty())
-        {
-            return ResponseEntity.notFound().build();
-        }
+        { return ResponseEntity.notFound().build(); }
 
         // 2. Aktuellen Preis abrufen
         long dayCounter = DayCounter.get(endTimestamp);
         List<DailyPrice> prices = marketDataService.getMarketData(symbol, dayCounter);
 
         if (prices == null || prices.isEmpty())
-        {
-            return ResponseEntity.notFound().build();
-        }
+        { return ResponseEntity.notFound().build(); }
 
         DailyPrice latestPrice = prices.get(0);
 
         // 3. Analyse durchführen
-        TradingStrategyAnalyzer.StrategyAnalysis analysis = TradingStrategyAnalyzer.analyzeStock(indicators, latestPrice.getAdjClose());
+        TradingStrategyAnalyzer.StrategyAnalysis analysis = TradingStrategyAnalyzer.analyzeStock(indicators,
+                                                                                                 latestPrice.getAdjClose());
 
         return ResponseEntity.ok(analysis);
     }
@@ -350,6 +351,7 @@ public class SwingTradeController
 
     @PostMapping("/update-all")
     @Operation(summary = "Update Everything", description = "Triggers async update of prices, indicators and ratings.")
+    @PreAuthorize("hasAuthority('BOARD_UPDATE')")
     public ResponseEntity<String> updateAll()
     {
         new Thread(updater::updateAllJob).start();

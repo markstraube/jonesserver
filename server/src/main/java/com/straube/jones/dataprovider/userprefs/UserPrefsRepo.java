@@ -5,11 +5,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import com.straube.jones.model.User;
+
 public class UserPrefsRepo
 {
     private static final String USER_PREFS_ROOT = "/opt/tomcat/data/userprefs/";
-    private static final String USEER_PREFS_FILTER_FILE = "filter.json";
-
+    
     static
     {
         try
@@ -26,39 +27,36 @@ public class UserPrefsRepo
     {}
 
 
-    public static String getFilter()
+    public static String getPrefs(User currentUser, String topic)
         throws IOException
     {
-        File f = new File(USER_PREFS_ROOT, USEER_PREFS_FILTER_FILE);
+        File f = new File(USER_PREFS_ROOT, String.valueOf(currentUser.getId()) + "/" + topic + ".json");
         if (!f.exists())
         { return ""; }
         return new String(Files.readAllBytes(f.toPath()));
     }
 
 
-    public static String getStocks(String topic)
+    public static String savePrefs(User currentUser, String topic, String stocks)
         throws IOException
     {
-        File f = new File(USER_PREFS_ROOT, topic + ".json");
-        if (!f.exists())
-        { return ""; }
-        return new String(Files.readAllBytes(f.toPath()));
-    }
-
-
-    public static String saveFilter(String filter)
-        throws IOException
-    {
-        File f = new File(USER_PREFS_ROOT, USEER_PREFS_FILTER_FILE);
-        Files.write(f.toPath(), filter.getBytes());
-        return "OK";
-    }
-
-
-    public static String saveStocks(String topic, String stocks)
-        throws IOException
-    {
-        File f = new File(USER_PREFS_ROOT, topic + ".json");
+        if (currentUser == null)
+        { 
+            File[] fUsers = Files.list(new File(USER_PREFS_ROOT).toPath()).toArray(File[]::new);
+            if (fUsers.length == 0)
+            {
+                return "OK";
+            }
+            for (File fUser : fUsers)
+            {
+                fUser.mkdirs();
+                File f = new File(fUser, topic + ".json");
+                Files.write(f.toPath(), stocks.getBytes());
+            }
+            return "OK";
+        }
+        File f = new File(USER_PREFS_ROOT, String.valueOf(currentUser.getId()) + "/" + topic + ".json");
+        f.getParentFile().mkdirs();
         Files.write(f.toPath(), stocks.getBytes());
         return "OK";
     }
