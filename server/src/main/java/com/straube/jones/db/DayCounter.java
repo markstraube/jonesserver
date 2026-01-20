@@ -48,6 +48,16 @@ public class DayCounter
         return get(LocalDate.now().minusDays(days));
     }
 
+    public static long lastWorkday()
+    {
+        LocalDate date = LocalDate.now().minusDays(1);
+        while (date.getDayOfWeek().getValue() >= 6)
+        {
+            date = date.minusDays(1);
+        }
+        return get(date);
+    }
+
     public static LocalDate toDate(long dayCount)
     {
         return REFERENCE_DATE.plusDays(dayCount);

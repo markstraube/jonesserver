@@ -33,6 +33,19 @@ public class IndicatorService
     }
 
 
+    public boolean areIndicatorsRecent(String symbol)
+    {
+        long lastWorkday = DayCounter.lastWorkday();
+        String sql = "SELECT count(*) FROM tIndicators WHERE cSymbol = :symbol AND cDayCounter = :dayCounter";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("symbol", symbol)
+                .addValue("dayCounter", lastWorkday);
+
+        Integer count = namedParameterJdbcTemplate.queryForObject(sql, params, Integer.class);
+        return count != null && count > 0;
+    }
+
+
     /**
      * Ruft technische Indikatoren für eine Liste von Aktiencodes ab.
      * 

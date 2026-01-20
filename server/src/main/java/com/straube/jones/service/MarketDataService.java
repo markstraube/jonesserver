@@ -30,6 +30,18 @@ public class MarketDataService
     }
 
 
+    public boolean isMarketPriceDataRecent(String symbol)
+    {
+        long lastWorkday = DayCounter.lastWorkday();
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM tPriceData WHERE cSymbol = ? AND cDayCounter = ?",
+                Integer.class,
+                symbol,
+                lastWorkday);
+        return count != null && count > 0;
+    }
+
+
     public List<DailyPrice> getMarketData(String symbol)
     {
         return getMarketData(symbol, DayCounter.now());

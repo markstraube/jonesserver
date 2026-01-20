@@ -6,9 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +27,7 @@ import com.straube.jones.dto.CompanyListItem;
 import com.straube.jones.dto.CompanyRequest;
 import com.straube.jones.dto.CompanyResponse;
 import com.straube.jones.service.IndicatorService;
+import com.straube.jones.service.MarketDataService;
 import com.straube.jones.trader.collectors.IndicatorCollector;
 import com.straube.jones.trader.dto.IndicatorDto;
 
@@ -50,11 +49,15 @@ public class MasterdataController
 
     private final IndicatorCollector indicatorCollector;
     private final IndicatorService indicatorService;
+    private final MarketDataService marketDataService;
 
-    public MasterdataController(IndicatorCollector indicatorCollector, IndicatorService indicatorService)
+    public MasterdataController(IndicatorCollector indicatorCollector,
+                                IndicatorService indicatorService,
+                                MarketDataService marketDataService)
     {
         this.indicatorCollector = indicatorCollector;
         this.indicatorService = indicatorService;
+        this.marketDataService = marketDataService;
     }
 
 
@@ -69,21 +72,26 @@ public class MasterdataController
         String isin = request.getIsin();
         String symbol = SymbolResolver.resolveCode(isin);
 
+        CompanyResponse company = getCompany(symbol);
         // Download and import price data
-        YahooPriceDownloader.fetchPrices(400, symbol, isin);
-        YahooPriceImporter.uploadPriceData();
+        if (company == null || !marketDataService.isMarketPriceDataRecent(symbol))
+        {
+            YahooPriceDownloader.fetchPrices(400, symbol, isin);
+            YahooPriceImporter.uploadPriceData();
+        
+            // Calculate and save indicators for the imported prices
+            long endDay = DayCounter.now();
+            long startDay = endDay - 400; // Calculate indicators for the last 400 days (matching the download period)
 
-        // Calculate and save indicators for the imported prices
-        long endDay = DayCounter.now();
-        long startDay = endDay - 400; // Calculate indicators for the last 400 days (matching the download period)
+            List<IndicatorDto> indicators = indicatorCollector.collect(symbol, startDay, endDay);
+            indicatorService.upsertIndicators(indicators);
 
-        List<IndicatorDto> indicators = indicatorCollector.collect(symbol, startDay, endDay);
-        indicatorService.upsertIndicators(indicators);
+            logger.info("Calculated and saved {} indicators for symbol: {}", indicators.size(), symbol);
 
-        logger.info("Calculated and saved {} indicators for symbol: {}", indicators.size(), symbol);
-
+            return getCompany(symbol);
+        }
         // Return the current record from tCompany
-        return getCompany(symbol);
+        return company;
     }
 
 
