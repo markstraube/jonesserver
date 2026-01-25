@@ -1,0 +1,11 @@
+ai:
+  assistant:
+    context:
+      time-window-minutes: 60
+      max-size-kb: 20
+    llm:
+      provider: openai
+      timeout-seconds: 30
+      api-key: sk-proj-xxxxxxxxxxxxxxxxxxxx
+      model: gpt-5-mini
+      temperature: 0.2
