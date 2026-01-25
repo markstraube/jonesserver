@@ -3,7 +3,6 @@ package com.straube.jones.service;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +14,6 @@ import com.straube.jones.config.AIAssistantConfig;
 import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 import com.straube.jones.dto.ai.AIContext;
 import com.straube.jones.model.User;
-import com.straube.jones.model.UserPreference;
 
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -34,7 +32,7 @@ public class ContextService {
 
     public Mono<AIContext> loadContext(String sessionId, User user, String type) {
         return Mono.fromCallable(() -> {
-            String prefsJson = UserPrefsRepo.getPrefs(user, sessionId);
+            String prefsJson = UserPrefsRepo.getPrefs(user, "chat#" + type + "#" + sessionId);
             if (prefsJson == null || prefsJson.isEmpty()) {
                 return AIContext.builder().sessionId(sessionId).createdAt(Instant.now().toString()).build();
             }
@@ -61,7 +59,7 @@ public class ContextService {
     public Mono<Void> saveContext(AIContext context, User user, String type) {
         return Mono.fromRunnable(() -> {
             try {
-                String prefsJson = UserPrefsRepo.getPrefs(user, context.getSessionId());
+                String prefsJson = UserPrefsRepo.getPrefs(user, "chat#" + type + "#" + context.getSessionId());
 
                 Map<String, Object> prefsMap = new HashMap<>();
                 if (prefsJson != null && !prefsJson.isEmpty()) {
@@ -76,7 +74,7 @@ public class ContextService {
 
                 // Cleanup old contexts if needed (omitted for brevity)
 
-                UserPrefsRepo.savePrefs(user, context.getSessionId(), objectMapper.writeValueAsString(prefsMap));
+                UserPrefsRepo.savePrefs(user, "chat#" + type + "#" + context.getSessionId(), objectMapper.writeValueAsString(prefsMap));
 
             } catch (Exception e) {
                 logger.error("Error saving user preferences", e);
