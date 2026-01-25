@@ -22,6 +22,7 @@ import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.ai.AIContext;
 import com.straube.jones.dto.ai.AIResponseChunk;
+import com.straube.jones.dto.ai.Message;
 import com.straube.jones.model.StockFundamentals;
 import com.straube.jones.model.User;
 import com.straube.jones.service.ContextService;
@@ -78,17 +79,22 @@ public class StocksAgent {
 
         return Flux.using(
                 () -> openai.responses().createStreaming(params),
-                streamResponse -> Flux.fromStream(streamResponse.stream())
+                streamResponse -> {
+                    StringBuilder fullContent = new StringBuilder();
+                    return Flux.fromStream(streamResponse.stream())
                         .flatMap(event -> {
                             List<AIResponseChunk> chunks = new ArrayList<>();
                             if (event.outputTextDelta().isPresent()) {
-                                chunks.add(AIResponseChunk.chunk(event.outputTextDelta().get().delta()));
+                                String delta = event.outputTextDelta().get().delta();
+                                fullContent.append(delta);
+                                chunks.add(AIResponseChunk.chunk(delta));
                             }
 
                             if (event.isCompleted()) {
                                 Response response = event.asCompleted().response();
                                 
                                 context.setResponseId(response.id());
+                                context.addMessage(Message.assistant(fullContent.toString()));
                                 contextService.saveContext(context, user, "explain").subscribe();
                                 response.usage().ifPresent(usage -> {
                                     Map<String, Object> meta = Map.of(
@@ -99,7 +105,8 @@ public class StocksAgent {
                                 });
                             }
                             return Flux.fromIterable(chunks);
-                        }),
+                        });
+                },
                 StreamResponse::close);
     }
 
