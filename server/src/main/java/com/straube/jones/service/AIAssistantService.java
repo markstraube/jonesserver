@@ -23,11 +23,6 @@ public class AIAssistantService {
     private final ContextService contextService;
     private final LLMService llmService;
     private final UserRepository userRepository;
-    
-    // Services for data retrieval
-    // private final MarketDataService marketDataService;
-    // private final IndicatorService indicatorService;
-    // private final FundamentalsService fundamentalsService;
 
     public AIAssistantService(ContextService contextService, LLMService llmService, UserRepository userRepository) {
         this.contextService = contextService;
@@ -37,55 +32,16 @@ public class AIAssistantService {
 
     public Flux<AIResponseChunk> explain(ExplainRequest request, String username) {
         String sessionId = request.getSessionId() != null ? request.getSessionId() : UUID.randomUUID().toString();
-        
-        return Mono.fromCallable(() -> userRepository.findByUsername(username))
-                .flatMap(userOpt -> {
-                     if (userOpt.isEmpty()) return Mono.error(new RuntimeException("User not found"));
-                     return contextService.loadContext(sessionId, userOpt.get(), "explain");
-                })
+
+        final User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return contextService.loadContext(sessionId, user, "explain")
                 .flatMapMany(context -> {
                     // Update context with user message
                     Message userMessage = Message.user(request.getQuestion());
                     context.addMessage(userMessage);
 
-                    // LLMRequest llmRequest = LLMRequest.builder()
-                    //         .systemPrompt("Du bist ein hilfreicher AI-Assistent für eine Finanz-Analyse-Anwendung.\n" +
-                    //                 "Erkläre Konzepte klar und präzise. Verwende Markdown-Formatierung für bessere Lesbarkeit.\n" +
-                    //                 "Strukturiere deine Antworten mit Überschriften, Listen und Code-Beispielen wo sinnvoll.")
-                    //         .userPrompt(request.getQuestion())
-                    //         .context(context.getMessages().subList(0, context.getMessages().size() - 1)) // Exclude current msg separate or handle in provider
-                    //         .build();
-
-                    // StringBuffer fullResponse = new StringBuffer();
-                                        
-                    // return llmService.streamResponse(llmRequest)
-                    //         .doOnNext(chunk -> {
-                    //             if ("chunk".equals(chunk.getType())) {
-                    //                 fullResponse.append(chunk.getContent());
-                    //             }
-                    //         })
-                    //  weiter mit    .doOnComplete(() -> {
-
-                    return StocksAgent.explain(context, request.getQuestion());
-
-                    // String mockText = "Das ist eine simulierte Antwort. Das LLM ist derzeit nicht verbunden.\n\n" +
-                    //         "Hier ist eine Erklärung im **Markdown**-Format:\n" +
-                    //         "- Das System funktioniert\n" +
-                    //         "- Streaming wird simuliert\n\n" +
-                    //         "Deine Frage war: " + request.getQuestion();
-
-                    // return Flux.fromArray(mockText.split(""))
-                    //         .delayElements(Duration.ofMillis(20))
-                    //         .map(AIResponseChunk::chunk)
-                    //         .doOnNext(chunk -> fullResponse.append(chunk.getContent()))
-                    //         .doOnComplete(() -> {
-                    //             Message assistantMessage = Message.assistant(fullResponse.toString());
-                    //             context.addMessage(assistantMessage);
-                    //             userRepository.findByUsername(username).ifPresent(user -> 
-                    //                 contextService.saveContext(context, user, "explain").subscribe()
-                    //             );
-                    //         });
-
+                    return StocksAgent.explain(contextService, context, user, request.getQuestion());
                 });
     }
 
@@ -94,14 +50,15 @@ public class AIAssistantService {
 
         return Mono.fromCallable(() -> userRepository.findByUsername(username))
                 .flatMap(userOpt -> {
-                     if (userOpt.isEmpty()) return Mono.error(new RuntimeException("User not found"));
-                     return contextService.loadContext(sessionId, userOpt.get(), "analyze")
-                             .zipWith(Mono.just(userOpt.get()));
+                    if (userOpt.isEmpty())
+                        return Mono.error(new RuntimeException("User not found"));
+                    return contextService.loadContext(sessionId, userOpt.get(), "analyze")
+                            .zipWith(Mono.just(userOpt.get()));
                 })
                 .flatMapMany(tuple -> {
                     AIContext context = tuple.getT1();
                     User user = tuple.getT2();
-                    
+
                     Message userMessage = Message.user(request.getQuestion());
                     context.addMessage(userMessage);
 
@@ -119,11 +76,11 @@ public class AIAssistantService {
                     StringBuffer fullResponse = new StringBuffer();
 
                     return llmService.streamResponse(llmRequest)
-                             .doOnNext(chunk -> {
+                            .doOnNext(chunk -> {
                                 if ("chunk".equals(chunk.getType())) {
                                     fullResponse.append(chunk.getContent());
                                 }
-                             })
+                            })
                             .doOnComplete(() -> {
                                 Message assistantMessage = Message.assistant(fullResponse.toString());
                                 context.addMessage(assistantMessage);
@@ -131,7 +88,7 @@ public class AIAssistantService {
                             });
                 });
     }
-    
+
     private String fetchDataForRequest(AnalyzeRequest request) {
         // Mock data fetching logic
         // In real impl, would call MarketDataService, IndicatorService, etc.

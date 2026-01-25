@@ -2,28 +2,29 @@ package com.straube.jones.agent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-import java.util.Map;
-import com.openai.models.responses.ResponseUsage;
-import com.openai.models.responses.Response;
 import com.openai.client.OpenAIClient;
-
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.http.StreamResponse;
 import com.openai.models.ChatModel;
+import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.StructuredResponse;
 import com.openai.models.responses.StructuredResponseCreateParams;
 import com.openai.models.responses.Tool;
 import com.openai.models.responses.WebSearchTool;
 import com.openai.models.responses.WebSearchTool.Type;
+import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.ai.AIContext;
 import com.straube.jones.dto.ai.AIResponseChunk;
 import com.straube.jones.model.StockFundamentals;
+import com.straube.jones.model.User;
+import com.straube.jones.service.ContextService;
 import com.straube.jones.service.MarketDataService;
 import com.straube.jones.trader.collectors.TradingIndicatorService;
 import com.straube.jones.trader.collectors.TradingIndicatorService.Report;
@@ -34,7 +35,7 @@ import reactor.core.publisher.Flux;
 public class StocksAgent {
     private static final OpenAIClient openai = OpenAIOkHttpClient.fromEnv();
 
-    public static Flux<AIResponseChunk> explain(AIContext context, String question) {
+    public static Flux<AIResponseChunk> explain(ContextService contextService, AIContext context, User user, String question) {
         String input;
         
         if (context.getResponseId() != null && !context.getResponseId().isEmpty()) {
@@ -88,7 +89,7 @@ public class StocksAgent {
                                 Response response = event.asCompleted().response();
                                 
                                 context.setResponseId(response.id());
-                                
+                                contextService.saveContext(context, user, "explain").subscribe();
                                 response.usage().ifPresent(usage -> {
                                     Map<String, Object> meta = Map.of(
                                             "total_tokens", usage.totalTokens(),
@@ -316,52 +317,55 @@ public class StocksAgent {
         return resultList.get(0);
     }
 
-    public static void main(String[] args) {
-        AIContext context = new AIContext();
+    // public static void main(String[] args) {
+    //     AIContext context = new AIContext();
+    //     User user = new User();
+    //     user.setId(999L);
+    //     user.setUsername("test_user");
         
-        // First Question
-        String q1 = "Was ist der RSI?";
-        System.out.println("--------------------------------------------------------------------------------");
-        System.out.println("Turn 1 - Question: " + q1);
-        System.out.println("--------------------------------------------------------------------------------");
+    //     // First Question
+    //     String q1 = "Was ist der RSI?";
+    //     System.out.println("--------------------------------------------------------------------------------");
+    //     System.out.println("Turn 1 - Question: " + q1);
+    //     System.out.println("--------------------------------------------------------------------------------");
         
-        try {
-            explain(context, q1)
-                .doOnNext(chunk -> {
-                    if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
-                         System.out.println("\n\n[METADATA] " + chunk.getMetadata());
-                    } else if (chunk.getContent() != null) {
-                        System.out.print(chunk.getContent());
-                    }
-                })
-                .blockLast();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    //     try {
+    //         explain(context, user, q1)
+    //             .doOnNext(chunk -> {
+    //                 if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
+    //                      System.out.println("\n\n[METADATA] " + chunk.getMetadata());
+    //                 } else if (chunk.getContent() != null) {
+    //                     System.out.print(chunk.getContent());
+    //                 }
+    //             })
+    //             .blockLast();
+    //     } catch (Exception e) {
+    //         e.printStackTrace();
+    //     }
 
-        System.out.println("\n\n--------------------------------------------------------------------------------");
-        System.out.println("Context ResponseID: " + context.getResponseId());
-        System.out.println("--------------------------------------------------------------------------------");
+    //     System.out.println("\n\n--------------------------------------------------------------------------------");
+    //     System.out.println("Context ResponseID: " + context.getResponseId());
+    //     System.out.println("--------------------------------------------------------------------------------");
 
-        // Second Question (Follow-up)
-        String q2 = "Wie berechnet man ihn?";
-        System.out.println("Turn 2 - Question: " + q2);
-        System.out.println("--------------------------------------------------------------------------------");
+    //     // Second Question (Follow-up)
+    //     String q2 = "Wie berechnet man ihn?";
+    //     System.out.println("Turn 2 - Question: " + q2);
+    //     System.out.println("--------------------------------------------------------------------------------");
 
-        try {
-            explain(context, q2)
-                .doOnNext(chunk -> {
-                    if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
-                         System.out.println("\n\n[METADATA] " + chunk.getMetadata());
-                    } else if (chunk.getContent() != null) {
-                        System.out.print(chunk.getContent());
-                    }
-                })
-                .blockLast();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+    //     try {
+    //         explain(context, user, q2)
+    //             .doOnNext(chunk -> {
+    //                 if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
+    //                      System.out.println("\n\n[METADATA] " + chunk.getMetadata());
+    //                 } else if (chunk.getContent() != null) {
+    //                     System.out.print(chunk.getContent());
+    //                 }
+    //             })
+    //             .blockLast();
+    //     } catch (Exception e) {
+    //         e.printStackTrace();
+    //     }
+    // }
 
     public static void main0(String[] args) {
         String symbol = "MU";
