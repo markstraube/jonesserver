@@ -35,7 +35,12 @@ public class StocksAgent {
     private static final OpenAIClient openai = OpenAIOkHttpClient.fromEnv();
 
     public static Flux<AIResponseChunk> explain(AIContext context, String question) {
-        String systemPrompt = """
+        String input;
+        
+        if (context.getResponseId() != null && !context.getResponseId().isEmpty()) {
+            input = question;
+        } else {
+             input = """
                         You are an autonomous financial research agent.
 
                         You have access to web search and may use it to verify information.
@@ -51,18 +56,24 @@ public class StocksAgent {
                         User question:
                         %s
                 """.formatted(question);
+        }
 
         Tool webTool = Tool.ofWebSearch(WebSearchTool.builder()
                 .type(Type.WEB_SEARCH)
                 .searchContextSize(WebSearchTool.SearchContextSize.MEDIUM)
                 .build());
 
-        ResponseCreateParams params = ResponseCreateParams.builder()
+        ResponseCreateParams.Builder paramsBuilder = ResponseCreateParams.builder()
                 .model(ChatModel.of("gpt-5-mini"))
-                .input(systemPrompt)
+                .input(input)
                 .tools(List.of(webTool))
-                .maxOutputTokens(5000)
-                .build();
+                .maxOutputTokens(5000);
+
+        if (context.getResponseId() != null && !context.getResponseId().isEmpty()) {
+            paramsBuilder.previousResponseId(context.getResponseId());
+        }
+
+        ResponseCreateParams params = paramsBuilder.build();
 
         return Flux.using(
                 () -> openai.responses().createStreaming(params),
@@ -75,6 +86,9 @@ public class StocksAgent {
 
                             if (event.isCompleted()) {
                                 Response response = event.asCompleted().response();
+                                
+                                context.setResponseId(response.id());
+                                
                                 response.usage().ifPresent(usage -> {
                                     Map<String, Object> meta = Map.of(
                                             "total_tokens", usage.totalTokens(),
@@ -303,17 +317,16 @@ public class StocksAgent {
     }
 
     public static void main(String[] args) {
-        String question = "Was ist der ROC Indikator?";
-        System.out.println("--------------------------------------------------------------------------------");
-        System.out.println("StocksAgent Explain Test");
-        System.out.println("Question: " + question);
-        System.out.println("--------------------------------------------------------------------------------");
-
         AIContext context = new AIContext();
         
+        // First Question
+        String q1 = "Was ist der RSI?";
+        System.out.println("--------------------------------------------------------------------------------");
+        System.out.println("Turn 1 - Question: " + q1);
+        System.out.println("--------------------------------------------------------------------------------");
+        
         try {
-            System.out.println("\nResponse:");
-            explain(context, question)
+            explain(context, q1)
                 .doOnNext(chunk -> {
                     if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
                          System.out.println("\n\n[METADATA] " + chunk.getMetadata());
@@ -322,9 +335,30 @@ public class StocksAgent {
                     }
                 })
                 .blockLast();
-            System.out.println();
         } catch (Exception e) {
-            System.err.println("Error occurred: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        System.out.println("\n\n--------------------------------------------------------------------------------");
+        System.out.println("Context ResponseID: " + context.getResponseId());
+        System.out.println("--------------------------------------------------------------------------------");
+
+        // Second Question (Follow-up)
+        String q2 = "Wie berechnet man ihn?";
+        System.out.println("Turn 2 - Question: " + q2);
+        System.out.println("--------------------------------------------------------------------------------");
+
+        try {
+            explain(context, q2)
+                .doOnNext(chunk -> {
+                    if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
+                         System.out.println("\n\n[METADATA] " + chunk.getMetadata());
+                    } else if (chunk.getContent() != null) {
+                        System.out.print(chunk.getContent());
+                    }
+                })
+                .blockLast();
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

@@ -18,6 +18,7 @@ public class AIContext {
     private List<Message> messages = new ArrayList<>();
     private String createdAt;
     private String lastAccessedAt;
+    private String responseId;
 
     public void addMessage(Message message) {
         if (messages == null) {
