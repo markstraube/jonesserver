@@ -6,7 +6,11 @@ import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import java.util.Map;
+import com.openai.models.responses.ResponseUsage;
+import com.openai.models.responses.Response;
 import com.openai.client.OpenAIClient;
+
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.core.http.StreamResponse;
 import com.openai.models.ChatModel;
@@ -63,8 +67,24 @@ public class StocksAgent {
         return Flux.using(
                 () -> openai.responses().createStreaming(params),
                 streamResponse -> Flux.fromStream(streamResponse.stream())
-                        .filter(event -> event.outputTextDelta().isPresent())
-                        .map(event -> AIResponseChunk.chunk(event.outputTextDelta().get().delta())),
+                        .flatMap(event -> {
+                            List<AIResponseChunk> chunks = new ArrayList<>();
+                            if (event.outputTextDelta().isPresent()) {
+                                chunks.add(AIResponseChunk.chunk(event.outputTextDelta().get().delta()));
+                            }
+
+                            if (event.isCompleted()) {
+                                Response response = event.asCompleted().response();
+                                response.usage().ifPresent(usage -> {
+                                    Map<String, Object> meta = Map.of(
+                                            "total_tokens", usage.totalTokens(),
+                                            "prompt_tokens", usage.inputTokens(),
+                                            "completion_tokens", usage.outputTokens());
+                                    chunks.add(AIResponseChunk.complete(meta));
+                                });
+                            }
+                            return Flux.fromIterable(chunks);
+                        }),
                 StreamResponse::close);
     }
 
@@ -283,18 +303,24 @@ public class StocksAgent {
     }
 
     public static void main(String[] args) {
-        String question = "Was ist der MACD?";
+        String question = "Was ist der ROC Indikator?";
         System.out.println("--------------------------------------------------------------------------------");
         System.out.println("StocksAgent Explain Test");
         System.out.println("Question: " + question);
         System.out.println("--------------------------------------------------------------------------------");
 
         AIContext context = new AIContext();
-
+        
         try {
             System.out.println("\nResponse:");
             explain(context, question)
-                .doOnNext(chunk -> System.out.print(chunk.getContent()))
+                .doOnNext(chunk -> {
+                    if ("complete".equals(chunk.getType()) && chunk.getMetadata() != null) {
+                         System.out.println("\n\n[METADATA] " + chunk.getMetadata());
+                    } else if (chunk.getContent() != null) {
+                        System.out.print(chunk.getContent());
+                    }
+                })
                 .blockLast();
             System.out.println();
         } catch (Exception e) {
