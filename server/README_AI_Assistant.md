@@ -63,6 +63,25 @@ ai:
 }
 ```
 
+### 3. Get Chat History
+**URL**: `GET /api/assistant/history`
+**Query Parameters**:
+- `chat`: Type of chat session (`explain` or `analyze`)
+
+**Response**: JSON List of session summaries sorted by timestamp descending.
+
+**Response Body**:
+```json
+[
+  {
+    "timestamp": "2023-10-27T14:30:00Z",
+    "title": "Erkläre mir den MACD",
+    "session-id": "550e8400-e29b-41d4-a716-446655440000",
+    "file-name": "chat/explain/550e8400-e29b-41d4-a716-446655440000.json"
+  }
+]
+```
+
 ## Implementation Details
 - **Architecture**: Spring WebFlux for non-blocking SSE streaming.
 - **Components**:

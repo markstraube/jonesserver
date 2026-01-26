@@ -74,4 +74,29 @@ public class UserPrefsRepo {
         }
         return true;
     }
+
+    public static java.util.List<String> listPrefs(User currentUser, String topicPrefix) {
+        String[] subDirs = topicPrefix.split("#");
+        StringBuilder pathBuilder = new StringBuilder();
+        pathBuilder.append(USER_PREFS_ROOT).append("/").append(currentUser.getId());
+        for (String subDir : subDirs) {
+            pathBuilder.append("/").append(subDir);
+        }
+        File folder = new File(pathBuilder.toString());
+        if (!folder.exists() || !folder.isDirectory()) {
+            return java.util.Collections.emptyList();
+        }
+
+        File[] files = folder.listFiles((dir, name) -> name.endsWith(".json"));
+        if (files == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        java.util.List<String> results = new java.util.ArrayList<>();
+        for (File f : files) {
+            String name = f.getName();
+            results.add(name.substring(0, name.lastIndexOf('.')));
+        }
+        return results;
+    }
 }

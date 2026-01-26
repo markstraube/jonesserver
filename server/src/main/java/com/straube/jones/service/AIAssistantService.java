@@ -8,6 +8,7 @@ import com.straube.jones.agent.StocksAgent;
 import com.straube.jones.dto.ai.AIContext;
 import com.straube.jones.dto.ai.AIResponseChunk;
 import com.straube.jones.dto.ai.AnalyzeRequest;
+import com.straube.jones.dto.ai.ChatSessionSummary;
 import com.straube.jones.dto.ai.ExplainRequest;
 import com.straube.jones.dto.ai.LLMRequest;
 import com.straube.jones.dto.ai.Message;
@@ -16,6 +17,7 @@ import com.straube.jones.repository.UserRepository;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 public class AIAssistantService {
@@ -87,6 +89,21 @@ public class AIAssistantService {
                                 contextService.saveContext(context, user, "analyze").subscribe();
                             });
                 });
+    }
+
+    public Mono<AIContext> getSession(String type, String sessionId, String username) {
+        return Mono.fromCallable(() -> userRepository.findByUsername(username))
+                .flatMap(userOpt -> {
+                    if (userOpt.isEmpty())
+                        return Mono.error(new RuntimeException("User not found"));
+                    return contextService.loadContext(sessionId, userOpt.get(), type);
+                });
+    }
+
+    public java.util.List<ChatSessionSummary> getHistory(String type, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return contextService.getHistory(type, user);
     }
 
     private String fetchDataForRequest(AnalyzeRequest request) {

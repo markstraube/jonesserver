@@ -1,0 +1,51 @@
+    "/api/assistant/history": {
+      "get": {
+        "tags": [
+          "ai-assistant-controller"
+        ],
+        "operationId": "getHistory",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatSessionSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ChatSessionSummary": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "session-id": {
+            "type": "string"
+          },
+          "file-name": {
+            "type": "string"
+          }
+        }
+      }
+    }
