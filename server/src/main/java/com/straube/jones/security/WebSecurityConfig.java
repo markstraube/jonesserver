@@ -3,6 +3,8 @@ package com.straube.jones.security;
 import java.util.Arrays;
 import java.util.List;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -82,7 +84,8 @@ public class WebSecurityConfig {
         .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> 
-          auth.requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+          auth.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+              .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
               .requestMatchers("/api/auth/change-password").authenticated()
               .requestMatchers("/api/test/**").permitAll()
               .requestMatchers("/api/stocks/image/**").permitAll()
