@@ -4,6 +4,7 @@ import java.security.Principal;
 import java.util.List;
 
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +32,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/assistant")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "AI Assistant", description = "Endpoints for AI-powered financial analysis and explanations")
 public class AIAssistantController {
 

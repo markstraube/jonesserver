@@ -6,11 +6,11 @@ public class WinCalc
     public static void main(String[] args)
     {
 
-        Double Startcapital = 40_000.0;
+        Double Startcapital = 10_000.0;
         Double capital = Startcapital;
-        for (int i = 0; i < 24; i++ )
+        for (int i = 0; i < 48; i++ )
         {
-            double win = capital * 0.05;
+            double win = capital * 0.025;
             capital += win - win * 0.25; // minus tax
             System.out.println("after " + (i + 1) + ": " + String.format("%.2f", capital));
         }

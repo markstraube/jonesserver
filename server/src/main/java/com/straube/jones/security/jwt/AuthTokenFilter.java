@@ -59,6 +59,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
       return headerAuth.substring(7);
     }
+    
+    // Allow token via query parameter for images
+    String queryToken = request.getParameter("token");
+    if (StringUtils.hasText(queryToken)) {
+    	return queryToken;
+    }
 
     return null;
   }

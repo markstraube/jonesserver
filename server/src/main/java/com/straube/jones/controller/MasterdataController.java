@@ -11,6 +11,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,6 +43,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/masterdata")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Masterdata API", description = "API for managing master data of companies and stocks. Provides functionality to create and update company information based on ISIN.")
 public class MasterdataController
 {
@@ -64,6 +66,7 @@ public class MasterdataController
     @Operation(summary = "Create or Update Company Master Data", description = "**Use Case:** Ensures that a company exists in the master data and its price data is initialized. **Logic:** Checks if the ISIN exists in `tSymbols`. If not, resolves the symbol via Yahoo Finance, downloads historical prices, and imports them. Then calculates technical indicators for the imported prices and stores them in the database. Finally, updates or creates the company record in `tCompany` based on the downloaded metadata. **Returns:** The updated company master data.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Company data successfully created or updated", content = @Content(schema = @Schema(implementation = CompanyResponse.class))),
                            @ApiResponse(responseCode = "500", description = "Internal server error, e.g., if symbol resolution fails or database error occurs")})
+    @PreAuthorize("hasAuthority('ADMIN')")
     @PostMapping("/company")
     public CompanyResponse company(@RequestBody
     CompanyRequest request)

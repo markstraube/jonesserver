@@ -88,7 +88,6 @@ public class WebSecurityConfig {
               .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
               .requestMatchers("/api/auth/change-password").authenticated()
               .requestMatchers("/api/test/**").permitAll()
-              .requestMatchers("/api/stocks/image/**").permitAll()
               .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
               .requestMatchers("/", "/index.html", "/assets/**", "/*.js", "/*.css", "/favicon.ico", "/error").permitAll()
               // Allow some open endpoints if necessary, otherwise require auth

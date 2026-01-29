@@ -50,6 +50,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping(value = "/api/stocks")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Stocks API", description = "Comprehensive stock market data API for financial analysis, portfolio management, and investment decision support. Provides real-time and historical stock data, technical analysis tools, and user preference management.")
 public class StocksController
 {

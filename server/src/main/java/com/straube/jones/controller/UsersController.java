@@ -4,6 +4,7 @@ package com.straube.jones.controller;
 import java.io.IOException;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +29,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping(value = "/api/users")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "User Preferences API", description = "API for managing user preferences and settings. Allows saving and retrieving user-specific configurations such as filters, watchlists, and application settings.")
 public class UsersController
 {

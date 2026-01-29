@@ -43,6 +43,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/swing-trades")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Swing Trading API", description = "Swing-Trading Watchlist und Detailanalyse")
 public class SwingTradeController
 {
