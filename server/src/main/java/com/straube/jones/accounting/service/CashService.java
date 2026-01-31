@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.straube.jones.accounting.dto.BudgetDto;
 import com.straube.jones.accounting.repository.AccountingRepository;
+import com.straube.jones.model.User;
 
 @Service
 public class CashService {
@@ -18,7 +19,7 @@ public class CashService {
         this.repository = repository;
     }
 
-    public Double getCash(String user) {
+    public Double getCash(User user) {
         Optional<BudgetDto> budget = repository.getLatestBudget(user);
         // "Berechnung: Cash = Budget - Portfolio"
         // If I trust the columns in tPerformance

@@ -1,7 +1,5 @@
 package com.straube.jones.accounting.service;
 
-import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +13,7 @@ import com.straube.jones.accounting.dto.TransactionDto;
 import com.straube.jones.accounting.repository.AccountingRepository;
 import com.straube.jones.dto.PriceEntry;
 import com.straube.jones.dto.PriceTickerResponse;
+import com.straube.jones.model.User;
 import com.straube.jones.service.PriceTickerService;
 
 @Service
@@ -31,23 +30,23 @@ public class PortfolioService {
         this.priceTickerService = new PriceTickerService(); // Assuming default constructor is available and functional
     }
 
-    public PortfolioValueDto getPortfolioValue(String user) {
+    public PortfolioValueDto getPortfolioValue(User user) {
         List<TransactionDto> positions = repository.getActivePositions(user);
         double totalValue = 0.0;
         
         for (TransactionDto pos : positions) {
-            double currentPrice = getCurrentPrice(pos.getIsin(), pos.getSymbol());
+            double currentPrice = getCurrentBidPrice(pos.getIsin(), pos.getSymbol());
             totalValue += pos.getQuantity() * currentPrice;
         }
         
         return new PortfolioValueDto(totalValue);
     }
 
-    public double fetchCurrentPortfolioValue(String user) {
+    public double fetchCurrentPortfolioValue(User user) {
         return getPortfolioValue(user).getPortfolioValue();
     }
 
-    public TransactionDto buy(String user, TransactionDto transaction, double currentCash) {
+    public TransactionDto buy(User user, TransactionDto transaction, double currentCash) {
         double cost = transaction.getQuantity() * transaction.getPrice();
         
         if (cost > currentCash) {
@@ -66,7 +65,7 @@ public class PortfolioService {
         return response;
     }
 
-    public TransactionDto sell(String user, String positionId, int quantity, double price) {
+    public TransactionDto sell(User user, String positionId, int quantity, double price) {
         Optional<TransactionDto> posOpt = repository.getPosition(positionId);
         if (posOpt.isEmpty()) {
             throw new IllegalArgumentException("Position not found"); // Controller 404
@@ -108,11 +107,11 @@ public class PortfolioService {
         return response;
     }
 
-    private double getCurrentPrice(String isin, String symbol) {
+    private double getCurrentBidPrice(String isin, String symbol) {
         try {
             // Try by ISIN
             PriceTickerResponse response = priceTickerService.getPriceByIsinFromTradegate(isin);
-            return extractPrice(response);
+            return extractBidPrice(response);
         } catch (Exception e) {
             logger.warn("Failed to get price for ISIN {}, trying symbol {}", isin, symbol);
             // Fallback? The PriceTickerService seems to only support ISIN in the method I saw.
@@ -127,7 +126,7 @@ public class PortfolioService {
         }
     }
 
-    private double extractPrice(PriceTickerResponse response) {
+    private double extractBidPrice(PriceTickerResponse response) {
         if (response.getPrices() == null || response.getPrices().isEmpty()) return 0.0;
         
         // Find "last-price" (REGULAR)
@@ -138,7 +137,7 @@ public class PortfolioService {
              // It had @JsonProperty("last-price") private BigDecimal lastPrice;
              // I'll assume standard getter: getLastPrice()
              if (entry.getLastPrice() != null) {
-                 return entry.getLastPrice().doubleValue();
+                 return entry.getBidPrice().doubleValue();
              }
         }
         return 0.0; // Fallback

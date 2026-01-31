@@ -1,6 +1,5 @@
 package com.straube.jones.accounting.service;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.straube.jones.accounting.dto.PerformanceDto;
 import com.straube.jones.accounting.repository.AccountingRepository;
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.model.User;
 
 @Service
 public class PerformanceService {
@@ -20,7 +20,7 @@ public class PerformanceService {
         this.repository = repository;
     }
 
-    public List<PerformanceDto> getPerformance(String user, Long from, Long to) {
+    public List<PerformanceDto> getPerformance(User user, Long from, Long to) {
         long t = (to != null) ? to : DayCounter.before(90); // Default to 90 days ago? 
         // Prompt: "to (optional): ... Default: DayCounter.before(90)"
         // "from (optional): ... Default: DayCounter.yesterday()"
@@ -41,7 +41,7 @@ public class PerformanceService {
         return repository.getPerformance(user, min, max);
     }
 
-    public List<PerformanceDto> getWeekPerformance(String user) {
+    public List<PerformanceDto> getWeekPerformance(User user) {
         return repository.getPerformanceLastDays(user, 5);
     }
 }

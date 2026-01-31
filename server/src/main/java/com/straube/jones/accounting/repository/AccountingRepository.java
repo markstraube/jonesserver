@@ -16,19 +16,92 @@ import org.springframework.stereotype.Repository;
 import com.straube.jones.accounting.dto.BudgetDto;
 import com.straube.jones.accounting.dto.PerformanceDto;
 import com.straube.jones.accounting.dto.TransactionDto;
+import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
+import com.straube.jones.model.User;
 
 @Repository
 public class AccountingRepository {
+    public static void main(String[] args) throws Exception {
+        String username = "mark";
+        String jsonFilePath = "C:\\opt\\tomcat\\data\\userprefs\\3\\portfolio.json";
+        String json = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(jsonFilePath)),
+                java.nio.charset.StandardCharsets.UTF_8);
+        org.json.JSONArray arr = new org.json.JSONArray(json);
+        AccountingRepository repo = new AccountingRepository();
+        com.straube.jones.model.User user = new com.straube.jones.model.User();
+        user.setUsername(username);
+        try (java.sql.Connection conn = com.straube.jones.db.DBConnection.getStocksConnection()) {
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject obj = arr.getJSONObject(i);
+                String id = obj.optString("id", null);
+                String isin = obj.optString("isin", null);
+                String symbol = obj.optString("symbol", null);
+                String stockName = obj.optString("stockName", null);
+                Integer quantity = obj.has("quantity") ? obj.optInt("quantity") : null;
+                Double purchasePrice = obj.has("purchasePrice") ? obj.optDouble("purchasePrice") : null;
+                String status = obj.optString("status", null);
+                String createdAt = obj.optString("createdAt", null);
+                String updatedAt = obj.optString("updatedAt", null);
+                String saleDate = obj.optString("saleDate", null);
+                Double salePrice = obj.has("salePrice") ? obj.optDouble("salePrice") : null;
+                String userName = username;
+
+                String sql = "INSERT INTO tPortfolio (cId, cUser, cIsin, cSymbol, cStockName, cQuantity, cPurchasePrice, cState, cCreatedAt, cPurchaseDate, cSaleDate, cSalePrice, cUpdatedAt) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setString(1, id);
+                    stmt.setString(2, userName);
+                    stmt.setString(3, isin);
+                    stmt.setString(4, symbol);
+                    stmt.setString(5, stockName);
+                    if (quantity != null) stmt.setInt(6, quantity); else stmt.setNull(6, java.sql.Types.INTEGER);
+                    if (purchasePrice != null) stmt.setDouble(7, purchasePrice); else stmt.setNull(7, java.sql.Types.DOUBLE);
+                    stmt.setString(8, status);
+                    // createdAt und purchaseDate
+                    if (createdAt != null && !createdAt.isEmpty()) stmt.setTimestamp(9, java.sql.Timestamp.valueOf(createdAt.replace("T", " ").replace("Z", ""))); else stmt.setNull(9, java.sql.Types.TIMESTAMP);
+                    if (obj.has("purchaseDate")) {
+                        String pd = obj.optString("purchaseDate");
+                        if (pd != null && !pd.isEmpty()) {
+                            if (pd.length() == 10) { // yyyy-MM-dd
+                                stmt.setTimestamp(10, java.sql.Timestamp.valueOf(pd + " 00:00:00"));
+                            } else {
+                                stmt.setTimestamp(10, java.sql.Timestamp.valueOf(pd.replace("T", " ").replace("Z", "")));
+                            }
+                        } else {
+                            stmt.setNull(10, java.sql.Types.TIMESTAMP);
+                        }
+                    } else {
+                        stmt.setNull(10, java.sql.Types.TIMESTAMP);
+                    }
+                    // saleDate
+                    if (saleDate != null && !saleDate.isEmpty()) {
+                        if (saleDate.length() == 10) {
+                            stmt.setTimestamp(11, java.sql.Timestamp.valueOf(saleDate + " 00:00:00"));
+                        } else {
+                            stmt.setTimestamp(11, java.sql.Timestamp.valueOf(saleDate.replace("T", " ").replace("Z", "")));
+                        }
+                    } else {
+                        stmt.setNull(11, java.sql.Types.TIMESTAMP);
+                    }
+                    if (salePrice != null) stmt.setDouble(12, salePrice); else stmt.setNull(12, java.sql.Types.DOUBLE);
+                    if (updatedAt != null && !updatedAt.isEmpty()) stmt.setTimestamp(13, java.sql.Timestamp.valueOf(updatedAt.replace("T", " ").replace("Z", ""))); else stmt.setNull(13, java.sql.Types.TIMESTAMP);
+                    stmt.executeUpdate();
+                }
+                System.out.println("Imported position: " + symbol + " (" + status + ") for user " + userName);
+            }
+            conn.commit();
+        }
+    }
 
     // --- Performance / Budget ---
 
-    public Optional<BudgetDto> getLatestBudget(String user) {
+    public Optional<BudgetDto> getLatestBudget(User user) {
         String sql = "SELECT cBudget, cPortfolio, cCash, cDate FROM tPerformance WHERE cUser = ? ORDER BY cDate DESC LIMIT 1";
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user);
+            stmt.setString(1, user.getUsername());
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     return Optional.of(new BudgetDto(
@@ -44,12 +117,12 @@ public class AccountingRepository {
         return Optional.empty();
     }
 
-    public void savePerformance(String user, Double budget, Double portfolio, Double cash, long dayCounter,
+    public void savePerformance(User user, Double budget, Double portfolio, Double cash, long dayCounter,
             boolean keepMe, Timestamp timestamp) {
         String sql = "INSERT INTO tPerformance (cUser, cDate, cBudget, cPortfolio, cCash, cDayCounter, cKeepMe) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user);
+            stmt.setString(1, user.getUsername());
             stmt.setTimestamp(2, timestamp);
             setDoubleOrNull(stmt, 3, budget);
             setDoubleOrNull(stmt, 4, portfolio);
@@ -63,12 +136,12 @@ public class AccountingRepository {
         }
     }
 
-    public List<PerformanceDto> getPerformance(String user, long from, long to) {
+    public List<PerformanceDto> getPerformance(User user, long from, long to) {
         String sql = "SELECT cDate, cBudget, cPortfolio, cCash, cDayCounter FROM tPerformance WHERE cUser = ? AND cKeepMe = 1 AND cDayCounter BETWEEN ? AND ?";
         List<PerformanceDto> list = new ArrayList<>();
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user);
+            stmt.setString(1, user.getUsername());
             stmt.setLong(2, from);
             stmt.setLong(3, to);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -87,7 +160,7 @@ public class AccountingRepository {
         return list;
     }
 
-    public List<PerformanceDto> getPerformanceLastDays(String user, int days) {
+    public List<PerformanceDto> getPerformanceLastDays(User user, int days) {
         // "Performance der letzten 5 Werktage... nicht nur cKeepMe=true"
         // Actually prompt says: "Hole alle tPerformance Einträge der letzten 5 Tage (nicht nur cKeepMe=true)"
         // But how many entries? Every 30 seconds? That's huge. 
@@ -105,7 +178,7 @@ public class AccountingRepository {
         List<PerformanceDto> list = new ArrayList<>();
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user);
+            stmt.setString(1, user.getUsername());
             stmt.setLong(2, from);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -123,11 +196,11 @@ public class AccountingRepository {
         return list;
     }
 
-    public void cleanupPerformance(String user, LocalDateTime threshold) {
+    public void cleanupPerformance(User user, LocalDateTime threshold) {
         String sql = "DELETE FROM tPerformance WHERE cUser = ? AND cDate < ? AND cKeepMe = 0";
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user);
+            stmt.setString(1, user.getUsername());
             stmt.setTimestamp(2, Timestamp.valueOf(threshold));
             stmt.executeUpdate();
             conn.commit();
@@ -138,15 +211,12 @@ public class AccountingRepository {
 
     // --- Portfolio ---
 
-    // Note: Assuming tPortfolio has cUser column or similar to identify owner.
-    // Based on "Hole alle Positionen... für den User", I'll use cUser.
-
-    public void addPortfolioPosition(String user, TransactionDto tx) {
+    public void addPortfolioPosition(User user, TransactionDto tx) {
         String sql = "INSERT INTO tPortfolio (cId, cUser, cIsin, cSymbol, cStockName, cQuantity, cPurchasePrice, cState, cCreatedAt, cPurchaseDate) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())";
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, UUID.randomUUID().toString()); // Generate ID
-            stmt.setString(2, user);
+            stmt.setString(2, user.getUsername());
             stmt.setString(3, tx.getIsin());
             stmt.setString(4, tx.getSymbol());
             stmt.setString(5, tx.getStockName());
@@ -188,7 +258,7 @@ public class AccountingRepository {
         }
     }
 
-    public void createPartialSalePosition(String user, String originalId, int quantity, Double purchasePrice,
+    public void createPartialSalePosition(User user, String originalId, int quantity, Double purchasePrice,
             String isin, String symbol, String stockName) {
         // Create new position for the REMAINING part?
         // Wait, "Bei Teil-Verkauf: Erstelle neuen Eintrag mit verbleibender Menge, setze Original auf cState='closed'"
@@ -225,7 +295,7 @@ public class AccountingRepository {
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, UUID.randomUUID().toString());
-            stmt.setString(2, user);
+            stmt.setString(2, user.getUsername());
             stmt.setString(3, isin);
             stmt.setString(4, symbol);
             stmt.setString(5, stockName);
@@ -261,12 +331,44 @@ public class AccountingRepository {
         }
     }
 
-    public List<TransactionDto> getActivePositions(String user) {
+    public List<TransactionDto> getActivePositions(User user) {
+
+        try {
+            String jsonPrefs = UserPrefsRepo.getPrefs(user, "portfolio");
+            return TransactionDto.fromJson(jsonPrefs);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<>();
+        // String sql = "SELECT cId, cIsin, cSymbol, cStockName, cQuantity, cPurchasePrice FROM tPortfolio WHERE cUser = ? AND cState = 'active'";
+        // List<TransactionDto> list = new ArrayList<>();
+        // try (Connection conn = DBConnection.getStocksConnection();
+        //         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        //     stmt.setString(1, user.getUsername());
+        //     try (ResultSet rs = stmt.executeQuery()) {
+        //         while (rs.next()) {
+        //             TransactionDto dto = new TransactionDto();
+        //             dto.setPositionId(rs.getString("cId"));
+        //             dto.setIsin(rs.getString("cIsin"));
+        //             dto.setSymbol(rs.getString("cSymbol"));
+        //             dto.setStockName(rs.getString("cStockName"));
+        //             dto.setQuantity(rs.getInt("cQuantity"));
+        //             dto.setPrice(rs.getDouble("cPurchasePrice"));
+        //             list.add(dto);
+        //         }
+        //     }
+        // } catch (SQLException e) {
+        //     throw new RuntimeException("Error fetching portfolio", e);
+        // }
+        // return list;
+    }
+
+    public List<TransactionDto> getActivePositionsDB(User user) {
         String sql = "SELECT cId, cIsin, cSymbol, cStockName, cQuantity, cPurchasePrice FROM tPortfolio WHERE cUser = ? AND cState = 'active'";
         List<TransactionDto> list = new ArrayList<>();
         try (Connection conn = DBConnection.getStocksConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user);
+            stmt.setString(1, user.getUsername());
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     TransactionDto dto = new TransactionDto();

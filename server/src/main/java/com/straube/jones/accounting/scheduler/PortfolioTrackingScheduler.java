@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.straube.jones.accounting.dto.BudgetDto;
 import com.straube.jones.accounting.repository.AccountingRepository;
 import com.straube.jones.accounting.service.PortfolioService;
 import com.straube.jones.db.DayCounter;
@@ -27,15 +26,18 @@ public class PortfolioTrackingScheduler {
     private final AccountingRepository accountingRepository;
 
     @Autowired
-    public PortfolioTrackingScheduler(UserRepository userRepository, 
-                                      PortfolioService portfolioService,
-                                      AccountingRepository accountingRepository) {
+    public PortfolioTrackingScheduler(UserRepository userRepository,
+            PortfolioService portfolioService,
+            AccountingRepository accountingRepository) {
         this.userRepository = userRepository;
         this.portfolioService = portfolioService;
         this.accountingRepository = accountingRepository;
     }
 
-    @Scheduled(fixedRate = 30000)
+    // Jeden Tag, Mo-Fr, 7:30-22:00 Uhr, alle 30 Sekunden
+    //@Scheduled(cron = "0/30 30-59 7 * * MON-FRI,0/30 0-59 8-21 * * MON-FRI,0/30 0 22 * * MON-FRI")
+    //@Scheduled(cron = "0 30-59 7 * * MON-FRI,0 * 8-21 * * MON-FRI,0 0 22 * * MON-FRI")
+    @Scheduled(cron = "0 * 9-22 * * *")
     public void trackPortfolios() {
         List<User> users = userRepository.findAll();
         LocalTime now = LocalTime.now();
@@ -44,14 +46,14 @@ public class PortfolioTrackingScheduler {
 
         for (User user : users) {
             try {
-                processUser(user.getUsername(), dayCounter, keepMe);
+                processUser(user, dayCounter, keepMe);
             } catch (Exception e) {
                 logger.error("Error tracking portfolio for user {}", user.getUsername(), e);
             }
         }
     }
 
-    private void processUser(String user, int dayCounter, boolean keepMe) {
+    private void processUser(User user, int dayCounter, boolean keepMe) {
         // "Hole aktuelle Portfolio-Positionen" & "Portfolio-Wert berechnen"
         // PortfolioService already implements fetching active positions and summing value
         double currentPortfolioValue = portfolioService.fetchCurrentPortfolioValue(user);
@@ -59,10 +61,10 @@ public class PortfolioTrackingScheduler {
         // "Budget aktualisieren: double delta = portfolioValue - previousPortfolioValue; newBudget = currentBudget + delta;"
         // We need previous portfolio value.
         // We can get it from latest tPerformance.
-        
+
         double previousPortfolioValue = 0.0;
         double currentBudget = 0.0;
-        
+
         var latestOpt = accountingRepository.getLatestBudget(user);
         if (latestOpt.isPresent()) {
             previousPortfolioValue = latestOpt.get().getPortfolio();
@@ -72,7 +74,7 @@ public class PortfolioTrackingScheduler {
         double delta = currentPortfolioValue - previousPortfolioValue;
         double newBudget = currentBudget + delta;
         double newCash = newBudget - currentPortfolioValue; // Should match previous cash unless budget logic drift?
-        
+
         // Actually: newBudget = (Cash + OldPortfolio) + (NewPortfolio - OldPortfolio) = Cash + NewPortfolio.
         // So Cash remains constant (unrealized gains don't change cash).
         // But we calculated NewBudget from OldBudget + Delta.
@@ -85,27 +87,28 @@ public class PortfolioTrackingScheduler {
         // Correct. Cash is stable.
 
         if (latestOpt.isPresent()) {
-             newCash = latestOpt.get().getCash(); // explicit stability
+            newCash = latestOpt.get().getCash(); // explicit stability
         } else {
-             newCash = 0.0; // or initial logic
+            newCash = 0.0; // or initial logic
         }
 
-        accountingRepository.savePerformance(user, newBudget, currentPortfolioValue, newCash, dayCounter, keepMe, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+        accountingRepository.savePerformance(user, newBudget, currentPortfolioValue, newCash, dayCounter, keepMe,
+                java.sql.Timestamp.valueOf(LocalDateTime.now()));
     }
-    
+
     private boolean isKeepTime(LocalTime now) {
         // 22:00 Uhr (lokale Zeite zone implied by LocalTime.now(), ±5 Minuten Toleranz)
         return now.getHour() == 22 && now.getMinute() <= 5;
     }
 
     // Weekly cleanup: Monday 6:00
-    @Scheduled(cron = "0 0 6 * * MON") 
+    @Scheduled(cron = "0 0 6 * * MON")
     public void cleanupData() {
         List<User> users = userRepository.findAll();
         LocalDateTime threshold = LocalDateTime.now().with(LocalTime.MIDNIGHT); // "Aktueller Montag 00:00 Uhr"
-        
+
         for (User user : users) {
-             accountingRepository.cleanupPerformance(user.getUsername(), threshold);
+            accountingRepository.cleanupPerformance(user, threshold);
         }
     }
 }
