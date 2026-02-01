@@ -38,7 +38,7 @@ public class OnVistaParser
     }
 
 
-    public static List<Object>  parseRow(Element row, List<String> existingIsins)
+    public static List<Object> parseRow(Element row, List<String> existingIsins)
     {
         List<Object> lRow = new ArrayList<>();
         String isin = "unknown";
@@ -86,8 +86,8 @@ public class OnVistaParser
         catch (Exception ignore)
         {
             LOGGER.severe(String.format("Could not parse row with ISIN:%s - %s", isin, ignore.getMessage()));
-            LOGGER.severe(row.toString()); 
-            LOGGER.log(Level.SEVERE, ignore.getMessage(), ignore);           
+            LOGGER.severe(row.toString());
+            LOGGER.log(Level.SEVERE, ignore.getMessage(), ignore);
         }
         return null;
     }
@@ -103,7 +103,9 @@ public class OnVistaParser
             {
                 if ("GBP".equalsIgnoreCase(currency))
                 {
-                    result = CurrencyDB.getAsEuro(currency, stockCount * quote / 100, System.currentTimeMillis());
+                    result = CurrencyDB.getAsEuro(currency,
+                                                  stockCount * quote / 100,
+                                                  System.currentTimeMillis());
                     if (result == 0)
                     {
                         result = CurrencyDB.getAsEuro(currency, fallBack / 100, System.currentTimeMillis());
@@ -218,7 +220,7 @@ class Parser
     public static Long parseEmployees(Element element)
     {
         Element e = element.select("data").first();
-        if(e == null)
+        if (e == null)
         {
             return 0L; // No data available
         }
@@ -229,23 +231,17 @@ class Parser
 
     public static Long parseRisk(Element element)
     {
-        Elements s = element.select("div"); 
-        if (s.size()<4)
+        Elements s = element.select("div");
+        if (s.size() < 4)
         {
             return Long.valueOf(1L); // No data available
         }
         if (s.get(1).hasClass("mini-bar-chart__item--with-indicator"))
-        {
-            return Long.valueOf(0L);
-        }
+        { return Long.valueOf(0L); }
         if (s.get(2).hasClass("mini-bar-chart__item--with-indicator"))
-        {
-            return Long.valueOf(1L);
-        }
+        { return Long.valueOf(1L); }
         if (s.get(3).hasClass("mini-bar-chart__item--with-indicator"))
-        {
-            return Long.valueOf(2L);
-        }
+        { return Long.valueOf(2L); }
         return Long.valueOf(1L);
     }
 
@@ -309,7 +305,7 @@ class Parser
     public static Double parsePerformance(Element element)
     {
         Element e = element.select("data").first();
-        if( e == null)
+        if (e == null)
         {
             return 0.0d; // No data available
         }
@@ -372,7 +368,7 @@ class Parser
 
     public static String parseName(Element element)
     {
-        //Element e = element.select("div > a").first();
+        // Element e = element.select("div > a").first();
         return element.text();
     }
 

@@ -7,8 +7,7 @@ import com.straube.jones.trader.dasboard.TradeStatus;
 import com.straube.jones.trader.filter.*;
 
 /**
- * Vollständig bewerteter Swing-Trading-Kandidat.
- * Dieses Objekt wird direkt vom Dashboard konsumiert.
+ * Vollständig bewerteter Swing-Trading-Kandidat. Dieses Objekt wird direkt vom Dashboard konsumiert.
  */
 public class SwingTradeCandidate
 {
@@ -26,8 +25,7 @@ public class SwingTradeCandidate
     private TradeStatus status;
 
     /**
-     * Begründungen, warum ein Setup gelb oder rot ist.
-     * Wichtig für Transparenz im Dashboard.
+     * Begründungen, warum ein Setup gelb oder rot ist. Wichtig für Transparenz im Dashboard.
      */
     private List<String> notes;
 

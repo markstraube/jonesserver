@@ -9,13 +9,11 @@ public class ROCcalculator
 {
 
     /**
-     * Berechnet den Rate of Change (ROC) Indikator.
-     * Interpretation des ROC
-     * ROC > 0: Preis ist gestiegen (positives Momentum)
-     * ROC < 0: Preis ist gefallen (negatives Momentum)
-     * ROC nahe 0: Kaum Veränderung
-     * Für eine Momentumstrategie typischerweise Aktien mit hohen positiven ROC-Werten (z.B. ROC > 10% oder im oberen Quartil aller betrachteten Aktien).
-     * Typische Perioden: 12 Tage (kurzfristig), 25 Tage (mittelfristig) oder 200 Tage (langfristig) - je nach Ihrer Strategie.
+     * Berechnet den Rate of Change (ROC) Indikator. Interpretation des ROC ROC > 0: Preis ist gestiegen
+     * (positives Momentum) ROC < 0: Preis ist gefallen (negatives Momentum) ROC nahe 0: Kaum Veränderung Für
+     * eine Momentumstrategie typischerweise Aktien mit hohen positiven ROC-Werten (z.B. ROC > 10% oder im
+     * oberen Quartil aller betrachteten Aktien). Typische Perioden: 12 Tage (kurzfristig), 25 Tage
+     * (mittelfristig) oder 200 Tage (langfristig) - je nach Ihrer Strategie.
      * 
      * @param prices Liste der DailyPrices, absteigend sortiert (Index 0 = neuester Preis)
      * @param period Der Zeitraum für den Vergleich (n-Perioden)
@@ -23,7 +21,8 @@ public class ROCcalculator
      */
     public static Double calculateROC(List<DailyPrice> prices, int period)
     {
-        // Wir benötigen mindestens den aktuellen Preis (Index 0) und den Preis vor 'period' Tagen (Index period)
+        // Wir benötigen mindestens den aktuellen Preis (Index 0) und den Preis vor 'period' Tagen (Index
+        // period)
         // Daher muss die Größe der Liste mindestens period + 1 sein.
         if (prices == null || prices.size() < period + 1)
         { return null; }

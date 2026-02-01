@@ -43,7 +43,10 @@ public class StockChartGenerator
      * @param isin ISIN für Titel/Beschriftung
      * @return BufferedImage mit Chart
      */
-    public static BufferedImage generateChart(List<StockDataPoint> dataPoints, int width, int height, String isin)
+    public static BufferedImage generateChart(List<StockDataPoint> dataPoints,
+                                              int width,
+                                              int height,
+                                              String isin)
     {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = image.createGraphics();
@@ -82,28 +85,35 @@ public class StockChartGenerator
         // Finde den ersten gültigen Wert (>0) als Referenz für die Prozentdarstellung
         double referenceValue = 0.0;
         int referenceIndex = -1;
-        for (int i = 0; i < sortedDataPoints.size(); i++) {
-            if (sortedDataPoints.get(i).getPrice() != 0.0) {
+        for (int i = 0; i < sortedDataPoints.size(); i++ )
+        {
+            if (sortedDataPoints.get(i).getPrice() != 0.0)
+            {
                 referenceValue = sortedDataPoints.get(i).getPrice();
                 referenceIndex = i;
                 break;
             }
         }
-        if (referenceValue == 0.0) {
+        if (referenceValue == 0.0)
+        {
             referenceValue = 1.0; // Verhindere Division durch 0, falls alle Werte 0 sind
             referenceIndex = 0;
         }
 
         // Erzeuge eine Liste mit Prozentwerten relativ zum ersten gültigen Wert
         List<Double> percentValues = new ArrayList<>();
-        for (int i = 0; i < sortedDataPoints.size(); i++) {
-            if (i < referenceIndex) {
+        for (int i = 0; i < sortedDataPoints.size(); i++ )
+        {
+            if (i < referenceIndex)
+            {
                 percentValues.add(0.0);
-            } else {
+            }
+            else
+            {
                 percentValues.add(((sortedDataPoints.get(i).getPrice() / referenceValue) - 1.0) * 100.0);
             }
         }
-        //dump2CSV(percentValues);
+        // dump2CSV(percentValues);
 
         // Bestimme Zeitbereich (X-Achse)
         LocalDate minDate = sortedDataPoints.get(0).getDate();
@@ -140,7 +150,12 @@ public class StockChartGenerator
         g2d.setFont(new Font("Arial", Font.PLAIN, 10));
         for (Double tickValue : yTickValues)
         {
-            int y = mapPriceToY(tickValue, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+            int y = mapPriceToY(tickValue,
+                                yAxisMinPrice,
+                                yAxisMaxPriceForScaling,
+                                chartHeight,
+                                margin,
+                                xAxisY);
             if (Math.abs(tickValue) < 1e-8) // 0.0 Linie
             {
                 g2d.setColor(Color.RED);
@@ -176,7 +191,9 @@ public class StockChartGenerator
             g2d.drawString(minDate.format(DATE_FORMATTER), margin, xAxisY + 15);
             if (!minDate.equals(maxDate))
             {
-                g2d.drawString(maxDate.format(DATE_FORMATTER), width - margin - fm.stringWidth(maxDate.format(DATE_FORMATTER)), xAxisY + 15);
+                g2d.drawString(maxDate.format(DATE_FORMATTER),
+                               width - margin - fm.stringWidth(maxDate.format(DATE_FORMATTER)),
+                               xAxisY + 15);
             }
         }
         // Zusätzliche Datums-Ticks und vertikale Linien
@@ -205,7 +222,12 @@ public class StockChartGenerator
         {
             // Einzelpunkt: Rechteck um den Punkt zeichnen
             int x = mapDateToX(sortedDataPoints.get(0).getDate(), minDate, maxDate, chartWidth, margin);
-            int yPercent = mapPriceToY(percentValues.get(0), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+            int yPercent = mapPriceToY(percentValues.get(0),
+                                       yAxisMinPrice,
+                                       yAxisMaxPriceForScaling,
+                                       chartHeight,
+                                       margin,
+                                       xAxisY);
             int yZero = mapPriceToY(0.0, yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
 
             filledArea.addPoint(x - SINGLE_POINT_RECT_WIDTH / 2, yZero);
@@ -224,11 +246,21 @@ public class StockChartGenerator
             for (int i = 0; i < sortedDataPoints.size(); i++ )
             {
                 int x = mapDateToX(sortedDataPoints.get(i).getDate(), minDate, maxDate, chartWidth, margin);
-                int y = mapPriceToY(percentValues.get(i), yAxisMinPrice, yAxisMaxPriceForScaling, chartHeight, margin, xAxisY);
+                int y = mapPriceToY(percentValues.get(i),
+                                    yAxisMinPrice,
+                                    yAxisMaxPriceForScaling,
+                                    chartHeight,
+                                    margin,
+                                    xAxisY);
                 filledArea.addPoint(x, y);
             }
             // Rechts wieder zur 0.0-Linie
-            int xLast = mapDateToX(sortedDataPoints.get(sortedDataPoints.size() - 1).getDate(), minDate, maxDate, chartWidth, margin);
+            int xLast = mapDateToX(sortedDataPoints.get(sortedDataPoints.size() - 1)
+                                                   .getDate(),
+                                   minDate,
+                                   maxDate,
+                                   chartWidth,
+                                   margin);
             filledArea.addPoint(xLast, yZero);
         }
 
@@ -278,7 +310,8 @@ public class StockChartGenerator
         double rawStep = range / Math.max(1, targetNumTicks - 1);
 
         // "Schöne" Schrittweiten
-        double[] niceSteps = {1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000};
+        double[] niceSteps = {1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000,
+                              10000};
         double step = rawStep;
         double magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
 
@@ -380,7 +413,11 @@ public class StockChartGenerator
     /**
      * Berechnet die X-Position für ein Datum.
      */
-    private static int mapDateToX(LocalDate date, LocalDate minDate, LocalDate maxDate, int chartWidth, int margin)
+    private static int mapDateToX(LocalDate date,
+                                  LocalDate minDate,
+                                  LocalDate maxDate,
+                                  int chartWidth,
+                                  int margin)
     {
         if (minDate.equals(maxDate))
         { return margin + chartWidth / 2; }
@@ -395,7 +432,12 @@ public class StockChartGenerator
     /**
      * Berechnet die Y-Position für einen Wert.
      */
-    private static int mapPriceToY(double price, double minPrice, double maxPriceForScaling, int chartHeight, int topMargin, int bottomMarginY)
+    private static int mapPriceToY(double price,
+                                   double minPrice,
+                                   double maxPriceForScaling,
+                                   int chartHeight,
+                                   int topMargin,
+                                   int bottomMarginY)
     {
         if (maxPriceForScaling <= minPrice)
         { return bottomMarginY - chartHeight / 2; }

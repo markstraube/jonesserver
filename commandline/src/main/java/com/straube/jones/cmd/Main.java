@@ -25,7 +25,7 @@ public class Main
         final String command = System.getProperty("command", "onVista");
         final String createModel = System.getProperty("createModel", "false");
         final String dateString = System.getProperty("dateString", "2024-03-31");
-       
+
         switch (command)
         {
         case "onVista":
@@ -37,19 +37,42 @@ public class Main
             File targetFolder = onVista.getJsonFromFinder();
             onVista.updateFinderJsonToOnVistaTable(targetFolder);
 
-            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/1Y");
-            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28, Instant.now().toEpochMilli(), new String[0], 64, 48, webDataRoot + "/1M");
-            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365, Instant.now().toEpochMilli(), new String[0], 400, 300, webDataRoot + "/1Y");
-            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28, Instant.now().toEpochMilli(), new String[0], 400, 300, webDataRoot + "/1M");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365,
+                                               Instant.now().toEpochMilli(),
+                                               new String[0],
+                                               64,
+                                               48,
+                                               webDataRoot + "/1Y");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28,
+                                               Instant.now().toEpochMilli(),
+                                               new String[0],
+                                               64,
+                                               48,
+                                               webDataRoot + "/1M");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 365,
+                                               Instant.now().toEpochMilli(),
+                                               new String[0],
+                                               400,
+                                               300,
+                                               webDataRoot + "/1Y");
+            StocksLoader.generateAndSaveCharts(Instant.now().toEpochMilli() - 1000L * 60 * 60 * 24 * 28,
+                                               Instant.now().toEpochMilli(),
+                                               new String[0],
+                                               400,
+                                               300,
+                                               webDataRoot + "/1M");
 
-            break;      
+            break;
         case "yahoo":
             int daysBack = 5;
             String yahooFolder = dataRoot + "/yahoo/daily";
-            System.out.println("Starting Yahoo Price download to: " + yahooFolder + " for the past " + daysBack + " days.");
+            System.out.println("Starting Yahoo Price download to: " + yahooFolder
+                            + " for the past "
+                            + daysBack
+                            + " days.");
             YahooPriceDownloader.fetchPrices(daysBack, yahooFolder);
             System.out.println("Download finished.");
-             System.out.println("Starting Yahoo Price Import from: " + yahooFolder);
+            System.out.println("Starting Yahoo Price Import from: " + yahooFolder);
             YahooPriceImporter importer = new YahooPriceImporter();
             importer.uploadPriceData(yahooFolder);
             System.out.println("Import finished.");

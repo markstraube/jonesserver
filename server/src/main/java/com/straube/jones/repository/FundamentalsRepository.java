@@ -14,13 +14,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.straube.jones.model.StockFundamentals;
 
 /**
- * Repository für Fundamentaldaten von Aktien.
- * Speichert die Daten als JSON-Dateien, organisiert nach ISIN.
+ * Repository für Fundamentaldaten von Aktien. Speichert die Daten als JSON-Dateien, organisiert nach ISIN.
  */
 public class FundamentalsRepository
 {
-    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
-                                                                      "/opt/tomcat/data");
+    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root", "/opt/tomcat/data");
 
     private static final String FUNDAMENTALS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/fundamentals";
     static
@@ -111,7 +109,7 @@ public class FundamentalsRepository
         StockFundamentals fundamentals = null;
         if (!file.exists())
         {
-                return Optional.empty();
+            return Optional.empty();
         }
         else
         {

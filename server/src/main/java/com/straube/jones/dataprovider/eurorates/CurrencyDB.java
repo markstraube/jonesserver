@@ -41,15 +41,21 @@ public class CurrencyDB
 
     static long OneDayMillis = 24 * 60 * 60 * 1000;
 
-    public static Double getAsEuroOrOriginal(String currency, Double value, long dayCounter, boolean convertToEuro)
+    public static Double getAsEuroOrOriginal(String currency,
+                                             Double value,
+                                             long dayCounter,
+                                             boolean convertToEuro)
     {
         if (!convertToEuro)
-        { return value; }
+        {
+            return value;
+        }
         else
         {
             return getAsEuro(currency, value, dayCounter);
         }
     }
+
 
     public static Double getAsEuro(String currency, Double value, long dayCounter)
     {
@@ -73,7 +79,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currency.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currency.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currency.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }
@@ -87,6 +94,7 @@ public class CurrencyDB
         }
         return value / rate;
     }
+
 
     public static Double convertFromEuro(String currencyTo, Double value, long dayCounter)
     {
@@ -110,7 +118,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currencyTo.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyTo.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currencyTo.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }
@@ -124,6 +133,7 @@ public class CurrencyDB
         }
         return value * rate;
     }
+
 
     public static Double convert(String currencyFrom, String currencyTo, Double value, long dayCounter)
     {
@@ -148,7 +158,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currencyFrom.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyFrom.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currencyFrom.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }
@@ -170,7 +181,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currencyTo.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyTo.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currencyTo.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }

@@ -1,5 +1,6 @@
 package com.straube.jones.trader.indicators;
 
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,14 +9,16 @@ import com.straube.jones.trader.collectors.TradingIndicatorService.Report;
 import com.straube.jones.trader.dto.DailyPrice;
 
 /**
- * Verbesserte RSI-Vorhersage mit direkter Verwendung von DailyPrice-Listen.
- * Analysiert Wahrscheinlichkeit für RSI < 30 und berechnet Kaufpreis-Ziele.
+ * Verbesserte RSI-Vorhersage mit direkter Verwendung von DailyPrice-Listen. Analysiert Wahrscheinlichkeit für
+ * RSI < 30 und berechnet Kaufpreis-Ziele.
  */
 public class RSIPrediction
 {
-    private RSIPrediction() {
+    private RSIPrediction()
+    {
         // Utility-Klasse - keine Instanziierung
     }
+
     /**
      * Historische Daten-Analyse
      */
@@ -29,20 +32,89 @@ public class RSIPrediction
         private int totalDownDays; // Anzahl Verlusttage in letzten 30 Tagen
         private double priceChange30Days; // Preisveränderung über 30 Tage (%)
 
-        public double getAvgDailyVolatility() { return avgDailyVolatility; }
-        public void setAvgDailyVolatility(double avgDailyVolatility) { this.avgDailyVolatility = avgDailyVolatility; }
-        public int getConsecutiveLossDays() { return consecutiveLossDays; }
-        public void setConsecutiveLossDays(int consecutiveLossDays) { this.consecutiveLossDays = consecutiveLossDays; }
-        public double getAvgLossOnDownDays() { return avgLossOnDownDays; }
-        public void setAvgLossOnDownDays(double avgLossOnDownDays) { this.avgLossOnDownDays = avgLossOnDownDays; }
-        public double getMaxDrawdown() { return maxDrawdown; }
-        public void setMaxDrawdown(double maxDrawdown) { this.maxDrawdown = maxDrawdown; }
-        public double getAvgGainOnUpDays() { return avgGainOnUpDays; }
-        public void setAvgGainOnUpDays(double avgGainOnUpDays) { this.avgGainOnUpDays = avgGainOnUpDays; }
-        public int getTotalDownDays() { return totalDownDays; }
-        public void setTotalDownDays(int totalDownDays) { this.totalDownDays = totalDownDays; }
-        public double getPriceChange30Days() { return priceChange30Days; }
-        public void setPriceChange30Days(double priceChange30Days) { this.priceChange30Days = priceChange30Days; }
+        public double getAvgDailyVolatility()
+        {
+            return avgDailyVolatility;
+        }
+
+
+        public void setAvgDailyVolatility(double avgDailyVolatility)
+        {
+            this.avgDailyVolatility = avgDailyVolatility;
+        }
+
+
+        public int getConsecutiveLossDays()
+        {
+            return consecutiveLossDays;
+        }
+
+
+        public void setConsecutiveLossDays(int consecutiveLossDays)
+        {
+            this.consecutiveLossDays = consecutiveLossDays;
+        }
+
+
+        public double getAvgLossOnDownDays()
+        {
+            return avgLossOnDownDays;
+        }
+
+
+        public void setAvgLossOnDownDays(double avgLossOnDownDays)
+        {
+            this.avgLossOnDownDays = avgLossOnDownDays;
+        }
+
+
+        public double getMaxDrawdown()
+        {
+            return maxDrawdown;
+        }
+
+
+        public void setMaxDrawdown(double maxDrawdown)
+        {
+            this.maxDrawdown = maxDrawdown;
+        }
+
+
+        public double getAvgGainOnUpDays()
+        {
+            return avgGainOnUpDays;
+        }
+
+
+        public void setAvgGainOnUpDays(double avgGainOnUpDays)
+        {
+            this.avgGainOnUpDays = avgGainOnUpDays;
+        }
+
+
+        public int getTotalDownDays()
+        {
+            return totalDownDays;
+        }
+
+
+        public void setTotalDownDays(int totalDownDays)
+        {
+            this.totalDownDays = totalDownDays;
+        }
+
+
+        public double getPriceChange30Days()
+        {
+            return priceChange30Days;
+        }
+
+
+        public void setPriceChange30Days(double priceChange30Days)
+        {
+            this.priceChange30Days = priceChange30Days;
+        }
+
 
         @Override
         public String toString()
@@ -73,16 +145,65 @@ public class RSIPrediction
         private int daysToReachRSI30Estimate;
         private HistoricalAnalysis historicalAnalysis;
 
-        public double getProbabilityPercent() { return probabilityPercent; }
-        public void setProbabilityPercent(double probabilityPercent) { this.probabilityPercent = probabilityPercent; }
-        public String getAssessment() { return assessment; }
-        public void setAssessment(String assessment) { this.assessment = assessment; }
-        public List<String> getFactors() { return factors; }
-        public void setFactors(List<String> factors) { this.factors = factors; }
-        public int getDaysToReachRSI30Estimate() { return daysToReachRSI30Estimate; }
-        public void setDaysToReachRSI30Estimate(int daysToReachRSI30Estimate) { this.daysToReachRSI30Estimate = daysToReachRSI30Estimate; }
-        public HistoricalAnalysis getHistoricalAnalysis() { return historicalAnalysis; }
-        public void setHistoricalAnalysis(HistoricalAnalysis historicalAnalysis) { this.historicalAnalysis = historicalAnalysis; }
+        public double getProbabilityPercent()
+        {
+            return probabilityPercent;
+        }
+
+
+        public void setProbabilityPercent(double probabilityPercent)
+        {
+            this.probabilityPercent = probabilityPercent;
+        }
+
+
+        public String getAssessment()
+        {
+            return assessment;
+        }
+
+
+        public void setAssessment(String assessment)
+        {
+            this.assessment = assessment;
+        }
+
+
+        public List<String> getFactors()
+        {
+            return factors;
+        }
+
+
+        public void setFactors(List<String> factors)
+        {
+            this.factors = factors;
+        }
+
+
+        public int getDaysToReachRSI30Estimate()
+        {
+            return daysToReachRSI30Estimate;
+        }
+
+
+        public void setDaysToReachRSI30Estimate(int daysToReachRSI30Estimate)
+        {
+            this.daysToReachRSI30Estimate = daysToReachRSI30Estimate;
+        }
+
+
+        public HistoricalAnalysis getHistoricalAnalysis()
+        {
+            return historicalAnalysis;
+        }
+
+
+        public void setHistoricalAnalysis(HistoricalAnalysis historicalAnalysis)
+        {
+            this.historicalAnalysis = historicalAnalysis;
+        }
+
 
         @Override
         public String toString()
@@ -119,20 +240,89 @@ public class RSIPrediction
         private double requiredDailyDecline;
         private String volatilityAssessment;
 
-        public double getCurrentPrice() { return currentPrice; }
-        public void setCurrentPrice(double currentPrice) { this.currentPrice = currentPrice; }
-        public double getTarget5Days() { return target5Days; }
-        public void setTarget5Days(double target5Days) { this.target5Days = target5Days; }
-        public double getTarget10Days() { return target10Days; }
-        public void setTarget10Days(double target10Days) { this.target10Days = target10Days; }
-        public double getTarget20Days() { return target20Days; }
-        public void setTarget20Days(double target20Days) { this.target20Days = target20Days; }
-        public double getTarget30Days() { return target30Days; }
-        public void setTarget30Days(double target30Days) { this.target30Days = target30Days; }
-        public double getRequiredDailyDecline() { return requiredDailyDecline; }
-        public void setRequiredDailyDecline(double requiredDailyDecline) { this.requiredDailyDecline = requiredDailyDecline; }
-        public String getVolatilityAssessment() { return volatilityAssessment; }
-        public void setVolatilityAssessment(String volatilityAssessment) { this.volatilityAssessment = volatilityAssessment; }
+        public double getCurrentPrice()
+        {
+            return currentPrice;
+        }
+
+
+        public void setCurrentPrice(double currentPrice)
+        {
+            this.currentPrice = currentPrice;
+        }
+
+
+        public double getTarget5Days()
+        {
+            return target5Days;
+        }
+
+
+        public void setTarget5Days(double target5Days)
+        {
+            this.target5Days = target5Days;
+        }
+
+
+        public double getTarget10Days()
+        {
+            return target10Days;
+        }
+
+
+        public void setTarget10Days(double target10Days)
+        {
+            this.target10Days = target10Days;
+        }
+
+
+        public double getTarget20Days()
+        {
+            return target20Days;
+        }
+
+
+        public void setTarget20Days(double target20Days)
+        {
+            this.target20Days = target20Days;
+        }
+
+
+        public double getTarget30Days()
+        {
+            return target30Days;
+        }
+
+
+        public void setTarget30Days(double target30Days)
+        {
+            this.target30Days = target30Days;
+        }
+
+
+        public double getRequiredDailyDecline()
+        {
+            return requiredDailyDecline;
+        }
+
+
+        public void setRequiredDailyDecline(double requiredDailyDecline)
+        {
+            this.requiredDailyDecline = requiredDailyDecline;
+        }
+
+
+        public String getVolatilityAssessment()
+        {
+            return volatilityAssessment;
+        }
+
+
+        public void setVolatilityAssessment(String volatilityAssessment)
+        {
+            this.volatilityAssessment = volatilityAssessment;
+        }
+
 
         @Override
         public String toString()
@@ -162,6 +352,7 @@ public class RSIPrediction
 
     /**
      * Analysiert historische Preisdaten
+     * 
      * @param prices Liste von DailyPrice (Index 0 = neuestes Datum)
      * @return HistoricalAnalysis mit allen Kennzahlen
      */
@@ -330,12 +521,14 @@ public class RSIPrediction
         else if (rsiDistance <= 20)
         {
             rsiFactor = 30;
-            result.getFactors().add(String.format("RSI im mittleren Bereich (aktuell: %.1f)", midTerm.getRsi()));
+            result.getFactors()
+                  .add(String.format("RSI im mittleren Bereich (aktuell: %.1f)", midTerm.getRsi()));
         }
         else
         {
             rsiFactor = 10;
-            result.getFactors().add(String.format("RSI weit von 30 entfernt (aktuell: %.1f)", midTerm.getRsi()));
+            result.getFactors()
+                  .add(String.format("RSI weit von 30 entfernt (aktuell: %.1f)", midTerm.getRsi()));
         }
 
         probability += rsiFactor * 0.35;
@@ -368,7 +561,8 @@ public class RSIPrediction
         probability += macdFactor * 0.20;
 
         // Faktor 3: Bollinger Band Position (15% Gewichtung)
-        double bbPosition = (midTerm.getCurrentPrice() - midTerm.getLowerBB()) / (midTerm.getUpperBB() - midTerm.getLowerBB());
+        double bbPosition = (midTerm.getCurrentPrice() - midTerm.getLowerBB())
+                        / (midTerm.getUpperBB() - midTerm.getLowerBB());
         double bbFactor = 0;
 
         if (bbPosition < 0.0)
@@ -402,20 +596,23 @@ public class RSIPrediction
             if (historical.getAvgDailyVolatility() > 5)
             {
                 volatilityFactor = 70;
-                result.getFactors().add(String.format("Hohe Volatilität (Ø %.1f%% täglich) - schnelle Bewegungen möglich",
-                                                 historical.getAvgDailyVolatility()));
+                result.getFactors()
+                      .add(String.format("Hohe Volatilität (Ø %.1f%% täglich) - schnelle Bewegungen möglich",
+                                         historical.getAvgDailyVolatility()));
             }
             else if (historical.getAvgDailyVolatility() > 3)
             {
                 volatilityFactor = 45;
-                result.getFactors().add(String.format("Moderate Volatilität (Ø %.1f%% täglich)",
-                                                 historical.getAvgDailyVolatility()));
+                result.getFactors()
+                      .add(String.format("Moderate Volatilität (Ø %.1f%% täglich)",
+                                         historical.getAvgDailyVolatility()));
             }
             else
             {
                 volatilityFactor = 20;
-                result.getFactors().add(String.format("Niedrige Volatilität (Ø %.1f%% täglich) - langsame Bewegungen",
-                                                 historical.getAvgDailyVolatility()));
+                result.getFactors()
+                      .add(String.format("Niedrige Volatilität (Ø %.1f%% täglich) - langsame Bewegungen",
+                                         historical.getAvgDailyVolatility()));
             }
 
             probability += volatilityFactor * 0.15;
@@ -426,20 +623,23 @@ public class RSIPrediction
             if (historical.getConsecutiveLossDays() >= 5)
             {
                 lossFactor = 75;
-                result.getFactors().add(String.format("Starke Abwärtsdynamik: %d aufeinanderfolgende Verlusttage",
-                                                 historical.getConsecutiveLossDays()));
+                result.getFactors()
+                      .add(String.format("Starke Abwärtsdynamik: %d aufeinanderfolgende Verlusttage",
+                                         historical.getConsecutiveLossDays()));
             }
             else if (historical.getConsecutiveLossDays() >= 3)
             {
                 lossFactor = 45;
-                result.getFactors().add(String.format("Moderate Abwärtsdynamik: %d aufeinanderfolgende Verlusttage",
-                                                 historical.getConsecutiveLossDays()));
+                result.getFactors()
+                      .add(String.format("Moderate Abwärtsdynamik: %d aufeinanderfolgende Verlusttage",
+                                         historical.getConsecutiveLossDays()));
             }
             else if (historical.getConsecutiveLossDays() >= 1)
             {
                 lossFactor = 20;
-                result.getFactors().add(String.format("Leichte Abwärtsbewegung: %d Verlusttag(e)",
-                                                 historical.getConsecutiveLossDays()));
+                result.getFactors()
+                      .add(String.format("Leichte Abwärtsbewegung: %d Verlusttag(e)",
+                                         historical.getConsecutiveLossDays()));
             }
             else
             {
@@ -455,26 +655,30 @@ public class RSIPrediction
             if (historical.getPriceChange30Days() < -10)
             {
                 trendFactor = 70;
-                result.getFactors().add(String.format("Starker Abwärtstrend: %.1f%% in 30 Tagen",
-                                                 historical.getPriceChange30Days()));
+                result.getFactors()
+                      .add(String.format("Starker Abwärtstrend: %.1f%% in 30 Tagen",
+                                         historical.getPriceChange30Days()));
             }
             else if (historical.getPriceChange30Days() < 0)
             {
                 trendFactor = 40;
-                result.getFactors().add(String.format("Abwärtstrend: %.1f%% in 30 Tagen",
-                                                 historical.getPriceChange30Days()));
+                result.getFactors()
+                      .add(String.format("Abwärtstrend: %.1f%% in 30 Tagen",
+                                         historical.getPriceChange30Days()));
             }
             else if (historical.getPriceChange30Days() < 10)
             {
                 trendFactor = 20;
-                result.getFactors().add(String.format("Leichter Aufwärtstrend: +%.1f%% in 30 Tagen",
-                                                 historical.getPriceChange30Days()));
+                result.getFactors()
+                      .add(String.format("Leichter Aufwärtstrend: +%.1f%% in 30 Tagen",
+                                         historical.getPriceChange30Days()));
             }
             else
             {
                 trendFactor = 5;
-                result.getFactors().add(String.format("Starker Aufwärtstrend: +%.1f%% in 30 Tagen (konträr zu RSI < 30)",
-                                                 historical.getPriceChange30Days()));
+                result.getFactors()
+                      .add(String.format("Starker Aufwärtstrend: +%.1f%% in 30 Tagen (konträr zu RSI < 30)",
+                                         historical.getPriceChange30Days()));
             }
 
             probability += trendFactor * 0.05;
@@ -514,8 +718,8 @@ public class RSIPrediction
 
 
     /**
-     * FUNKTION 2: Berechnet Kaufpreis-Ziele für verschiedene Zeithorizonte
-     * Annahme: RSI fällt nach 30 Tagen unter 30
+     * FUNKTION 2: Berechnet Kaufpreis-Ziele für verschiedene Zeithorizonte Annahme: RSI fällt nach 30 Tagen
+     * unter 30
      * 
      * @param report Trading Report von TradingIndicatorService
      * @param prices Liste von DailyPrice (Index 0 = neuestes Datum)
@@ -605,13 +809,15 @@ public class RSIPrediction
             {
                 // Bereits im Abwärtstrend: weniger zusätzlicher Rückgang nötig
                 baseDeclinePercent *= 0.85;
-                targets.setVolatilityAssessment(targets.getVolatilityAssessment() + " (bereits im Abwärtstrend)");
+                targets.setVolatilityAssessment(targets.getVolatilityAssessment()
+                                + " (bereits im Abwärtstrend)");
             }
             else if (historical.getPriceChange30Days() > 10)
             {
                 // Starker Aufwärtstrend: mehr Rückgang nötig
                 baseDeclinePercent *= 1.15;
-                targets.setVolatilityAssessment(targets.getVolatilityAssessment() + " (gegen starken Aufwärtstrend)");
+                targets.setVolatilityAssessment(targets.getVolatilityAssessment()
+                                + " (gegen starken Aufwärtstrend)");
             }
 
             // Berücksichtige durchschnittlichen Verlust

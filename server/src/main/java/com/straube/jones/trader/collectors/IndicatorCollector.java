@@ -25,8 +25,7 @@ import com.straube.jones.trader.dto.IndicatorDto;
 import com.straube.jones.trader.indicators.IndicatorCalculator;
 
 /**
- * Collector für technische Indikatoren.
- * Berechnet Indikatoren basierend auf historischen Marktdaten.
+ * Collector für technische Indikatoren. Berechnet Indikatoren basierend auf historischen Marktdaten.
  */
 @Service
 public class IndicatorCollector
@@ -81,8 +80,8 @@ public class IndicatorCollector
 
 
     /**
-     * Updates indicators for all symbols from their last known day counter to today.
-     * If no indicators exist for a symbol, starts from the MAX(dayCounter) of price data.
+     * Updates indicators for all symbols from their last known day counter to today. If no indicators exist
+     * for a symbol, starts from the MAX(dayCounter) of price data.
      */
     public void updateIndicators()
     {
@@ -96,40 +95,52 @@ public class IndicatorCollector
         Map<String, Long> maxDayCounterPriceData = marketDataService.getMaxDayCounterPerSymbol();
 
         List<String> symbols = marketDataService.getAllSymbols();
-        
+
         // Partition symbols
         int numThreads = 4;
         List<List<String>> partitions = new ArrayList<>();
-        int chunkSize = (int) Math.ceil((double) symbols.size() / numThreads);
-        
-        for (int i = 0; i < symbols.size(); i += chunkSize) {
+        int chunkSize = (int)Math.ceil((double)symbols.size() / numThreads);
+
+        for (int i = 0; i < symbols.size(); i += chunkSize)
+        {
             int end = Math.min(i + chunkSize, symbols.size());
             partitions.add(symbols.subList(i, end));
         }
 
         ExecutorService executor = Executors.newFixedThreadPool(partitions.size());
-        List<Future<?>> futures = new ArrayList<>();
+        List<Future< ? >> futures = new ArrayList<>();
 
         for (List<String> partition : partitions)
         {
-            futures.add(executor.submit(() -> processBatch(partition, maxDayCounterIndicators, maxDayCounterPriceData, today)));
+            futures.add(executor.submit(() -> processBatch(partition,
+                                                           maxDayCounterIndicators,
+                                                           maxDayCounterPriceData,
+                                                           today)));
         }
 
         // Wait for all threads to finish
-        for (Future<?> f : futures) {
-            try {
+        for (Future< ? > f : futures)
+        {
+            try
+            {
                 f.get();
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 logger.error("Error in indicator update thread", e);
             }
         }
-        
+
         executor.shutdown();
 
         logger.info("Finished scheduled update of indicators.");
     }
 
-    private void processBatch(List<String> symbols, Map<String, Long> maxDayCounterIndicators, Map<String, Long> maxDayCounterPriceData, long today)
+
+    private void processBatch(List<String> symbols,
+                              Map<String, Long> maxDayCounterIndicators,
+                              Map<String, Long> maxDayCounterPriceData,
+                              long today)
     {
         List<IndicatorDto> batchIndicators = new ArrayList<>();
 

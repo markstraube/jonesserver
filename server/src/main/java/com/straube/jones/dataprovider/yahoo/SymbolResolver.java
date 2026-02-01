@@ -32,15 +32,17 @@ public class SymbolResolver
 
 
     /**
-    * checks if the supplied code is a ISIN and resolves it to a Yahoo Finance symbol or return the code itself.
-    * @param code
-    * @return
-    */
+     * checks if the supplied code is a ISIN and resolves it to a Yahoo Finance symbol or return the code
+     * itself.
+     * 
+     * @param code
+     * @return
+     */
     public static String resolveIsin(String code)
     {
         if (code != null && code.length() == "US0378331005".length())
         {
-            //assuming it is a ISIN and lookup the symbol in tStockCodes Table
+            // assuming it is a ISIN and lookup the symbol in tStockCodes Table
             return code;
         }
         String isin = null;
@@ -73,7 +75,9 @@ public class SymbolResolver
 
 
     /**
-     * checks if the supplied code is a ISIN and resolves it to a Yahoo Finance symbol or return the code itself.
+     * checks if the supplied code is a ISIN and resolves it to a Yahoo Finance symbol or return the code
+     * itself.
+     * 
      * @param code
      * @return
      */
@@ -82,7 +86,7 @@ public class SymbolResolver
         String symbol = null;
         if (code != null && code.length() == "US0378331005".length())
         {
-            //assuming it is a ISIN and lookup the symbol in tStockCodes Table
+            // assuming it is a ISIN and lookup the symbol in tStockCodes Table
             String isin = code;
 
             try (Connection conn = DBConnection.getStocksConnection())
@@ -136,7 +140,7 @@ public class SymbolResolver
         }
         else
         {
-            //not a ISIN, return the code itself
+            // not a ISIN, return the code itself
             symbol = code;
         }
         return symbol;
@@ -161,14 +165,14 @@ public class SymbolResolver
                 }
             }
         }
-        //TODO: update symbol in tStockCodes Table
+        // TODO: update symbol in tStockCodes Table
         return symbols;
     }
 
 
     /**
-    * Fragt Yahoo Search API für eine ISIN ab
-    */
+     * Fragt Yahoo Search API für eine ISIN ab
+     */
     private static JSONObject queryYahooSearchISIN(String isin)
         throws IOException
     {

@@ -94,7 +94,7 @@ public class CompanyResolver
             company.setPriceHint(meta.path("priceHint").asInt(0));
             company.setDataGranularity(meta.path("dataGranularity").asText(""));
 
-            // Set timestamps? cCreated/cUpdated are usually DB managed. 
+            // Set timestamps? cCreated/cUpdated are usually DB managed.
             // We'll leave them null or set them to now if needed, but the requirement was "Company Daten"
 
             return company;

@@ -51,6 +51,7 @@ public class YahooFinanceDownloader
 
     /**
      * Lädt historische Kursdaten von Yahoo Finance über die Chart-API (benötigt keine Authentifizierung)
+     * 
      * @param symbol Aktiensymbol (z.B. "MTB")
      * @param startDate Startdatum
      * @param endDate Enddatum
@@ -79,6 +80,7 @@ public class YahooFinanceDownloader
     /**
      * Lädt historische Kursdaten von Yahoo Finance über die Chart-API (benötigt keine Authentifizierung)
      * Standard-Format ist CSV für Rückwärtskompatibilität
+     * 
      * @param symbol Aktiensymbol (z.B. "MTB")
      * @param startDate Startdatum
      * @param endDate Enddatum
@@ -219,8 +221,8 @@ public class YahooFinanceDownloader
 
 
     /**
-     * Konvertiert die JSON-Response von Yahoo Finance zu strukturiertem JSON-Format
-     * mit Meta-Informationen, Spaltennamen und Daten-Records
+     * Konvertiert die JSON-Response von Yahoo Finance zu strukturiertem JSON-Format mit Meta-Informationen,
+     * Spaltennamen und Daten-Records
      */
     private static String convertToStructuredJson(String jsonString)
         throws IOException
@@ -342,6 +344,7 @@ public class YahooFinanceDownloader
 
     /**
      * Lädt historische Kursdaten für alle Aktien aus YahooCodes.json
+     * 
      * @param format Output-Format (CSV oder JSON)
      * @param daysBack Anzahl Tage zurück (z.B. 365 für 1 Jahr)
      * @return true wenn erfolgreich
@@ -478,6 +481,7 @@ public class YahooFinanceDownloader
 
     /**
      * Lädt historische Kursdaten für die übergebenen Codes/Symbole
+     * 
      * @param codes Liste von Yahoo-Symbolen (z.B. "MTB", "AAPL", "BBNI.JK")
      * @param format Output-Format (CSV oder JSON)
      * @param daysBack Anzahl Tage zurück (z.B. 365 für 1 Jahr)
@@ -544,10 +548,10 @@ public class YahooFinanceDownloader
 
 
     /**
-     * Lädt historische Kursdaten aus ./data/yahoo/historic in die Tabelle tYahoo
-     * Die Dateinamen enthalten die ISIN vor dem Underscore (z.B. CZ0005112300_0NZF.L.json)
-     * Die Metadaten enthalten die Währung, die mit CurrencyDB.getAsEuro umgerechnet wird
-     * Alle historischen Daten je ISIN werden in tYahoo eingetragen
+     * Lädt historische Kursdaten aus ./data/yahoo/historic in die Tabelle tYahoo Die Dateinamen enthalten die
+     * ISIN vor dem Underscore (z.B. CZ0005112300_0NZF.L.json) Die Metadaten enthalten die Währung, die mit
+     * CurrencyDB.getAsEuro umgerechnet wird Alle historischen Daten je ISIN werden in tYahoo eingetragen
+     * 
      * @throws SQLException wenn ein Datenbankfehler auftritt
      */
     public void uploadToDB()
@@ -786,6 +790,7 @@ public class YahooFinanceDownloader
 
     /**
      * Berechnet die Anzahl der Tage seit dem 1.1.2000
+     * 
      * @param timestamp Unix-Timestamp in Millisekunden
      * @return Anzahl der Tage seit 1.1.2000, oder Integer.MAX_VALUE bei ungültigem/zu frühem Timestamp
      */
@@ -817,7 +822,8 @@ public class YahooFinanceDownloader
 
     /**
      * Beispiel-Verwendung
-     * @throws SQLException 
+     * 
+     * @throws SQLException
      */
     public static void main(String[] args)
         throws SQLException
@@ -827,9 +833,9 @@ public class YahooFinanceDownloader
 
         // Lade Daten für die letzten 365 Tage im CSV-Format
         boolean success = downloader.fetchHistoricalData(OutputFormat.JSON, 365, true, false);
-        //List<String> codes = List.of("GWO.TO", "LUN.TO", "PPL.TO");
-        //int updatedCount = downloader.updateHistoricalData(codes, OutputFormat.JSON, 365);
+        // List<String> codes = List.of("GWO.TO", "LUN.TO", "PPL.TO");
+        // int updatedCount = downloader.updateHistoricalData(codes, OutputFormat.JSON, 365);
         downloader.uploadToDB();
-        //System.exit(success ? 0 : 1);
+        // System.exit(success ? 0 : 1);
     }
 }

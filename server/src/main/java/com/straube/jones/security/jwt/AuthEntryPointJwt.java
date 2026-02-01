@@ -1,5 +1,6 @@
 package com.straube.jones.security.jwt;
 
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -13,14 +14,23 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AuthEntryPointJwt implements AuthenticationEntryPoint {
+public class AuthEntryPointJwt
+    implements
+    AuthenticationEntryPoint
+{
 
-  private static final Logger logger = LoggerFactory.getLogger(AuthEntryPointJwt.class);
+    private static final Logger logger = LoggerFactory.getLogger(AuthEntryPointJwt.class);
 
-  @Override
-  public void commence(HttpServletRequest request, HttpServletResponse response,
-      AuthenticationException authException) throws IOException, ServletException {
-    logger.error("Unauthorized error: {} - Path: {}", authException.getMessage(), request.getRequestURI());
-    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error: Unauthorized");
-  }
+    @Override
+    public void commence(HttpServletRequest request,
+                         HttpServletResponse response,
+                         AuthenticationException authException)
+        throws IOException,
+        ServletException
+    {
+        logger.error("Unauthorized error: {} - Path: {}",
+                     authException.getMessage(),
+                     request.getRequestURI());
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error: Unauthorized");
+    }
 }

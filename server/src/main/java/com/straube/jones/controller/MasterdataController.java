@@ -81,10 +81,11 @@ public class MasterdataController
         {
             YahooPriceDownloader.fetchPrices(400, symbol, isin);
             YahooPriceImporter.uploadPriceData();
-        
+
             // Calculate and save indicators for the imported prices
             long endDay = DayCounter.now();
-            long startDay = endDay - 400; // Calculate indicators for the last 400 days (matching the download period)
+            long startDay = endDay - 400; // Calculate indicators for the last 400 days (matching the download
+                                          // period)
 
             List<IndicatorDto> indicators = indicatorCollector.collect(symbol, startDay, endDay);
             indicatorService.upsertIndicators(indicators);
@@ -100,27 +101,31 @@ public class MasterdataController
 
     /**
      * Retrieves a list of all companies from the database.
-     * 
-     * <p><b>Use Case:</b> This endpoint is used to get an overview of all companies 
-     * available in the system. It returns a simplified list containing only the 
-     * company name and symbol for efficient data transfer and display purposes.</p>
-     * 
-     * <p><b>Logic:</b></p>
+     * <p>
+     * <b>Use Case:</b> This endpoint is used to get an overview of all companies available in the system. It
+     * returns a simplified list containing only the company name and symbol for efficient data transfer and
+     * display purposes.
+     * </p>
+     * <p>
+     * <b>Logic:</b>
+     * </p>
      * <ul>
-     *   <li>Queries the tCompany table for all companies</li>
-     *   <li>Extracts only the cSymbol and cLongName fields</li>
-     *   <li>Orders results alphabetically by company name (cLongName)</li>
-     *   <li>Returns a list of CompanyListItem objects</li>
+     * <li>Queries the tCompany table for all companies</li>
+     * <li>Extracts only the cSymbol and cLongName fields</li>
+     * <li>Orders results alphabetically by company name (cLongName)</li>
+     * <li>Returns a list of CompanyListItem objects</li>
      * </ul>
-     * 
-     * <p><b>Returns:</b> A list of all companies with their symbols and full names.
-     * Each item contains:</p>
+     * <p>
+     * <b>Returns:</b> A list of all companies with their symbols and full names. Each item contains:
+     * </p>
      * <ul>
-     *   <li><b>cSymbol</b>: The stock ticker symbol (e.g., "AAPL", "MSFT")</li>
-     *   <li><b>cLongName</b>: The full legal company name (e.g., "Apple Inc.", "Microsoft Corporation")</li>
+     * <li><b>cSymbol</b>: The stock ticker symbol (e.g., "AAPL", "MSFT")</li>
+     * <li><b>cLongName</b>: The full legal company name (e.g., "Apple Inc.", "Microsoft Corporation")</li>
      * </ul>
+     * <p>
+     * <b>Example Response:</b>
+     * </p>
      * 
-     * <p><b>Example Response:</b></p>
      * <pre>
      * [
      *   {
@@ -166,41 +171,45 @@ public class MasterdataController
 
     /**
      * Retrieves detailed information for a specific company by its symbol.
-     * 
-     * <p><b>Use Case:</b> This endpoint is used to get complete master data for 
-     * a specific company. It's typically called after selecting a company from the 
-     * list, or when detailed company information is needed for analysis, reporting, 
-     * or display purposes.</p>
-     * 
-     * <p><b>Logic:</b></p>
+     * <p>
+     * <b>Use Case:</b> This endpoint is used to get complete master data for a specific company. It's
+     * typically called after selecting a company from the list, or when detailed company information is
+     * needed for analysis, reporting, or display purposes.
+     * </p>
+     * <p>
+     * <b>Logic:</b>
+     * </p>
      * <ul>
-     *   <li>Queries the tCompany table for the company with the given symbol</li>
-     *   <li>Returns all available fields including trading metadata, exchange information, and timestamps</li>
-     *   <li>Returns null if no company with the given symbol exists</li>
+     * <li>Queries the tCompany table for the company with the given symbol</li>
+     * <li>Returns all available fields including trading metadata, exchange information, and timestamps</li>
+     * <li>Returns null if no company with the given symbol exists</li>
      * </ul>
-     * 
-     * <p><b>Returns:</b> A CompanyResponse object containing complete company information:</p>
+     * <p>
+     * <b>Returns:</b> A CompanyResponse object containing complete company information:
+     * </p>
      * <ul>
-     *   <li><b>cId</b>: Unique identifier (UUID)</li>
-     *   <li><b>cSymbol</b>: Stock ticker symbol</li>
-     *   <li><b>cIsin</b>: International Securities Identification Number</li>
-     *   <li><b>cShortName</b>: Abbreviated company name</li>
-     *   <li><b>cLongName</b>: Full legal company name</li>
-     *   <li><b>cCurrency</b>: Trading currency (e.g., "USD", "EUR")</li>
-     *   <li><b>cInstrumentType</b>: Type of security (e.g., "EQUITY")</li>
-     *   <li><b>cFirstTradeDate</b>: Date of first recorded trade</li>
-     *   <li><b>cExchangeName</b>: Exchange abbreviation (e.g., "NasdaqGS")</li>
-     *   <li><b>cFullExchangeName</b>: Full exchange name</li>
-     *   <li><b>cExchangeTimezoneName</b>: Exchange timezone (e.g., "America/New_York")</li>
-     *   <li><b>cTimezone</b>: Timezone abbreviation (e.g., "EST")</li>
-     *   <li><b>cHasPrePostMarketData</b>: Whether pre/post-market data is available</li>
-     *   <li><b>cPriceHint</b>: Decimal places for price formatting</li>
-     *   <li><b>cDataGranularity</b>: Data resolution (e.g., "1d")</li>
-     *   <li><b>cCreated</b>: Record creation timestamp</li>
-     *   <li><b>cUpdated</b>: Last update timestamp</li>
+     * <li><b>cId</b>: Unique identifier (UUID)</li>
+     * <li><b>cSymbol</b>: Stock ticker symbol</li>
+     * <li><b>cIsin</b>: International Securities Identification Number</li>
+     * <li><b>cShortName</b>: Abbreviated company name</li>
+     * <li><b>cLongName</b>: Full legal company name</li>
+     * <li><b>cCurrency</b>: Trading currency (e.g., "USD", "EUR")</li>
+     * <li><b>cInstrumentType</b>: Type of security (e.g., "EQUITY")</li>
+     * <li><b>cFirstTradeDate</b>: Date of first recorded trade</li>
+     * <li><b>cExchangeName</b>: Exchange abbreviation (e.g., "NasdaqGS")</li>
+     * <li><b>cFullExchangeName</b>: Full exchange name</li>
+     * <li><b>cExchangeTimezoneName</b>: Exchange timezone (e.g., "America/New_York")</li>
+     * <li><b>cTimezone</b>: Timezone abbreviation (e.g., "EST")</li>
+     * <li><b>cHasPrePostMarketData</b>: Whether pre/post-market data is available</li>
+     * <li><b>cPriceHint</b>: Decimal places for price formatting</li>
+     * <li><b>cDataGranularity</b>: Data resolution (e.g., "1d")</li>
+     * <li><b>cCreated</b>: Record creation timestamp</li>
+     * <li><b>cUpdated</b>: Last update timestamp</li>
      * </ul>
+     * <p>
+     * <b>Example Response:</b>
+     * </p>
      * 
-     * <p><b>Example Response:</b></p>
      * <pre>
      * {
      *   "cId": "550e8400-e29b-41d4-a716-446655440000",

@@ -11,10 +11,7 @@ public class SupportDetectionService
 {
 
     /**
-     * Ermittelt das letzte markante Tief als Unterstützung.
-     *
-     * Vereinfachung:
-     * Tiefster Kurs der letzten N Tage.
+     * Ermittelt das letzte markante Tief als Unterstützung. Vereinfachung: Tiefster Kurs der letzten N Tage.
      */
     public double findRecentSupport(List<DailyPrice> prices, int lookbackDays)
     {

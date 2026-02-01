@@ -19,8 +19,8 @@ import com.straube.jones.trader.dto.ADXResult;
 import com.straube.jones.trader.dto.DailyPrice;
 
 /**
- * Indikatoren und Strategien für Momentum/Trend-Aktien
- * Optimiert für bullische Aktien wie RKLB, die lange im "überkauften" Bereich bleiben
+ * Indikatoren und Strategien für Momentum/Trend-Aktien Optimiert für bullische Aktien wie RKLB, die lange im
+ * "überkauften" Bereich bleiben
  */
 @Component
 public class MomentumIndicators
@@ -44,7 +44,7 @@ public class MomentumIndicators
 
         int numThreads = 4;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-        int portionSize = (int) Math.ceil((double) companies.size() / numThreads);
+        int portionSize = (int)Math.ceil((double)companies.size() / numThreads);
 
         for (int i = 0; i < companies.size(); i += portionSize)
         {
@@ -75,7 +75,7 @@ public class MomentumIndicators
         {
             Long maxDay = maxDays.getOrDefault(company.getSymbol(), DayCounter.now());
             long now = DayCounter.now();
-            
+
             if (maxDay > now)
             {
                 continue;
@@ -84,7 +84,7 @@ public class MomentumIndicators
             // Fetch data once per company
             List<DailyPrice> allPrices = marketDataService.getMarketData(company.getSymbol(), now);
 
-            for (long dayCounter = maxDay; dayCounter <= now; dayCounter++)
+            for (long dayCounter = maxDay; dayCounter <= now; dayCounter++ )
             {
                 List<DailyPrice> prices = slicePrices(allPrices, dayCounter);
                 if (prices == null || prices.size() < 65) // wegen RSL 63 Tage
@@ -97,19 +97,13 @@ public class MomentumIndicators
                 Double rsl = RSLcalculator.calculateRSLevy(prices, benchmarkPrices, 63);
 
                 // OBVcalculator.OBVResult obv = OBVcalculator.calculateOBV(prices);
-                // StochasticResult stochastic = StochastikOszillatorCalculator.calculateStochastikOszillator(prices);
+                // StochasticResult stochastic =
+                // StochastikOszillatorCalculator.calculateStochastikOszillator(prices);
 
                 if (adx != null)
                 {
-                    batchArgs.add(new Object[] {
-                        adx.getAdx(),
-                        adx.getPlusDI(),
-                        adx.getMinusDI(),
-                        roc,
-                        rsl,
-                        company.getSymbol(),
-                        dayCounter
-                    });
+                    batchArgs.add(new Object[]{adx.getAdx(), adx.getPlusDI(), adx.getMinusDI(), roc, rsl,
+                                               company.getSymbol(), dayCounter});
                 }
 
                 if (batchArgs.size() >= BATCH_SIZE)
@@ -130,13 +124,11 @@ public class MomentumIndicators
 
     private List<DailyPrice> slicePrices(List<DailyPrice> allPrices, long dayCounter)
     {
-        for (int i = 0; i < allPrices.size(); i++)
+        for (int i = 0; i < allPrices.size(); i++ )
         {
             // Assuming allPrices is ordered by Date DESC
             if (DayCounter.get(allPrices.get(i).getDate()) <= dayCounter)
-            {
-                return allPrices.subList(i, allPrices.size());
-            }
+            { return allPrices.subList(i, allPrices.size()); }
         }
         return null;
     }

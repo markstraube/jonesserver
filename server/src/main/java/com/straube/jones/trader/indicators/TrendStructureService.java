@@ -10,8 +10,7 @@ public class TrendStructureService
 {
 
     /**
-     * Vereinfacht:
-     * Prüft, ob höhere Hochs und höhere Tiefs vorliegen.
+     * Vereinfacht: Prüft, ob höhere Hochs und höhere Tiefs vorliegen.
      */
     public boolean isUptrend(double lastHigh, double previousHigh, double lastLow, double previousLow)
     {

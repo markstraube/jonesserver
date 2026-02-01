@@ -22,18 +22,16 @@ public class StockPointLoader
         TableDataResponse data = new TableDataResponse();
 
         if (isins == null || isins.isEmpty())
-        {
-            return data;
-        }
+        { return data; }
 
         // SQL-Query vorbereiten mit Platzhaltern für ISINs
         StringBuilder queryBuilder = new StringBuilder();
         queryBuilder.append("SELECT cIsin, cLast, cDateLong, cDate FROM tYahoo WHERE cIsin IN (");
-        for (int i = 0; i < isins.size(); i++)
+        for (int i = 0; i < isins.size(); i++ )
         {
             queryBuilder.append("?");
             if (i < isins.size() - 1)
-            {   
+            {
                 queryBuilder.append(",");
             }
         }
@@ -42,13 +40,13 @@ public class StockPointLoader
         Map<String, Double> normalizationValues = (type == 1) ? new HashMap<>() : null;
 
         try (Connection connection = DBConnection.getStocksConnection();
-             PreparedStatement ps = connection.prepareStatement(queryBuilder.toString()))
+                        PreparedStatement ps = connection.prepareStatement(queryBuilder.toString()))
         {
             // Parameter setzen
             int paramIndex = 1;
             for (String isin : isins)
             {
-                ps.setString(paramIndex++, isin);
+                ps.setString(paramIndex++ , isin);
             }
             ps.setLong(paramIndex, start);
 

@@ -8,8 +8,8 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 /**
- * Represents a single price entry from Yahoo Finance.
- * Can be regular market price, pre-market, or after-market.
+ * Represents a single price entry from Yahoo Finance. Can be regular market price, pre-market, or
+ * after-market.
  */
 public class PriceEntry
 {
@@ -160,7 +160,7 @@ public class PriceEntry
     {
         this.referencePrice = referencePrice;
     }
-  
+
 
     public String getTimestamp()
     {

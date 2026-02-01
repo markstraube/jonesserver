@@ -52,6 +52,7 @@ public class UserManagementController
         return permissionRepository.findAll();
     }
 
+
     @Operation(summary = "Get all users", description = "Retrieves a list of all registered users.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "List of users", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = User.class)))),
                            @ApiResponse(responseCode = "403", description = "Access denied (Requires ADMIN role)", content = @Content)})
@@ -116,12 +117,14 @@ public class UserManagementController
             user.setActive(userDetails.isActive());
 
             // Handle permissions update if provided
-            if (userDetails.getPermissions() != null) {
+            if (userDetails.getPermissions() != null)
+            {
                 Set<Permission> newPermissions = new HashSet<>();
-                for (Permission p : userDetails.getPermissions()) {
-                    if (p.getName() != null) {
-                        permissionRepository.findByName(p.getName())
-                            .ifPresent(newPermissions::add);
+                for (Permission p : userDetails.getPermissions())
+                {
+                    if (p.getName() != null)
+                    {
+                        permissionRepository.findByName(p.getName()).ifPresent(newPermissions::add);
                     }
                 }
                 user.setPermissions(newPermissions);
@@ -143,8 +146,10 @@ public class UserManagementController
     Long id)
     {
         return userRepository.findById(id).map(user -> {
-            if (user.getUsername().equalsIgnoreCase("admin") || user.getId() == 1L) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Error: Cannot delete admin user!"));
+            if (user.getUsername().equalsIgnoreCase("admin") || user.getId() == 1L)
+            {
+                return ResponseEntity.badRequest()
+                                     .body(new MessageResponse("Error: Cannot delete admin user!"));
             }
             userRepository.delete(user);
             return ResponseEntity.ok(new MessageResponse("User deleted successfully!"));

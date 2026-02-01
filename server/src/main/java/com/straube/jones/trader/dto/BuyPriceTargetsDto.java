@@ -1,5 +1,6 @@
 package com.straube.jones.trader.dto;
 
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -36,65 +37,78 @@ public class BuyPriceTargetsDto
         return currentPrice;
     }
 
+
     public void setCurrentPrice(double currentPrice)
     {
         this.currentPrice = currentPrice;
     }
+
 
     public double getTarget5Days()
     {
         return target5Days;
     }
 
+
     public void setTarget5Days(double target5Days)
     {
         this.target5Days = target5Days;
     }
+
 
     public double getTarget10Days()
     {
         return target10Days;
     }
 
+
     public void setTarget10Days(double target10Days)
     {
         this.target10Days = target10Days;
     }
+
 
     public double getTarget20Days()
     {
         return target20Days;
     }
 
+
     public void setTarget20Days(double target20Days)
     {
         this.target20Days = target20Days;
     }
+
 
     public double getTarget30Days()
     {
         return target30Days;
     }
 
+
     public void setTarget30Days(double target30Days)
     {
         this.target30Days = target30Days;
     }
+
 
     public double getRequiredDailyDecline()
     {
         return requiredDailyDecline;
     }
 
+
     public void setRequiredDailyDecline(double requiredDailyDecline)
     {
         this.requiredDailyDecline = requiredDailyDecline;
     }
 
+
     public String getVolatilityAssessment()
     {
         return volatilityAssessment;
     }
+
 
     public void setVolatilityAssessment(String volatilityAssessment)
     {

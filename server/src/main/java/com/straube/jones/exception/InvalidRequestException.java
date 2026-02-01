@@ -1,7 +1,12 @@
 package com.straube.jones.exception;
 
-public class InvalidRequestException extends RuntimeException {
-    public InvalidRequestException(String message) {
+
+public class InvalidRequestException
+    extends
+    RuntimeException
+{
+    public InvalidRequestException(String message)
+    {
         super(message);
     }
 }

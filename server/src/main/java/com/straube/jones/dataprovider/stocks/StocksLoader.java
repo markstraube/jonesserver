@@ -39,9 +39,10 @@ public class StocksLoader
             else
             {
                 // Filter by ISINs
-                List<StockItem> filteredList = stockItems.get("stockItems").stream()
-                    .filter(item -> isins.contains(item.getISIN()))
-                    .collect(java.util.stream.Collectors.toList());
+                List<StockItem> filteredList = stockItems.get("stockItems")
+                                                         .stream()
+                                                         .filter(item -> isins.contains(item.getISIN()))
+                                                         .collect(java.util.stream.Collectors.toList());
                 Map<String, List<StockItem>> result = new HashMap<>();
                 result.put("stockItems", filteredList);
                 return result;
@@ -57,13 +58,13 @@ public class StocksLoader
         }
         query += " ORDER BY cName asc";
 
-        try(Connection connection = DBConnection.getStocksConnection())
-        {            
+        try (Connection connection = DBConnection.getStocksConnection())
+        {
             try (PreparedStatement ps = connection.prepareStatement(query))
             {
                 if (isins != null && !isins.isEmpty())
                 {
-                    for (int i = 0; i < isins.size(); i++)
+                    for (int i = 0; i < isins.size(); i++ )
                     {
                         ps.setString(i + 1, isins.get(i));
                     }

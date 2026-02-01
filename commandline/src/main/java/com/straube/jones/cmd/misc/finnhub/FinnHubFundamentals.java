@@ -40,6 +40,7 @@ public class FinnHubFundamentals
 
     /**
      * Lädt Fundamental-Daten für ein Symbol von FinnHub API
+     * 
      * @param symbol Aktiensymbol (z.B. "AAPL")
      * @return JSONObject mit den Daten von FinnHub (Company Profile + Metrics)
      */
@@ -115,7 +116,7 @@ public class FinnHubFundamentals
 
         URL url = new URL(urlString);
         HttpURLConnection conn = null;
-        
+
         try
         {
             conn = (HttpURLConnection)url.openConnection();
@@ -200,6 +201,7 @@ public class FinnHubFundamentals
 
     /**
      * Extrahiert wichtige Fundamental-Kennzahlen aus den FinnHub Daten
+     * 
      * @param fundamentalData JSON-Objekt von downloadFundamentalData() (FinnHub API Response)
      * @return Strukturiertes JSONObject mit den wichtigsten Kennzahlen
      */
@@ -241,9 +243,15 @@ public class FinnHubFundamentals
                 if (profile.has("ipo"))
                     metrics.put("ipoDate", profile.getString("ipo"));
                 if (profile.has("marketCapitalization"))
-                    metrics.put("marketCap", profile.getDouble("marketCapitalization") * 1_000_000); // FinnHub gibt in Millionen
+                    metrics.put("marketCap", profile.getDouble("marketCapitalization") * 1_000_000); // FinnHub
+                                                                                                     // gibt
+                                                                                                     // in
+                                                                                                     // Millionen
                 if (profile.has("shareOutstanding"))
-                    metrics.put("sharesOutstanding", profile.getDouble("shareOutstanding") * 1_000_000); // FinnHub gibt in Millionen
+                    metrics.put("sharesOutstanding", profile.getDouble("shareOutstanding") * 1_000_000); // FinnHub
+                                                                                                         // gibt
+                                                                                                         // in
+                                                                                                         // Millionen
                 if (profile.has("phone"))
                     metrics.put("phone", profile.getString("phone"));
             }
@@ -349,23 +357,15 @@ public class FinnHubFundamentals
 
 
     /**
-     * Lädt Fundamental-Daten für alle Aktien aus StocksCode.json
+     * Lädt Fundamental-Daten für alle Aktien aus StocksCode.json assetProfile - Firmenprofil, Branche,
+     * Mitarbeiter, Website summaryProfile - Zusammenfassung summaryDetail - Marktkapitalisierung, P/E Ratio,
+     * Dividende, Beta financialData - Finanzkennzahlen, Gewinnmargen, ROE, Verschuldung defaultKeyStatistics
+     * - Key Statistics, Shares Outstanding, Float calendarEvents - Dividenden-Termine, Earnings-Termine
+     * recommendationTrend - Analystenbewertungen upgradeDowngradeHistory - Upgrade/Downgrade Historie
+     * earnings - Gewinndaten earningsHistory - Gewinn-Historie earningsTrend - Gewinn-Prognosen
+     * incomeStatementHistory - Gewinn- und Verlustrechnung balanceSheetHistory - Bilanz
+     * cashflowStatementHistory - Cashflow price - Aktueller Preis und Marktdaten
      * 
-     *  assetProfile - Firmenprofil, Branche, Mitarbeiter, Website
-        summaryProfile - Zusammenfassung
-        summaryDetail - Marktkapitalisierung, P/E Ratio, Dividende, Beta
-        financialData - Finanzkennzahlen, Gewinnmargen, ROE, Verschuldung
-        defaultKeyStatistics - Key Statistics, Shares Outstanding, Float
-        calendarEvents - Dividenden-Termine, Earnings-Termine
-        recommendationTrend - Analystenbewertungen
-        upgradeDowngradeHistory - Upgrade/Downgrade Historie
-        earnings - Gewinndaten
-        earningsHistory - Gewinn-Historie
-        earningsTrend - Gewinn-Prognosen
-        incomeStatementHistory - Gewinn- und Verlustrechnung
-        balanceSheetHistory - Bilanz
-        cashflowStatementHistory - Cashflow
-        price - Aktueller Preis und Marktdaten
      * @return true wenn erfolgreich
      */
     public boolean fetchFundamentalData(boolean skipExisting, boolean reportMissing)
@@ -486,8 +486,8 @@ public class FinnHubFundamentals
 
 
     /**
-    * Beispiel-Verwendung
-    */
+     * Beispiel-Verwendung
+     */
     public static void main(String[] args)
     {
         String rootFolder = args.length > 0 ? args[0] : "./data";

@@ -37,9 +37,14 @@ public class YahooPriceDownloader
         throws Exception
     {
         // String sql = "select cIsin, cSymbol from tStockCodes where cIsin in ("
-        //                 + "select distinct(cIsin) from tOnVista where cCountryCode in ('Deutschland','Frankreich','Großbritannien','Israel','Italien','Niederlande','USA')"
-        //                 + " AND cBranch in ('Computer-Hardware','Elektrotechnologie','Halbleiterindustrie','IT-Dienstleistungen','IT-Software (Telekommunikation und Internet)','Internetservice',"
-        //                 + "'Luft- und Raumfahrtindustrie','Netzwerktechnik und -systeme','Softwareservice / -dienstleistung','Sonstige Technologie','Spezialsoftware','Standardsoftware','Telekomdienstleister','Telekommunikationsausrüster'))";
+        // + "select distinct(cIsin) from tOnVista where cCountryCode in
+        // ('Deutschland','Frankreich','Großbritannien','Israel','Italien','Niederlande','USA')"
+        // + " AND cBranch in
+        // ('Computer-Hardware','Elektrotechnologie','Halbleiterindustrie','IT-Dienstleistungen','IT-Software
+        // (Telekommunikation und Internet)','Internetservice',"
+        // + "'Luft- und Raumfahrtindustrie','Netzwerktechnik und -systeme','Softwareservice /
+        // -dienstleistung','Sonstige
+        // Technologie','Spezialsoftware','Standardsoftware','Telekomdienstleister','Telekommunikationsausrüster'))";
 
         String sql = "SELECT cSymbol, cIsin FROM tCompany WHERE cIsin IS NOT NULL AND cSymbol IS NOT NULL";
         try (Connection conn = DBConnection.getStocksConnection();
@@ -63,6 +68,7 @@ public class YahooPriceDownloader
         fetchPrices(daysBack, symbol, isin, DAILY_PRICE_FOLDER);
     }
 
+
     public static void fetchPrices(int daysBack, String symbol, String isin, String targetFolder)
         throws Exception
     {
@@ -72,8 +78,9 @@ public class YahooPriceDownloader
         String rawJson = downloadRawJson(symbol, startDate, endDate);
 
         File dir = new File(targetFolder);
-        if (!dir.exists()) {
-             dir.mkdirs();
+        if (!dir.exists())
+        {
+            dir.mkdirs();
         }
 
         File f = new File(dir, isin + "_" + symbol + ".json");
@@ -82,8 +89,8 @@ public class YahooPriceDownloader
 
 
     /**
-    * Lädt die rohen JSON-Daten von Yahoo Finance
-    */
+     * Lädt die rohen JSON-Daten von Yahoo Finance
+     */
     public static String downloadRawJson(String symbol, LocalDate startDate, LocalDate endDate)
         throws IOException
     {

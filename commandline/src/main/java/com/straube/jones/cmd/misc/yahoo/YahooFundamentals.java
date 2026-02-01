@@ -34,8 +34,9 @@ public class YahooFundamentals
 
 
     /**
-     * Lädt Fundamental-Daten für ein Symbol von Yahoo Finance
-     * Verwendet die gleiche Chart-API wie für historische Daten, die keine Authentifizierung benötigt
+     * Lädt Fundamental-Daten für ein Symbol von Yahoo Finance Verwendet die gleiche Chart-API wie für
+     * historische Daten, die keine Authentifizierung benötigt
+     * 
      * @param symbol Aktiensymbol (z.B. "AAPL")
      * @return JSONObject mit den Daten
      */
@@ -104,6 +105,7 @@ public class YahooFundamentals
 
     /**
      * Extrahiert wichtige Fundamental-Kennzahlen aus den Yahoo Finance Chart-API Daten
+     * 
      * @param chartData JSON-Objekt von downloadFundamentalData() (Chart-API Response)
      * @return Strukturiertes JSONObject mit den wichtigsten Kennzahlen
      */
@@ -115,20 +117,20 @@ public class YahooFundamentals
         {
             JSONObject chart = chartData.getJSONObject("chart");
             JSONArray results = chart.getJSONArray("result");
-            
+
             if (results.length() == 0)
             {
                 LOGGER.log(Level.WARNING, "No results in chart data");
                 return metrics;
             }
-            
+
             JSONObject result = results.getJSONObject(0);
-            
+
             // Die Chart-API gibt Meta-Informationen zurück
             if (result.has("meta"))
             {
                 JSONObject meta = result.getJSONObject("meta");
-                
+
                 // Symbol und Exchange
                 if (meta.has("symbol"))
                 {
@@ -142,7 +144,7 @@ public class YahooFundamentals
                 {
                     metrics.put("currency", meta.getString("currency"));
                 }
-                
+
                 // Preis-Daten
                 if (meta.has("regularMarketPrice"))
                 {
@@ -164,7 +166,7 @@ public class YahooFundamentals
                 {
                     metrics.put("volume", meta.getLong("regularMarketVolume"));
                 }
-                
+
                 // 52-Wochen Bereich
                 if (meta.has("fiftyTwoWeekHigh"))
                 {
@@ -174,7 +176,7 @@ public class YahooFundamentals
                 {
                     metrics.put("fiftyTwoWeekLow", meta.getDouble("fiftyTwoWeekLow"));
                 }
-                
+
                 // Weitere Meta-Informationen
                 if (meta.has("longName"))
                 {
@@ -188,7 +190,7 @@ public class YahooFundamentals
                 {
                     metrics.put("marketCap", meta.getLong("marketCap"));
                 }
-                
+
                 // Zeitzone
                 if (meta.has("timezone"))
                 {
@@ -211,23 +213,15 @@ public class YahooFundamentals
 
 
     /**
-     * Lädt Fundamental-Daten für alle Aktien aus StocksCode.json
+     * Lädt Fundamental-Daten für alle Aktien aus StocksCode.json assetProfile - Firmenprofil, Branche,
+     * Mitarbeiter, Website summaryProfile - Zusammenfassung summaryDetail - Marktkapitalisierung, P/E Ratio,
+     * Dividende, Beta financialData - Finanzkennzahlen, Gewinnmargen, ROE, Verschuldung defaultKeyStatistics
+     * - Key Statistics, Shares Outstanding, Float calendarEvents - Dividenden-Termine, Earnings-Termine
+     * recommendationTrend - Analystenbewertungen upgradeDowngradeHistory - Upgrade/Downgrade Historie
+     * earnings - Gewinndaten earningsHistory - Gewinn-Historie earningsTrend - Gewinn-Prognosen
+     * incomeStatementHistory - Gewinn- und Verlustrechnung balanceSheetHistory - Bilanz
+     * cashflowStatementHistory - Cashflow price - Aktueller Preis und Marktdaten
      * 
-     *  assetProfile - Firmenprofil, Branche, Mitarbeiter, Website
-        summaryProfile - Zusammenfassung
-        summaryDetail - Marktkapitalisierung, P/E Ratio, Dividende, Beta
-        financialData - Finanzkennzahlen, Gewinnmargen, ROE, Verschuldung
-        defaultKeyStatistics - Key Statistics, Shares Outstanding, Float
-        calendarEvents - Dividenden-Termine, Earnings-Termine
-        recommendationTrend - Analystenbewertungen
-        upgradeDowngradeHistory - Upgrade/Downgrade Historie
-        earnings - Gewinndaten
-        earningsHistory - Gewinn-Historie
-        earningsTrend - Gewinn-Prognosen
-        incomeStatementHistory - Gewinn- und Verlustrechnung
-        balanceSheetHistory - Bilanz
-        cashflowStatementHistory - Cashflow
-        price - Aktueller Preis und Marktdaten
      * @return true wenn erfolgreich
      */
     public boolean fetchFundamentalData(boolean skipExisting, boolean reportMissing)
@@ -347,8 +341,8 @@ public class YahooFundamentals
 
 
     /**
-    * Beispiel-Verwendung
-    */
+     * Beispiel-Verwendung
+     */
     public static void main(String[] args)
     {
         String rootFolder = args.length > 0 ? args[0] : "./data";

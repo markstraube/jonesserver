@@ -101,7 +101,9 @@ public class ArivaHistoricData
                 {
                     continue;
                 }
-                String baseURL = String.format("https://www.ariva.de/%s/kurse/historische-kurse?go=1&boerse_id=1&month=%s&currency=EUR&clean_split=1&clean_bezug=1", isin, dateSelector);
+                String baseURL = String.format("https://www.ariva.de/%s/kurse/historische-kurse?go=1&boerse_id=1&month=%s&currency=EUR&clean_split=1&clean_bezug=1",
+                                               isin,
+                                               dateSelector);
                 String response = HttpTools.downloadFromWebToString(baseURL);
                 Document doc = Jsoup.parse(response);
                 Elements elSecu = doc.select("#pageHistoricQuotes > div.column.twothirds > div.abstand.new > table > tbody > tr");
@@ -206,6 +208,9 @@ public class ArivaHistoricData
         }
         // Monate in der Calendar-Klasse sind von 0 (Januar) bis 11 (Dezember)
         calendar.set(year, month - offset, 1);
-        return String.format("%s-%02d-%s", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
+        return String.format("%s-%02d-%s",
+                             calendar.get(Calendar.YEAR),
+                             calendar.get(Calendar.MONTH) + 1,
+                             calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
     }
 }

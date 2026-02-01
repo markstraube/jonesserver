@@ -4,8 +4,7 @@ package com.straube.jones.trader.dto;
 import java.time.LocalDate;
 
 /**
- * Repräsentiert einen Handelstag einer Aktie.
- * Diese Daten kommen direkt von der Börse / Marktdaten-API.
+ * Repräsentiert einen Handelstag einer Aktie. Diese Daten kommen direkt von der Börse / Marktdaten-API.
  */
 public class DailyPrice
 {
@@ -32,9 +31,8 @@ public class DailyPrice
     private String currency;
 
     /**
-     * Adjustierter Schlusskurs.
-     * Berücksichtigt Dividenden, Splits usw.
-     * Wird für Indikatoren und Trendberechnungen verwendet.
+     * Adjustierter Schlusskurs. Berücksichtigt Dividenden, Splits usw. Wird für Indikatoren und
+     * Trendberechnungen verwendet.
      */
     private double adjClose;
 
@@ -42,7 +40,13 @@ public class DailyPrice
     {}
 
 
-    public DailyPrice(double open, double high, double low, double close, double adjClose, long volume, String currency)
+    public DailyPrice(double open,
+                      double high,
+                      double low,
+                      double close,
+                      double adjClose,
+                      long volume,
+                      String currency)
     {
         this.open = open;
         this.high = high;
@@ -137,10 +141,12 @@ public class DailyPrice
         this.adjClose = adjClose;
     }
 
+
     public String getCurrency()
     {
         return currency;
     }
+
 
     public void setCurrency(String currency)
     {

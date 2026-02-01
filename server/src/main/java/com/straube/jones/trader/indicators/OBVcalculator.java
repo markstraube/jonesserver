@@ -30,8 +30,7 @@ public class OBVcalculator
     }
 
     /**
-     * Berechnet On-Balance Volume (OBV)
-     * Kombiniert Preis und Volumen zur Trendbestätigung
+     * Berechnet On-Balance Volume (OBV) Kombiniert Preis und Volumen zur Trendbestätigung
      * 
      * @param prices Liste der Preise (Index 0 = neuestes Datum, absteigend sortiert)
      * @return OBVResult mit OBV-Wert, EMA und Signalinterpretation

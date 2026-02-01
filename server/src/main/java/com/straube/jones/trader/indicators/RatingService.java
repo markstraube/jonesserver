@@ -80,14 +80,16 @@ public class RatingService
         namedParameterJdbcTemplate.update(sql, parameters);
     }
 
+
     public void deleteRatingsForDate(long date, String symbol)
     {
         String sql = "DELETE FROM tRatings WHERE cDayCounter = :date" + " AND cSymbol = :symbol";
         MapSqlParameterSource parameters = new MapSqlParameterSource();
         parameters.addValue("date", date);
-        parameters.addValue("symbol", symbol);  
+        parameters.addValue("symbol", symbol);
         namedParameterJdbcTemplate.update(sql, parameters);
     }
+
 
     public void deleteRatingsForDate(long date)
     {
@@ -116,8 +118,10 @@ public class RatingService
         namedParameterJdbcTemplate.batchUpdate(sql, batch);
     }
 
+
     /**
      * Get the maximum cDayCounter value for each symbol in tRatings table
+     * 
      * @return Map with symbol as key and max cDayCounter as value
      */
     public Map<String, Long> getMaxDayCounterPerSymbol()
@@ -133,7 +137,7 @@ public class RatingService
         Map<String, Long> maxDayMap = new HashMap<>();
         for (Map<String, Object> result : results)
         {
-            maxDayMap.put((String) result.get("symbol"), (Long) result.get("maxDay"));
+            maxDayMap.put((String)result.get("symbol"), (Long)result.get("maxDay"));
         }
         return maxDayMap;
     }

@@ -133,8 +133,6 @@ public class StockItem
     }
 
 
-
-
     /**
      * @return the name
      */
@@ -151,12 +149,6 @@ public class StockItem
     {
         this.name = name;
     }
-
-
-
-
-
-
 
 
     /**

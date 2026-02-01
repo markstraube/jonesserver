@@ -38,15 +38,18 @@ public class DayCounter
         return get(LocalDate.now());
     }
 
+
     public static long yesterday()
     {
         return now() - 1;
     }
 
+
     public static long before(long days)
     {
         return get(LocalDate.now().minusDays(days));
     }
+
 
     public static long lastWorkday()
     {
@@ -58,10 +61,12 @@ public class DayCounter
         return get(date);
     }
 
+
     public static LocalDate toDate(long dayCount)
     {
         return REFERENCE_DATE.plusDays(dayCount);
     }
+
 
     public static long toTimestamp(long dayCount)
     {

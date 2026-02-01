@@ -27,26 +27,89 @@ public class TradingStrategyAnalyzer
         private String overallRecommendation;
         private int confidenceScore; // 0-100
 
-        public String getSymbol() { return symbol; }
-        public void setSymbol(String symbol) { this.symbol = symbol; }
+        public String getSymbol()
+        {
+            return symbol;
+        }
 
-        public long getDate() { return date; }
-        public void setDate(long date) { this.date = date; }
 
-        public double getCurrentPrice() { return currentPrice; }
-        public void setCurrentPrice(double currentPrice) { this.currentPrice = currentPrice; }
+        public void setSymbol(String symbol)
+        {
+            this.symbol = symbol;
+        }
 
-        public SwingTradingScore getSwingTrading() { return swingTrading; }
-        public void setSwingTrading(SwingTradingScore swingTrading) { this.swingTrading = swingTrading; }
 
-        public MomentumScore getMomentum() { return momentum; }
-        public void setMomentum(MomentumScore momentum) { this.momentum = momentum; }
+        public long getDate()
+        {
+            return date;
+        }
 
-        public String getOverallRecommendation() { return overallRecommendation; }
-        public void setOverallRecommendation(String overallRecommendation) { this.overallRecommendation = overallRecommendation; }
 
-        public int getConfidenceScore() { return confidenceScore; }
-        public void setConfidenceScore(int confidenceScore) { this.confidenceScore = confidenceScore; }
+        public void setDate(long date)
+        {
+            this.date = date;
+        }
+
+
+        public double getCurrentPrice()
+        {
+            return currentPrice;
+        }
+
+
+        public void setCurrentPrice(double currentPrice)
+        {
+            this.currentPrice = currentPrice;
+        }
+
+
+        public SwingTradingScore getSwingTrading()
+        {
+            return swingTrading;
+        }
+
+
+        public void setSwingTrading(SwingTradingScore swingTrading)
+        {
+            this.swingTrading = swingTrading;
+        }
+
+
+        public MomentumScore getMomentum()
+        {
+            return momentum;
+        }
+
+
+        public void setMomentum(MomentumScore momentum)
+        {
+            this.momentum = momentum;
+        }
+
+
+        public String getOverallRecommendation()
+        {
+            return overallRecommendation;
+        }
+
+
+        public void setOverallRecommendation(String overallRecommendation)
+        {
+            this.overallRecommendation = overallRecommendation;
+        }
+
+
+        public int getConfidenceScore()
+        {
+            return confidenceScore;
+        }
+
+
+        public void setConfidenceScore(int confidenceScore)
+        {
+            this.confidenceScore = confidenceScore;
+        }
+
 
         @Override
         public String toString()
@@ -76,29 +139,101 @@ public class TradingStrategyAnalyzer
         private String supportResistanceSignal;
         private List<String> reasons = new ArrayList<>();
 
-        public String getSignal() { return signal; }
-        public void setSignal(String signal) { this.signal = signal; }
+        public String getSignal()
+        {
+            return signal;
+        }
 
-        public int getScore() { return score; }
-        public void setScore(int score) { this.score = score; }
 
-        public String getPricePosition() { return pricePosition; }
-        public void setPricePosition(String pricePosition) { this.pricePosition = pricePosition; }
+        public void setSignal(String signal)
+        {
+            this.signal = signal;
+        }
 
-        public String getMacdSignal() { return macdSignal; }
-        public void setMacdSignal(String macdSignal) { this.macdSignal = macdSignal; }
 
-        public String getRsiSignal() { return rsiSignal; }
-        public void setRsiSignal(String rsiSignal) { this.rsiSignal = rsiSignal; }
+        public int getScore()
+        {
+            return score;
+        }
 
-        public String getBollingerSignal() { return bollingerSignal; }
-        public void setBollingerSignal(String bollingerSignal) { this.bollingerSignal = bollingerSignal; }
 
-        public String getSupportResistanceSignal() { return supportResistanceSignal; }
-        public void setSupportResistanceSignal(String supportResistanceSignal) { this.supportResistanceSignal = supportResistanceSignal; }
+        public void setScore(int score)
+        {
+            this.score = score;
+        }
 
-        public List<String> getReasons() { return reasons; }
-        public void setReasons(List<String> reasons) { this.reasons = reasons; }
+
+        public String getPricePosition()
+        {
+            return pricePosition;
+        }
+
+
+        public void setPricePosition(String pricePosition)
+        {
+            this.pricePosition = pricePosition;
+        }
+
+
+        public String getMacdSignal()
+        {
+            return macdSignal;
+        }
+
+
+        public void setMacdSignal(String macdSignal)
+        {
+            this.macdSignal = macdSignal;
+        }
+
+
+        public String getRsiSignal()
+        {
+            return rsiSignal;
+        }
+
+
+        public void setRsiSignal(String rsiSignal)
+        {
+            this.rsiSignal = rsiSignal;
+        }
+
+
+        public String getBollingerSignal()
+        {
+            return bollingerSignal;
+        }
+
+
+        public void setBollingerSignal(String bollingerSignal)
+        {
+            this.bollingerSignal = bollingerSignal;
+        }
+
+
+        public String getSupportResistanceSignal()
+        {
+            return supportResistanceSignal;
+        }
+
+
+        public void setSupportResistanceSignal(String supportResistanceSignal)
+        {
+            this.supportResistanceSignal = supportResistanceSignal;
+        }
+
+
+        public List<String> getReasons()
+        {
+            return reasons;
+        }
+
+
+        public void setReasons(List<String> reasons)
+        {
+            this.reasons = reasons;
+        }
+
 
         @Override
         public String toString()
@@ -133,26 +268,89 @@ public class TradingStrategyAnalyzer
         private String momentumQuality;
         private List<String> reasons = new ArrayList<>();
 
-        public String getSignal() { return signal; }
-        public void setSignal(String signal) { this.signal = signal; }
+        public String getSignal()
+        {
+            return signal;
+        }
 
-        public int getScore() { return score; }
-        public void setScore(int score) { this.score = score; }
 
-        public String getTrendStrength() { return trendStrength; }
-        public void setTrendStrength(String trendStrength) { this.trendStrength = trendStrength; }
+        public void setSignal(String signal)
+        {
+            this.signal = signal;
+        }
 
-        public String getTrendDirection() { return trendDirection; }
-        public void setTrendDirection(String trendDirection) { this.trendDirection = trendDirection; }
 
-        public String getRelativeStrength() { return relativeStrength; }
-        public void setRelativeStrength(String relativeStrength) { this.relativeStrength = relativeStrength; }
+        public int getScore()
+        {
+            return score;
+        }
 
-        public String getMomentumQuality() { return momentumQuality; }
-        public void setMomentumQuality(String momentumQuality) { this.momentumQuality = momentumQuality; }
 
-        public List<String> getReasons() { return reasons; }
-        public void setReasons(List<String> reasons) { this.reasons = reasons; }
+        public void setScore(int score)
+        {
+            this.score = score;
+        }
+
+
+        public String getTrendStrength()
+        {
+            return trendStrength;
+        }
+
+
+        public void setTrendStrength(String trendStrength)
+        {
+            this.trendStrength = trendStrength;
+        }
+
+
+        public String getTrendDirection()
+        {
+            return trendDirection;
+        }
+
+
+        public void setTrendDirection(String trendDirection)
+        {
+            this.trendDirection = trendDirection;
+        }
+
+
+        public String getRelativeStrength()
+        {
+            return relativeStrength;
+        }
+
+
+        public void setRelativeStrength(String relativeStrength)
+        {
+            this.relativeStrength = relativeStrength;
+        }
+
+
+        public String getMomentumQuality()
+        {
+            return momentumQuality;
+        }
+
+
+        public void setMomentumQuality(String momentumQuality)
+        {
+            this.momentumQuality = momentumQuality;
+        }
+
+
+        public List<String> getReasons()
+        {
+            return reasons;
+        }
+
+
+        public void setReasons(List<String> reasons)
+        {
+            this.reasons = reasons;
+        }
+
 
         @Override
         public String toString()
@@ -177,7 +375,7 @@ public class TradingStrategyAnalyzer
      * Hauptanalyse-Methode
      * 
      * @param indicators Liste aller Indikatoren inkl. heute (Index 0 = neuester/heute, absteigend sortiert)
-     *                   Mindestens 5-10 Tage für aussagekräftige Analyse
+     *            Mindestens 5-10 Tage für aussagekräftige Analyse
      * @param currentPrice Aktueller Aktienkurs
      * @return Vollständige Strategie-Analyse
      */
@@ -207,8 +405,7 @@ public class TradingStrategyAnalyzer
 
 
     /**
-     * SWING TRADING ANALYSE
-     * Fokus: Kurzfristige Preisbewegungen, Überkauft/Überverkauft, Mean Reversion
+     * SWING TRADING ANALYSE Fokus: Kurzfristige Preisbewegungen, Überkauft/Überverkauft, Mean Reversion
      * 
      * @param current Aktuelle Indikatoren (heute)
      * @param indicators Alle Indikatoren inkl. heute (Index 0 = neuester)
@@ -245,22 +442,23 @@ public class TradingStrategyAnalyzer
         else
         {
             score.setBollingerSignal(String.format("BEOBACHTEN - Preis bei %.0f%% der BB-Range",
-                                                  bbPosition * 100));
+                                                   bbPosition * 100));
         }
 
         score.setPricePosition(String.format("%.1f%% der Bollinger Band Range (%.2f - %.2f)",
-                                            bbPosition * 100,
-                                            current.getBb15low(),
-                                            current.getBb15high()));
+                                             bbPosition * 100,
+                                             current.getBb15low(),
+                                             current.getBb15high()));
 
         // 2. RSI ANALYSE (25 Punkte)
         if (current.getRsi() < 30)
         {
             score.setRsiSignal(String.format("STARK ÜBERVERKAUFT (RSI: %.1f) - Starkes Kaufsignal",
-                                            current.getRsi()));
+                                             current.getRsi()));
             points += 25;
-            score.getReasons().add(String.format("RSI bei %.1f - deutlich überverkauft, Erholungspotenzial hoch",
-                                            current.getRsi()));
+            score.getReasons()
+                 .add(String.format("RSI bei %.1f - deutlich überverkauft, Erholungspotenzial hoch",
+                                    current.getRsi()));
         }
         else if (current.getRsi() < 40)
         {
@@ -270,10 +468,12 @@ public class TradingStrategyAnalyzer
         }
         else if (current.getRsi() > 70)
         {
-            score.setRsiSignal(String.format("STARK ÜBERKAUFT (RSI: %.1f) - Verkaufssignal", current.getRsi()));
+            score.setRsiSignal(String.format("STARK ÜBERKAUFT (RSI: %.1f) - Verkaufssignal",
+                                             current.getRsi()));
             points -= 20;
-            score.getReasons().add(String.format("RSI bei %.1f - stark überkauft, Korrektur wahrscheinlich",
-                                            current.getRsi()));
+            score.getReasons()
+                 .add(String.format("RSI bei %.1f - stark überkauft, Korrektur wahrscheinlich",
+                                    current.getRsi()));
         }
         else if (current.getRsi() > 60)
         {
@@ -307,7 +507,8 @@ public class TradingStrategyAnalyzer
             {
                 score.setMacdSignal("BULLISH CROSSOVER - Starkes Kaufsignal");
                 points += 20;
-                score.getReasons().add("MACD hat gerade Signal-Linie nach oben gekreuzt - frisches Kaufsignal");
+                score.getReasons()
+                     .add("MACD hat gerade Signal-Linie nach oben gekreuzt - frisches Kaufsignal");
             }
             else if (macdDiff < 0 && prevMACDDiff >= 0)
             {
@@ -318,15 +519,15 @@ public class TradingStrategyAnalyzer
             else if (bullishMACD)
             {
                 score.setMacdSignal(String.format("BULLISH (MACD: %.2f > Signal: %.2f)",
-                                                 current.getMacdValue(),
-                                                 current.getMacdSignal()));
+                                                  current.getMacdValue(),
+                                                  current.getMacdSignal()));
                 points += 10;
             }
             else
             {
                 score.setMacdSignal(String.format("BEARISH (MACD: %.2f < Signal: %.2f)",
-                                                 current.getMacdValue(),
-                                                 current.getMacdSignal()));
+                                                  current.getMacdValue(),
+                                                  current.getMacdSignal()));
                 points -= 5;
             }
         }
@@ -343,24 +544,26 @@ public class TradingStrategyAnalyzer
         if (distanceToSupport < 2) // Nahe Support
         {
             score.setSupportResistanceSignal(String.format("NAH AM SUPPORT (%.2f) - Kaufzone",
-                                                          current.getSupport()));
+                                                           current.getSupport()));
             points += 15;
-            score.getReasons().add(String.format("Preis nur %.1f%% über Support - gutes Risiko/Rendite-Verhältnis",
-                                            distanceToSupport));
+            score.getReasons()
+                 .add(String.format("Preis nur %.1f%% über Support - gutes Risiko/Rendite-Verhältnis",
+                                    distanceToSupport));
         }
         else if (distanceToResistance < 2) // Nahe Resistance
         {
             score.setSupportResistanceSignal(String.format("NAH AM WIDERSTAND (%.2f) - Gewinnmitnahme",
-                                                          current.getResistance()));
+                                                           current.getResistance()));
             points -= 10;
-            score.getReasons().add(String.format("Preis nur %.1f%% unter Resistance - begrenztes Aufwärtspotenzial",
-                                            distanceToResistance));
+            score.getReasons()
+                 .add(String.format("Preis nur %.1f%% unter Resistance - begrenztes Aufwärtspotenzial",
+                                    distanceToResistance));
         }
         else
         {
             score.setSupportResistanceSignal(String.format("Mitte der Range (Support: %.2f, Resistance: %.2f)",
-                                                          current.getSupport(),
-                                                          current.getResistance()));
+                                                           current.getSupport(),
+                                                           current.getResistance()));
             points += 5;
         }
 
@@ -413,8 +616,7 @@ public class TradingStrategyAnalyzer
 
 
     /**
-     * MOMENTUM STRATEGIE ANALYSE
-     * Fokus: Trendfolge, relative Stärke, Fortsetzung starker Bewegungen
+     * MOMENTUM STRATEGIE ANALYSE Fokus: Trendfolge, relative Stärke, Fortsetzung starker Bewegungen
      * 
      * @param current Aktuelle Indikatoren (heute)
      * @param indicators Alle Indikatoren inkl. heute (Index 0 = neuester)
@@ -432,7 +634,8 @@ public class TradingStrategyAnalyzer
         {
             score.setTrendStrength(String.format("SEHR STARK (ADX: %.1f)", current.getAdx()));
             points += 30;
-            score.getReasons().add(String.format("ADX bei %.1f - sehr starker Trend vorhanden", current.getAdx()));
+            score.getReasons()
+                 .add(String.format("ADX bei %.1f - sehr starker Trend vorhanden", current.getAdx()));
         }
         else if (current.getAdx() > 25)
         {
@@ -460,16 +663,16 @@ public class TradingStrategyAnalyzer
             if (diSpread > 10)
             {
                 score.setTrendDirection(String.format("STARK AUFWÄRTS (+DI: %.1f, -DI: %.1f)",
-                                                     current.getAdxPlusDI(),
-                                                     current.getAdxMinusDI()));
+                                                      current.getAdxPlusDI(),
+                                                      current.getAdxMinusDI()));
                 points += 20;
                 score.getReasons().add("Deutliche Dominanz von +DI - starker Aufwärtstrend");
             }
             else
             {
                 score.setTrendDirection(String.format("AUFWÄRTS (+DI: %.1f, -DI: %.1f)",
-                                                     current.getAdxPlusDI(),
-                                                     current.getAdxMinusDI()));
+                                                      current.getAdxPlusDI(),
+                                                      current.getAdxMinusDI()));
                 points += 10;
             }
         }
@@ -479,16 +682,16 @@ public class TradingStrategyAnalyzer
             if (diSpread > 10)
             {
                 score.setTrendDirection(String.format("STARK ABWÄRTS (+DI: %.1f, -DI: %.1f)",
-                                                     current.getAdxPlusDI(),
-                                                     current.getAdxMinusDI()));
+                                                      current.getAdxPlusDI(),
+                                                      current.getAdxMinusDI()));
                 points -= 20;
                 score.getReasons().add("Deutliche Dominanz von -DI - starker Abwärtstrend");
             }
             else
             {
                 score.setTrendDirection(String.format("ABWÄRTS (+DI: %.1f, -DI: %.1f)",
-                                                     current.getAdxPlusDI(),
-                                                     current.getAdxMinusDI()));
+                                                      current.getAdxPlusDI(),
+                                                      current.getAdxMinusDI()));
                 points -= 10;
             }
         }
@@ -497,22 +700,23 @@ public class TradingStrategyAnalyzer
         if (current.getRsl() > 1.10)
         {
             score.setRelativeStrength(String.format("SEHR STARK (RSL: %.3f) - Deutliche Outperformance",
-                                                   current.getRsl()));
+                                                    current.getRsl()));
             points += 25;
-            score.getReasons().add(String.format("RSL bei %.3f - Aktie übertrifft Benchmark um >10%%",
-                                            current.getRsl()));
+            score.getReasons()
+                 .add(String.format("RSL bei %.3f - Aktie übertrifft Benchmark um >10%%", current.getRsl()));
         }
         else if (current.getRsl() > 1.05)
         {
             score.setRelativeStrength(String.format("STARK (RSL: %.3f) - Outperformance", current.getRsl()));
             points += 15;
-            score.getReasons().add(String.format("RSL bei %.3f - Aktie übertrifft Benchmark um ~5-10%%",
-                                            current.getRsl()));
+            score.getReasons()
+                 .add(String.format("RSL bei %.3f - Aktie übertrifft Benchmark um ~5-10%%",
+                                    current.getRsl()));
         }
         else if (current.getRsl() > 1.00)
         {
             score.setRelativeStrength(String.format("POSITIV (RSL: %.3f) - Leichte Outperformance",
-                                                   current.getRsl()));
+                                                    current.getRsl()));
             points += 5;
             score.getReasons().add("RSL über 1.0 - leichte Outperformance gegenüber Benchmark");
         }
@@ -523,22 +727,26 @@ public class TradingStrategyAnalyzer
         }
         else
         {
-            score.setRelativeStrength(String.format("SCHWACH (RSL: %.3f) - Underperformance", current.getRsl()));
+            score.setRelativeStrength(String.format("SCHWACH (RSL: %.3f) - Underperformance",
+                                                    current.getRsl()));
             points -= 15;
-            score.getReasons().add(String.format("RSL bei %.3f - Aktie hinkt Benchmark hinterher", current.getRsl()));
+            score.getReasons()
+                 .add(String.format("RSL bei %.3f - Aktie hinkt Benchmark hinterher", current.getRsl()));
         }
 
         // 4. RATE OF CHANGE (15 Punkte)
         if (current.getRoc() > 15)
         {
             points += 15;
-            score.getReasons().add(String.format("ROC bei %.1f%% - sehr starkes kurzfristiges Momentum",
-                                            current.getRoc()));
+            score.getReasons()
+                 .add(String.format("ROC bei %.1f%% - sehr starkes kurzfristiges Momentum",
+                                    current.getRoc()));
         }
         else if (current.getRoc() > 10)
         {
             points += 10;
-            score.getReasons().add(String.format("ROC bei %.1f%% - starkes kurzfristiges Momentum", current.getRoc()));
+            score.getReasons()
+                 .add(String.format("ROC bei %.1f%% - starkes kurzfristiges Momentum", current.getRoc()));
         }
         else if (current.getRoc() > 5)
         {
@@ -548,7 +756,8 @@ public class TradingStrategyAnalyzer
         else if (current.getRoc() < -10)
         {
             points -= 15;
-            score.getReasons().add(String.format("ROC bei %.1f%% - stark negatives Momentum", current.getRoc()));
+            score.getReasons()
+                 .add(String.format("ROC bei %.1f%% - stark negatives Momentum", current.getRoc()));
         }
         else if (current.getRoc() < -5)
         {

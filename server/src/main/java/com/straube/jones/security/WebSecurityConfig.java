@@ -1,5 +1,6 @@
 package com.straube.jones.security;
 
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,43 +31,54 @@ import com.straube.jones.security.services.UserDetailsServiceImpl;
 
 @Configuration
 @EnableMethodSecurity
-public class WebSecurityConfig {
-  @Autowired
-  UserDetailsServiceImpl userDetailsService;
+public class WebSecurityConfig
+{
+    @Autowired
+    UserDetailsServiceImpl userDetailsService;
 
-  @Autowired
-  AuthEntryPointJwt unauthorizedHandler;
-  
-  @Value("${cors.allowed-origins:http://localhost:4200}")
-  private String allowedOrigins;
+    @Autowired
+    AuthEntryPointJwt unauthorizedHandler;
 
-  @Bean
-  public AuthTokenFilter authenticationJwtTokenFilter() {
-    return new AuthTokenFilter();
-  }
-
-  @Bean
-  public DaoAuthenticationProvider authenticationProvider() {
-      DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-       
-      authProvider.setUserDetailsService(userDetailsService);
-      authProvider.setPasswordEncoder(passwordEncoder());
-   
-      return authProvider;
-  }
-
-  @Bean
-  public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-    return authConfig.getAuthenticationManager();
-  }
-
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
+    @Value("${cors.allowed-origins:http://localhost:4200}")
+    private String allowedOrigins;
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    public AuthTokenFilter authenticationJwtTokenFilter()
+    {
+        return new AuthTokenFilter();
+    }
+
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider()
+    {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+
+        return authProvider;
+    }
+
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig)
+        throws Exception
+    {
+        return authConfig.getAuthenticationManager();
+    }
+
+
+    @Bean
+    public PasswordEncoder passwordEncoder()
+    {
+        return new BCryptPasswordEncoder();
+    }
+
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource()
+    {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
@@ -77,27 +89,46 @@ public class WebSecurityConfig {
         return source;
     }
 
-  @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http.csrf(csrf -> csrf.disable())
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> 
-          auth.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
-              .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-              .requestMatchers("/api/auth/change-password").authenticated()
-              .requestMatchers("/api/test/**").permitAll()
-              .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
-              .requestMatchers("/", "/index.html", "/assets/**", "/*.js", "/*.css", "/favicon.ico", "/error").permitAll()
-              // Allow some open endpoints if necessary, otherwise require auth
-              .anyRequest().authenticated()
-        );
 
-    http.authenticationProvider(authenticationProvider());
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http)
+        throws Exception
+    {
+        http.csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ASYNC)
+                                               .permitAll()
+                                               .requestMatchers("/api/auth/login", "/api/auth/register")
+                                               .permitAll()
+                                               .requestMatchers("/api/auth/change-password")
+                                               .authenticated()
+                                               .requestMatchers("/api/test/**")
+                                               .permitAll()
+                                               .requestMatchers("/swagger-ui/**",
+                                                                "/swagger-ui.html",
+                                                                "/v3/api-docs/**",
+                                                                "/swagger-resources/**",
+                                                                "/webjars/**")
+                                               .permitAll()
+                                               .requestMatchers("/",
+                                                                "/index.html",
+                                                                "/assets/**",
+                                                                "/*.js",
+                                                                "/*.css",
+                                                                "/favicon.ico",
+                                                                "/error")
+                                               .permitAll()
+                                               // Allow some open endpoints if necessary, otherwise require
+                                               // auth
+                                               .anyRequest()
+                                               .authenticated());
 
-    http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.authenticationProvider(authenticationProvider());
 
-    return http.build();
-  }
+        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
 }

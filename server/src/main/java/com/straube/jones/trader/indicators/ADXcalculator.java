@@ -10,12 +10,9 @@ import com.straube.jones.trader.dto.DailyPrice;
 public class ADXcalculator
 {
     /**
-     * Berechnet den Average Directional Index (ADX) Indikator.
-     * Interpretation: Der ADX-Wert wird automatisch interpretiert:
-     *  < 20: Schwacher/kein Trend
-     *  20-25: Beginnender Trend
-     *  25-50: Starker Trend
-     *  50: Sehr starker Trend
+     * Berechnet den Average Directional Index (ADX) Indikator. Interpretation: Der ADX-Wert wird automatisch
+     * interpretiert: < 20: Schwacher/kein Trend 20-25: Beginnender Trend 25-50: Starker Trend 50: Sehr
+     * starker Trend
      * 
      * @param prices Liste der DailyPrices, absteigend sortiert (Index 0 = neuester Preis)
      * @param period Der Zeitraum für die ADX-Berechnung (typischerweise 14)

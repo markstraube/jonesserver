@@ -33,11 +33,10 @@ public class MarketDataService
     public boolean isMarketPriceDataRecent(String symbol)
     {
         long lastWorkday = DayCounter.lastWorkday();
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM tPriceData WHERE cSymbol = ? AND cDayCounter = ?",
-                Integer.class,
-                symbol,
-                lastWorkday);
+        Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM tPriceData WHERE cSymbol = ? AND cDayCounter = ?",
+                                                    Integer.class,
+                                                    symbol,
+                                                    lastWorkday);
         return count != null && count > 0;
     }
 
@@ -84,6 +83,7 @@ public class MarketDataService
 
     /**
      * Get the maximum cDayCounter value for each symbol in tPriceData table
+     * 
      * @return Map with symbol as key and max cDayCounter as value
      */
     public Map<String, Long> getMaxDayCounterPerSymbol()
@@ -101,9 +101,10 @@ public class MarketDataService
 
 
     /**
-    * Get the maximum cDayCounter value for each symbol in tPriceData table
-    * @return Map with symbol as key and max cDayCounter as value
-    */
+     * Get the maximum cDayCounter value for each symbol in tPriceData table
+     * 
+     * @return Map with symbol as key and max cDayCounter as value
+     */
     public Map<String, Long> getMaxDayCounterPerSymbolFromIndicators()
     {
         String sql = "SELECT cSymbol, MIN(cDayCounter) as maxDay FROM tIndicators where cRSL is NULL GROUP BY cSymbol";

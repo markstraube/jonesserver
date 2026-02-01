@@ -18,8 +18,7 @@ import com.straube.jones.model.StockFundamentals;
 import com.straube.jones.repository.FundamentalsRepository;
 
 /**
- * Service-Schicht für Fundamentaldaten von Aktien.
- * Enthält Geschäftslogik und Validierung.
+ * Service-Schicht für Fundamentaldaten von Aktien. Enthält Geschäftslogik und Validierung.
  */
 public class FundamentalsService
 {
@@ -69,8 +68,8 @@ public class FundamentalsService
 
 
     /**
-     * Erzeugt oder aktualisiert existierende Fundamentaldaten für eine Aktie.
-     * Führt ein Merge durch: Nur nicht-leere Felder aus fundamentals überschreiben existierende Werte.
+     * Erzeugt oder aktualisiert existierende Fundamentaldaten für eine Aktie. Führt ein Merge durch: Nur
+     * nicht-leere Felder aus fundamentals überschreiben existierende Werte.
      * 
      * @param fundamentals Die zu mergenden Fundamentaldaten
      * @return Die aktualisierten Fundamentaldaten nach dem Merge
@@ -176,8 +175,8 @@ public class FundamentalsService
 
 
     /**
-     * Merged neue Fundamentaldaten mit existierenden Daten.
-     * Nur nicht-null und nicht-leere Felder aus newData überschreiben existing.
+     * Merged neue Fundamentaldaten mit existierenden Daten. Nur nicht-null und nicht-leere Felder aus newData
+     * überschreiben existing.
      * 
      * @param existing Die existierenden Daten
      * @param newData Die neuen Daten

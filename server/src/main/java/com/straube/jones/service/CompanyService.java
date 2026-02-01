@@ -48,12 +48,16 @@ public class CompanyService
         }
     }
 
-    public java.util.List<String> getAllSymbols() {
+
+    public java.util.List<String> getAllSymbols()
+    {
         String sql = "SELECT cSymbol FROM tCompany ORDER BY cSymbol";
         return jdbcTemplate.queryForList(sql, String.class);
     }
 
-    public java.util.List<Company> getAllCompanies() {
+
+    public java.util.List<Company> getAllCompanies()
+    {
         String sql = "SELECT * FROM tCompany ORDER BY cSymbol";
         return jdbcTemplate.query(sql, new CompanyRowMapper());
     }

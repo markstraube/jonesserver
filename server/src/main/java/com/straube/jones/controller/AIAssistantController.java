@@ -1,5 +1,6 @@
 package com.straube.jones.controller;
 
+
 import java.security.Principal;
 import java.util.List;
 
@@ -34,45 +35,58 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api/assistant")
 @PreAuthorize("isAuthenticated()")
 @Tag(name = "AI Assistant", description = "Endpoints for AI-powered financial analysis and explanations")
-public class AIAssistantController {
+public class AIAssistantController
+{
 
     private final AIAssistantService aiAssistantService;
 
-    public AIAssistantController(AIAssistantService aiAssistantService) {
+    public AIAssistantController(AIAssistantService aiAssistantService)
+    {
         this.aiAssistantService = aiAssistantService;
     }
 
+
     @Operation(summary = "Explain a financial topic", description = "Streams an explanation for a given question using an AI agent.")
     @PostMapping(value = "/explain", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<AIResponseChunk> explain(@Valid @RequestBody ExplainRequest request, Principal principal) {
+    public Flux<AIResponseChunk> explain(@Valid
+    @RequestBody
+    ExplainRequest request, Principal principal)
+    {
         return aiAssistantService.explain(request, principal.getName());
     }
 
+
     @Operation(summary = "Analyze financial data", description = "Streams an analysis based on provided data and question.")
     @PostMapping(value = "/analyze", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<AIResponseChunk> analyze(@Valid @RequestBody AnalyzeRequest request, Principal principal) {
+    public Flux<AIResponseChunk> analyze(@Valid
+    @RequestBody
+    AnalyzeRequest request, Principal principal)
+    {
         return aiAssistantService.analyze(request, principal.getName());
     }
 
+
     @Operation(summary = "Get Chat Session", description = "Retrieves the full chat session history and context for a specific session ID.")
-    @ApiResponse(responseCode = "200", description = "The chat session context", 
-        content = @Content(mediaType = "application/json", schema = @Schema(implementation = AIContext.class)))
+    @ApiResponse(responseCode = "200", description = "The chat session context", content = @Content(mediaType = "application/json", schema = @Schema(implementation = AIContext.class)))
     @GetMapping("/session")
-    public Mono<AIContext> getSession(
-            @Parameter(description = "The type of chat session (e.g., 'explain', 'analyze')", required = true, example = "explain") 
-            @RequestParam String chat, 
-            @Parameter(description = "The unique session ID", required = true) 
-            @RequestParam String sessionId, 
-            Principal principal) {
+    public Mono<AIContext> getSession(@Parameter(description = "The type of chat session (e.g., 'explain', 'analyze')", required = true, example = "explain")
+    @RequestParam
+    String chat,
+                                      @Parameter(description = "The unique session ID", required = true)
+                                      @RequestParam
+                                      String sessionId,
+                                      Principal principal)
+    {
         return aiAssistantService.getSession(chat, sessionId, principal.getName());
     }
 
+
     @Operation(summary = "Get Chat History", description = "Retrieves a summary list of past chat sessions for a specific type.")
     @GetMapping("/history")
-    public List<ChatSessionSummary> getHistory(
-            @Parameter(description = "The type of chat session (e.g., 'explain')", required = true) 
-            @RequestParam String chat, 
-            Principal principal) {
+    public List<ChatSessionSummary> getHistory(@Parameter(description = "The type of chat session (e.g., 'explain')", required = true)
+    @RequestParam
+    String chat, Principal principal)
+    {
         return aiAssistantService.getHistory(chat, principal.getName());
     }
 }

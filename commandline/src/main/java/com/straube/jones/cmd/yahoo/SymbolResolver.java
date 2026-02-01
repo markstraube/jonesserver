@@ -55,8 +55,8 @@ public class SymbolResolver
 
 
     /**
-    * Fragt Yahoo Search API für eine ISIN ab
-    */
+     * Fragt Yahoo Search API für eine ISIN ab
+     */
     private static JSONObject queryYahooSearchISIN(String isin)
         throws IOException
     {
@@ -110,14 +110,14 @@ public class SymbolResolver
         }
     }
 
+
     public static void updateOnVista()
     {
         LOGGER.info("Starting update of tOnVista symbols...");
         try (Connection conn = DBConnection.getStocksConnection())
         {
             String query = "SELECT cIsin FROM tOnVista WHERE cSymbol IS NULL OR cSymbol = ''";
-            try (PreparedStatement stmt = conn.prepareStatement(query);
-                 ResultSet rs = stmt.executeQuery())
+            try (PreparedStatement stmt = conn.prepareStatement(query); ResultSet rs = stmt.executeQuery())
             {
                 int count = 0;
                 while (rs.next())
@@ -130,12 +130,12 @@ public class SymbolResolver
                         {
                             String symbol = symbols.get(0);
                             updateSymbol(conn, isin, symbol);
-                            count++;
+                            count++ ;
                             LOGGER.info("Updated " + isin + " -> " + symbol);
                         }
                         else
                         {
-                             LOGGER.info("No symbol found for " + isin);
+                            LOGGER.info("No symbol found for " + isin);
                         }
                     }
                     catch (IOException e)
@@ -153,7 +153,9 @@ public class SymbolResolver
         }
     }
 
-    private static void updateSymbol(Connection conn, String isin, String symbol) throws SQLException
+
+    private static void updateSymbol(Connection conn, String isin, String symbol)
+        throws SQLException
     {
         String update = "UPDATE tOnVista SET cSymbol = ? WHERE cIsin = ?";
         try (PreparedStatement stmt = conn.prepareStatement(update))
@@ -164,8 +166,9 @@ public class SymbolResolver
         }
     }
 
+
     public static void main(String[] args)
     {
         updateOnVista();
-    }   
+    }
 }

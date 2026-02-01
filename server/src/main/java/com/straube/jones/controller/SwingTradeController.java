@@ -273,7 +273,8 @@ public class SwingTradeController
         long endDayCounter = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
 
         // 2. Erstelle technischen Report für den Analysezeitpunkt
-        // Hinweis: Der Report benötigt mindestens 60 Handelstage an Daten für zuverlässige Indikator-Berechnungen
+        // Hinweis: Der Report benötigt mindestens 60 Handelstage an Daten für zuverlässige
+        // Indikator-Berechnungen
         TradingIndicatorService.Report report = indicatorService.getReport(symbol, endDayCounter);
 
         if (report == null)

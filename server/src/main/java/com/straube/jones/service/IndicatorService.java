@@ -18,8 +18,8 @@ import com.straube.jones.db.DayCounter;
 import com.straube.jones.trader.dto.IndicatorDto;
 
 /**
- * Service-Klasse für den Zugriff auf technische Indikatoren aus der tIndicators-Tabelle.
- * Bietet Methoden zum Abrufen historischer Indikator-Daten für verschiedene Aktien und Zeiträume.
+ * Service-Klasse für den Zugriff auf technische Indikatoren aus der tIndicators-Tabelle. Bietet Methoden zum
+ * Abrufen historischer Indikator-Daten für verschiedene Aktien und Zeiträume.
  */
 @Service
 public class IndicatorService
@@ -37,9 +37,8 @@ public class IndicatorService
     {
         long lastWorkday = DayCounter.lastWorkday();
         String sql = "SELECT count(*) FROM tIndicators WHERE cSymbol = :symbol AND cDayCounter = :dayCounter";
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("symbol", symbol)
-                .addValue("dayCounter", lastWorkday);
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("symbol", symbol)
+                                                                  .addValue("dayCounter", lastWorkday);
 
         Integer count = namedParameterJdbcTemplate.queryForObject(sql, params, Integer.class);
         return count != null && count > 0;
@@ -69,8 +68,7 @@ public class IndicatorService
         long startDay = (startTime != null) ? DayCounter.get(startTime) : 0; // 0 ist 1.1.2000
         long endDay = (endTime != null) ? DayCounter.get(endTime) : DayCounter.now();
 
-        String sql = "SELECT cSymbol, cDateLong, cDayCounter, cCurrency," 
-                        + "cBB15low, cBB15mid, cBB15high, "
+        String sql = "SELECT cSymbol, cDateLong, cDayCounter, cCurrency," + "cBB15low, cBB15mid, cBB15high, "
                         + "cRSI, cVolume, "
                         + "cMACDvalue, cMACDsignal, "
                         + "cSMA5, cSMA10, cSMA20, cSMA30, "
@@ -135,7 +133,6 @@ public class IndicatorService
             dto.setMacdSignal(rs.getDouble("cMACDsignal"));
             if (rs.wasNull())
                 dto.setMacdSignal(null);
-
 
             // Simple Moving Averages
             dto.setSma5(CurrencyDB.getAsEuroOrOriginal(currency,
@@ -213,19 +210,24 @@ public class IndicatorService
 
             // New fields: RSL, ROC, ADX
             dto.setRsl(rs.getDouble("cRSL"));
-            if (rs.wasNull()) dto.setRsl(null);
+            if (rs.wasNull())
+                dto.setRsl(null);
 
             dto.setRoc(rs.getDouble("cROC"));
-            if (rs.wasNull()) dto.setRoc(null);
+            if (rs.wasNull())
+                dto.setRoc(null);
 
             dto.setAdx(rs.getDouble("cADX"));
-            if (rs.wasNull()) dto.setAdx(null);
+            if (rs.wasNull())
+                dto.setAdx(null);
 
             dto.setAdxPlusDI(rs.getDouble("cADXplusDI"));
-            if (rs.wasNull()) dto.setAdxPlusDI(null);
-            
+            if (rs.wasNull())
+                dto.setAdxPlusDI(null);
+
             dto.setAdxMinusDI(rs.getDouble("cADXminusDI"));
-            if (rs.wasNull()) dto.setAdxMinusDI(null);
+            if (rs.wasNull())
+                dto.setAdxMinusDI(null);
 
             return dto;
         });
@@ -233,8 +235,8 @@ public class IndicatorService
 
 
     /**
-     * Speichert oder aktualisiert eine Liste von Indikatoren in der Datenbank.
-     * Verwendet Batch-Update für bessere Performance.
+     * Speichert oder aktualisiert eine Liste von Indikatoren in der Datenbank. Verwendet Batch-Update für
+     * bessere Performance.
      * 
      * @param indicators Liste der zu speichernden Indikatoren
      */
@@ -316,6 +318,7 @@ public class IndicatorService
 
     /**
      * Get the maximum cDayCounter value for each symbol in tIndicators table
+     * 
      * @return Map with symbol as key and max cDayCounter as value
      */
     public Map<String, Long> getMaxDayCounterPerSymbol()

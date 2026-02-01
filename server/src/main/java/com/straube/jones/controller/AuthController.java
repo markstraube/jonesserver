@@ -132,24 +132,25 @@ public class AuthController
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 
+
     @Operation(summary = "Change Password", description = "Allows the authenticated user to change their password.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Password changed successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MessageResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Invalid current password", content = @Content),
-        @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content)
-    })
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Password changed successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MessageResponse.class))),
+                           @ApiResponse(responseCode = "400", description = "Invalid current password", content = @Content),
+                           @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content)})
     @PostMapping("/change-password")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity< ? > changePassword(@Valid
+    @RequestBody
+    ChangePasswordRequest request)
+    {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
-        
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Error: User not found."));
 
-        if (!encoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Invalid current password!"));
-        }
+        User user = userRepository.findByUsername(username)
+                                  .orElseThrow(() -> new RuntimeException("Error: User not found."));
+
+        if (!encoder.matches(request.getCurrentPassword(), user.getPassword()))
+        { return ResponseEntity.badRequest().body(new MessageResponse("Error: Invalid current password!")); }
 
         user.setPassword(encoder.encode(request.getNewPassword()));
         userRepository.save(user);

@@ -51,7 +51,8 @@ public class StockCounterDB
         {
             if (!cacheFolder.exists())
             {
-                System.out.println(String.format("... cache folder %s does not exist - giving up.", cacheFolder.getAbsolutePath()));
+                System.out.println(String.format("... cache folder %s does not exist - giving up.",
+                                                 cacheFolder.getAbsolutePath()));
             }
         }
         else
@@ -76,7 +77,8 @@ public class StockCounterDB
                                 List<Object> list = ((JSONArray)e).toList();
                                 String isin = String.valueOf(list.get(0));
                                 String shortUrl = String.valueOf(list.get(1));
-                                String baseURL = String.format("https://www.onvista.de/aktien/unternehmensprofil/%s", shortUrl);
+                                String baseURL = String.format("https://www.onvista.de/aktien/unternehmensprofil/%s",
+                                                               shortUrl);
                                 File htmlFile = new File(cacheFolder, isin + ".html");
 
                                 try
@@ -85,7 +87,8 @@ public class StockCounterDB
                                 }
                                 catch (Exception ignore)
                                 {
-                                    System.err.println(String.format("### Unexpected error downloading isin:%s", isin));
+                                    System.err.println(String.format("### Unexpected error downloading isin:%s",
+                                                                     isin));
                                 }
                             }
                         });
@@ -98,7 +101,9 @@ public class StockCounterDB
             }
         }
         stockCounterDB = parseStockCounter(fundamentalFolder, cacheFolder);
-        Files.write(Paths.get(dataRoot, "onVista/fundamentals/StocksCounter.json"), stockCounterDB.toString(2).getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+        Files.write(Paths.get(dataRoot, "onVista/fundamentals/StocksCounter.json"),
+                    stockCounterDB.toString(2).getBytes(),
+                    StandardOpenOption.TRUNCATE_EXISTING);
     }
 
 
@@ -149,7 +154,9 @@ public class StockCounterDB
                 }
                 catch (Exception exc)
                 {
-                    System.out.println(String.format(" ... skipped loading file %s -> due to error: %s", path.toFile().getName(), exc.getMessage()));
+                    System.out.println(String.format(" ... skipped loading file %s -> due to error: %s",
+                                                     path.toFile().getName(),
+                                                     exc.getMessage()));
                     exc.printStackTrace();
                 }
             });

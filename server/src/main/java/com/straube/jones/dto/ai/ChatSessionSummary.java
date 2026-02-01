@@ -1,5 +1,6 @@
 package com.straube.jones.dto.ai;
 
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,7 +11,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatSessionSummary {
+public class ChatSessionSummary
+{
     private String timestamp;
     private String title;
     @JsonProperty("session-id")

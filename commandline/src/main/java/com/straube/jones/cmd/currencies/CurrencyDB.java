@@ -68,7 +68,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currency.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currency.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currency.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }
@@ -82,6 +83,7 @@ public class CurrencyDB
         }
         return value / rate;
     }
+
 
     public static Double convert(String currencyFrom, String currencyTo, Double value, long dateMillis)
     {
@@ -106,7 +108,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currencyFrom.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyFrom.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currencyFrom.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }
@@ -128,7 +131,8 @@ public class CurrencyDB
                 String date = zonedDate.format(DF);
                 if (!currencyDB.getJSONObject(currencyTo.toUpperCase()).has(date))
                 {
-                    //System.out.println(String.format("... corresponding date:%s not found for currency: %s -> moving one day back", date, currencyTo.toUpperCase()));
+                    // System.out.println(String.format("... corresponding date:%s not found for currency: %s
+                    // -> moving one day back", date, currencyTo.toUpperCase()));
                     time = time - OneDayMillis;
                     continue;
                 }
@@ -137,8 +141,9 @@ public class CurrencyDB
             }
             rate = rateFrom / rateTo;
         }
-        return value / rate;        
+        return value / rate;
     }
+
 
     public static void update(long dateMillis, Map<String, Double> rates)
         throws JSONException,
@@ -154,7 +159,9 @@ public class CurrencyDB
                 currencyDB.getJSONObject(currency).put(date, value);
             }
         });
-        Files.write(Paths.get(dataRoot, "onVista/eurorates/currencyDB.json"), currencyDB.toString(2).getBytes(), StandardOpenOption.CREATE);
+        Files.write(Paths.get(dataRoot, "onVista/eurorates/currencyDB.json"),
+                    currencyDB.toString(2).getBytes(),
+                    StandardOpenOption.CREATE);
     }
 
 
@@ -226,7 +233,9 @@ public class CurrencyDB
                 System.out.println(String.format("... skipping currency %s -> no quote.", values[6]));
             }
         }
-        Files.write(Paths.get(dataRoot, "onVista/eurorates/currencyDB.json"), jsonCurrencies.toString(2).getBytes(), StandardOpenOption.CREATE);
+        Files.write(Paths.get(dataRoot, "onVista/eurorates/currencyDB.json"),
+                    jsonCurrencies.toString(2).getBytes(),
+                    StandardOpenOption.CREATE);
 
         return jsonCurrencies;
     }

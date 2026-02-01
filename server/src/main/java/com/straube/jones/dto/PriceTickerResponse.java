@@ -7,8 +7,7 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Response DTO for the Price Ticker API.
- * Contains stock price information scraped from Yahoo Finance.
+ * Response DTO for the Price Ticker API. Contains stock price information scraped from Yahoo Finance.
  */
 public class PriceTickerResponse
 {

@@ -12,12 +12,7 @@ public class RsiService
 {
 
     /**
-     * RSI nach Welles Wilder (Standard).
-     *
-     * Bedeutung:
-     * Zeigt Überkauft (>70) oder Überverkauft (<30).
-     *
-     * Skala:
+     * RSI nach Welles Wilder (Standard). Bedeutung: Zeigt Überkauft (>70) oder Überverkauft (<30). Skala:
      * 0–100
      */
     public double calculateRSI(List<DailyPrice> prices, int period)
@@ -25,7 +20,8 @@ public class RsiService
         if (prices == null || prices.size() <= period + 1)
         { return 0; }
 
-        // 1. Initialer Durchschnitt Gewinn/Verlust (Einfacher Durchschnitt) über die ersten 'period' Änderungen (älteste verfügbare)
+        // 1. Initialer Durchschnitt Gewinn/Verlust (Einfacher Durchschnitt) über die ersten 'period'
+        // Änderungen (älteste verfügbare)
         double sumGain = 0;
         double sumLoss = 0;
         int dataSize = prices.size();

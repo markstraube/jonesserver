@@ -1,5 +1,6 @@
 package com.straube.jones.trader.dto;
 
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -36,65 +37,78 @@ public class HistoricalAnalysisDto
         return avgDailyVolatility;
     }
 
+
     public void setAvgDailyVolatility(double avgDailyVolatility)
     {
         this.avgDailyVolatility = avgDailyVolatility;
     }
+
 
     public int getConsecutiveLossDays()
     {
         return consecutiveLossDays;
     }
 
+
     public void setConsecutiveLossDays(int consecutiveLossDays)
     {
         this.consecutiveLossDays = consecutiveLossDays;
     }
+
 
     public double getAvgLossOnDownDays()
     {
         return avgLossOnDownDays;
     }
 
+
     public void setAvgLossOnDownDays(double avgLossOnDownDays)
     {
         this.avgLossOnDownDays = avgLossOnDownDays;
     }
+
 
     public double getMaxDrawdown()
     {
         return maxDrawdown;
     }
 
+
     public void setMaxDrawdown(double maxDrawdown)
     {
         this.maxDrawdown = maxDrawdown;
     }
+
 
     public double getAvgGainOnUpDays()
     {
         return avgGainOnUpDays;
     }
 
+
     public void setAvgGainOnUpDays(double avgGainOnUpDays)
     {
         this.avgGainOnUpDays = avgGainOnUpDays;
     }
+
 
     public int getTotalDownDays()
     {
         return totalDownDays;
     }
 
+
     public void setTotalDownDays(int totalDownDays)
     {
         this.totalDownDays = totalDownDays;
     }
 
+
     public double getPriceChange30Days()
     {
         return priceChange30Days;
     }
+
 
     public void setPriceChange30Days(double priceChange30Days)
     {

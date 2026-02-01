@@ -74,14 +74,20 @@ public class StocksLoader
                     {
                         String isin = rs.getString("cIsin");
                         long dateLong = rs.getLong("cDateLong");
-                        LocalDate localDate = Instant.ofEpochMilli(dateLong).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                        LocalDate localDate = Instant.ofEpochMilli(dateLong)
+                                                     .atZone(java.time.ZoneId.systemDefault())
+                                                     .toLocalDate();
                         double price = rs.getDouble("cLast");
                         temp.computeIfAbsent(isin, k -> new HashMap<>()).put(localDate, price);
                     }
 
                     // Für jede ISIN: Zeitreihe pro Tag aufbauen
-                    LocalDate startDate = Instant.ofEpochMilli(start).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
-                    LocalDate endDate = Instant.ofEpochMilli(end).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                    LocalDate startDate = Instant.ofEpochMilli(start)
+                                                 .atZone(java.time.ZoneId.systemDefault())
+                                                 .toLocalDate();
+                    LocalDate endDate = Instant.ofEpochMilli(end)
+                                               .atZone(java.time.ZoneId.systemDefault())
+                                               .toLocalDate();
 
                     // Falls Startdatum auf Wochenende fällt, auf nächsten Montag setzen
                     while (startDate.getDayOfWeek().getValue() > 5)
@@ -149,7 +155,12 @@ public class StocksLoader
      * @param height Bildhöhe
      * @param rootFolder Zielverzeichnis (z.B. HTML_ROOT_FOLDER)
      */
-    public static void generateAndSaveCharts(long start, long end, String[] isins, int width, int height, String rootFolder)
+    public static void generateAndSaveCharts(long start,
+                                             long end,
+                                             String[] isins,
+                                             int width,
+                                             int height,
+                                             String rootFolder)
     {
         String dir = String.format("%sx%s", width, height);
         File targetDir = new File(rootFolder, dir);

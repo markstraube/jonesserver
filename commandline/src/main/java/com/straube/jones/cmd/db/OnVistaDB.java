@@ -48,7 +48,7 @@ public class OnVistaDB
             else if (col.unit == UNITS.UNSIGNED)
             {
                 ddl.append("`").append(col.colName).append("` unsigned DEFAULT 0,");
-            }            
+            }
             else
             {
                 ddl.append("`").append(col.colName).append("` varchar(100) DEFAULT NULL,");
@@ -56,7 +56,9 @@ public class OnVistaDB
         });
         ddl.trimToSize();
 
-        ddl.append(" PRIMARY KEY (`").append(keyMap.get("primaryKey")).append("`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
+        ddl.append(" PRIMARY KEY (`")
+           .append(keyMap.get("primaryKey"))
+           .append("`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
         ddl.trimToSize();
         try (Connection connection = DBConnection.getStocksConnection())
         {

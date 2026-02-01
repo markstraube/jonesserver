@@ -14,40 +14,48 @@ public class ADXResult
         return adx;
     }
 
+
     public void setAdx(double adx)
     {
         this.adx = adx;
     }
+
 
     public double getPlusDI()
     {
         return plusDI;
     }
 
+
     public void setPlusDI(double plusDI)
     {
         this.plusDI = plusDI;
     }
+
 
     public double getMinusDI()
     {
         return minusDI;
     }
 
+
     public void setMinusDI(double minusDI)
     {
         this.minusDI = minusDI;
     }
+
 
     public String getTrendStrength()
     {
         return trendStrength;
     }
 
+
     public void setTrendStrength(String trendStrength)
     {
         this.trendStrength = trendStrength;
     }
+
 
     @Override
     public String toString()

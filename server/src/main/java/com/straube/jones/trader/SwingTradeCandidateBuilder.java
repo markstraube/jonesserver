@@ -21,8 +21,7 @@ import com.straube.jones.trader.indicators.SupportDetectionService;
 import com.straube.jones.trader.indicators.VolumeAnalysisService;
 
 /**
- * Baut einen SwingTradeCandidate aus Kursdaten und Marktdaten.
- * Enthält die komplette Bewertungslogik.
+ * Baut einen SwingTradeCandidate aus Kursdaten und Marktdaten. Enthält die komplette Bewertungslogik.
  */
 public class SwingTradeCandidateBuilder
 {
@@ -32,34 +31,42 @@ public class SwingTradeCandidateBuilder
     private final VolumeAnalysisService volumeService = new VolumeAnalysisService();
     private final SupportDetectionService supportService = new SupportDetectionService();
     private final RiskRewardService riskRewardService = new RiskRewardService();
-    
 
     /**
      * Baut einen Swing-Trading-Kandidaten unter Verwendung von vorbrechneten Indikatoren.
      */
-    public SwingTradeCandidate build(String symbol, List<DailyPrice> prices, com.straube.jones.trader.dto.IndicatorDto indicators, SwingTradeConfig config) {
+    public SwingTradeCandidate build(String symbol,
+                                     List<DailyPrice> prices,
+                                     com.straube.jones.trader.dto.IndicatorDto indicators,
+                                     SwingTradeConfig config)
+    {
         SwingTradeCandidate candidate = build(symbol, prices, config);
-        
-        if (indicators != null) {
+
+        if (indicators != null)
+        {
             // Override calculated values with DB values
-            if (indicators.getRsi() != null) {
+            if (indicators.getRsi() != null)
+            {
                 candidate.getPullback().setRsi14(indicators.getRsi());
             }
-            
-            if (indicators.getSupport() != null) {
+
+            if (indicators.getSupport() != null)
+            {
                 candidate.getSupport().setNearestSupportLevel(indicators.getSupport());
                 // Recalculate distance
                 double lastPrice = prices.get(0).getClose();
                 double dist = ((lastPrice - indicators.getSupport()) / lastPrice) * 100;
                 candidate.getSupport().setDistanceToSupportPercent(dist);
             }
-            
+
             // Add MACD and Volume info if available in candidate (SwingTradeCandidate might need update)
-            // Currently SwingTradeCandidate doesn't seem to have MACD field, but we can add it or put in notes.
+            // Currently SwingTradeCandidate doesn't seem to have MACD field, but we can add it or put in
+            // notes.
         }
-        
+
         return candidate;
     }
+
 
     /**
      * Baut einen Swing-Trading-Kandidaten.
@@ -74,7 +81,8 @@ public class SwingTradeCandidateBuilder
         List<String> notes = new ArrayList<>();
         TradeStatus status = TradeStatus.GREEN;
 
-        if (prices == null || prices.size() < 2) {
+        if (prices == null || prices.size() < 2)
+        {
             SwingTradeCandidate candidate = new SwingTradeCandidate();
             candidate.setSymbol(symbol);
             candidate.setStatus(TradeStatus.RED);
@@ -104,9 +112,10 @@ public class SwingTradeCandidateBuilder
         // ─────────────────────────────
         double sma50 = maService.calculateSMA(prices, config.getSmaFastPeriod());
         double sma200 = maService.calculateSMA(prices, config.getSmaSlowPeriod());
-        
+
         // Check if SMA50 is rising (compare with yesterday)
-        double sma50Yesterday = maService.calculateSMA(prices.subList(1, prices.size()), config.getSmaFastPeriod());
+        double sma50Yesterday = maService.calculateSMA(prices.subList(1, prices.size()),
+                                                       config.getSmaFastPeriod());
         boolean sma50Rising = sma50 > sma50Yesterday;
 
         boolean trendOk = today.getClose() > sma50 && sma50 > sma200 && sma50Rising;
@@ -130,8 +139,9 @@ public class SwingTradeCandidateBuilder
 
         double rsi = rsiService.calculateRSI(prices, config.getRsiPeriod());
 
-        boolean pullbackOk = distanceToEma < 0 && distanceToEma > config.getMaxPullbackDistance() 
-                && rsi >= config.getMinRsi() && rsi <= config.getMaxRsi();
+        boolean pullbackOk = distanceToEma < 0 && distanceToEma > config.getMaxPullbackDistance()
+                        && rsi >= config.getMinRsi()
+                        && rsi <= config.getMaxRsi();
 
         if (!pullbackOk && status == TradeStatus.GREEN)
         {
@@ -149,11 +159,12 @@ public class SwingTradeCandidateBuilder
         // ─────────────────────────────
         // Check if volume is drying up during pullback
         boolean volumeDryingUp = today.getVolume() < avgVolume20;
-        if (!volumeDryingUp && status == TradeStatus.GREEN) {
-             notes.add("Volumen beim Pullback nicht rückläufig");
-             // status = TradeStatus.YELLOW; // Optional: make it a warning
+        if (!volumeDryingUp && status == TradeStatus.GREEN)
+        {
+            notes.add("Volumen beim Pullback nicht rückläufig");
+            // status = TradeStatus.YELLOW; // Optional: make it a warning
         }
-        
+
         VolumeFilter volume = new VolumeFilter();
         volume.setAverageVolume20d(avgVolume20);
 
@@ -178,8 +189,8 @@ public class SwingTradeCandidateBuilder
         // STUFE 6 – Risiko & CRV (Beispielwerte)
         // ─────────────────────────────
         double entry = today.getClose();
-        double stop = supportLevel * (1 - config.getStopLossBuffer()); 
-        double target = entry * config.getTargetProfitFactor(); 
+        double stop = supportLevel * (1 - config.getStopLossBuffer());
+        double target = entry * config.getTargetProfitFactor();
 
         double risk = riskRewardService.calculateRisk(entry, stop);
         double reward = riskRewardService.calculateReward(entry, target);

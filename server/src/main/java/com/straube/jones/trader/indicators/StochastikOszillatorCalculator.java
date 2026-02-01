@@ -1,5 +1,6 @@
 package com.straube.jones.trader.indicators;
 
+
 import java.util.List;
 
 import com.straube.jones.trader.dto.DailyPrice;
@@ -22,40 +23,35 @@ public class StochastikOszillatorCalculator
     }
 
     /**
-     * Berechnet den Stochastik-Oszillator (%K und %D).
-     * 
-     * Standard-Einstellung: %K(14,3) - 14 Perioden für %K, 3 Perioden für %D
+     * Berechnet den Stochastik-Oszillator (%K und %D). Standard-Einstellung: %K(14,3) - 14 Perioden für %K, 3
+     * Perioden für %D
      * 
      * @param prices Liste der DailyPrices, absteigend sortiert (Index 0 = neuester Preis)
      * @param kPeriod Periode für %K (üblicherweise 14)
      * @param dPeriod Periode für %D SMA (üblicherweise 3)
      * @return StochasticResult oder null bei fehlenden Daten
      */
-    public static StochasticResult calculateStochastikOszillator(List<DailyPrice> prices, 
-                                                                  int kPeriod, 
-                                                                  int dPeriod)
+    public static StochasticResult calculateStochastikOszillator(List<DailyPrice> prices,
+                                                                 int kPeriod,
+                                                                 int dPeriod)
     {
         // Wir benötigen genug Daten für:
         // - %K für heute (benötigt kPeriod Tage)
         // - %K für die letzten (dPeriod-1) Tage
         // - Also insgesamt: kPeriod + dPeriod - 1
         if (prices == null || prices.size() < kPeriod + dPeriod - 1)
-        {
-            return null;
-        }
+        { return null; }
 
         // 1. Berechne %K Werte für die letzten dPeriod Tage
         double[] kValues = new double[dPeriod];
 
-        for (int i = 0; i < dPeriod; i++)
+        for (int i = 0; i < dPeriod; i++ )
         {
             kValues[i] = calculateK(prices, i, kPeriod);
-            
+
             // Validierung
             if (Double.isNaN(kValues[i]) || Double.isInfinite(kValues[i]))
-            {
-                return null;
-            }
+            { return null; }
         }
 
         // 2. Berechne %D (Simple Moving Average der %K Werte)
@@ -80,6 +76,7 @@ public class StochastikOszillatorCalculator
         return result;
     }
 
+
     /**
      * Überladene Methode mit Standard-Parametern: %K(14), %D(3)
      */
@@ -87,6 +84,7 @@ public class StochastikOszillatorCalculator
     {
         return calculateStochastikOszillator(prices, 14, 3);
     }
+
 
     /**
      * Berechnet %K für einen bestimmten Zeitpunkt.
@@ -99,15 +97,15 @@ public class StochastikOszillatorCalculator
     private static double calculateK(List<DailyPrice> prices, int startIndex, int period)
     {
         double currentClose = prices.get(startIndex).getAdjClose();
-        
+
         double lowestLow = Double.MAX_VALUE;
         double highestHigh = Double.MIN_VALUE;
 
         // Finde Highest High und Lowest Low im Zeitraum
-        for (int i = startIndex; i < startIndex + period; i++)
+        for (int i = startIndex; i < startIndex + period; i++ )
         {
             DailyPrice p = prices.get(i);
-            
+
             // Verwende die tatsächlichen High/Low Werte
             // Stochastik verwendet traditionell unadjustierte High/Low mit adjustiertem Close
             double low = p.getLow();
@@ -134,6 +132,7 @@ public class StochastikOszillatorCalculator
         return 100.0 * (currentClose - lowestLow) / range;
     }
 
+
     /**
      * Interpretiert die Stochastik-Werte und generiert Handelssignale.
      */
@@ -141,21 +140,21 @@ public class StochastikOszillatorCalculator
     {
         boolean overbought = result.k > 80;
         boolean oversold = result.k < 20;
-        
+
         // Crossover-Erkennung: Hat %K die %D-Linie gekreuzt?
         // kValues[0] = aktuell, kValues[1] = gestern
         boolean bullishCrossover = false;
         boolean bearishCrossover = false;
-        
+
         if (kValues.length >= 2)
         {
             // Vorheriger %D (berechnet aus kValues[1] und älteren Werten)
             // Vereinfachte Annahme: %D ändert sich langsam
             double previousK = kValues[1];
-            
+
             // Bullish: %K kreuzt %D von unten nach oben
             bullishCrossover = (result.k > result.d) && (previousK <= result.d);
-            
+
             // Bearish: %K kreuzt %D von oben nach unten
             bearishCrossover = (result.k < result.d) && (previousK >= result.d);
         }

@@ -55,13 +55,19 @@ public class OnVistaModel
         col = new Column("doubleValues.perfW4", "Performance 4W", Column.UNITS.PERCENT, "cPerf4Weeks");
         columns.add(col);
 
-        col = new Column("doubleValues.cnDivYieldM0", "Dividendenrendite 2021", Column.UNITS.PERCENT, "cDividendYield");
+        col = new Column("doubleValues.cnDivYieldM0",
+                         "Dividendenrendite 2021",
+                         Column.UNITS.PERCENT,
+                         "cDividendYield");
         columns.add(col);
 
         col = new Column("doubleValues.cnDpsM0", "Dividende 2021", Column.UNITS.NUMBER, "cDividend");
         columns.add(col);
 
-        col = new Column("doubleValues.cnMarketCapM1", "Marktkapitalisierung 2021", Column.UNITS.EURO, "cMarketCapitalization");
+        col = new Column("doubleValues.cnMarketCapM1",
+                         "Marktkapitalisierung 2021",
+                         Column.UNITS.EURO,
+                         "cMarketCapitalization");
         columns.add(col);
 
         col = new Column("stocksDetails.theScreenerRisk", "Risiko-Rating", Column.UNITS.LONG, "cRiskRating");
@@ -82,7 +88,9 @@ public class OnVistaModel
         return columns;
     }
 
-    public static void create() throws SQLException
+
+    public static void create()
+        throws SQLException
     {
         OnVistaDB.create(TABLENAME, columns);
     }

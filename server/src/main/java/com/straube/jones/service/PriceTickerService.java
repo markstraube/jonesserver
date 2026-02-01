@@ -21,9 +21,9 @@ import com.google.common.cache.CacheBuilder;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Service for retrieving stock price information from Yahoo Finance.
- * Scrapes Yahoo Finance HTML pages to extract current, pre-market, and after-market prices.
- * Uses stable data-testid attributes instead of volatile CSS classes for robustness.
+ * Service for retrieving stock price information from Yahoo Finance. Scrapes Yahoo Finance HTML pages to
+ * extract current, pre-market, and after-market prices. Uses stable data-testid attributes instead of
+ * volatile CSS classes for robustness.
  */
 public class PriceTickerService
 {
@@ -32,8 +32,9 @@ public class PriceTickerService
 
     // Guava Cache: Key = ISIN_<(long)(Sekunden seit 1.1.2000 / 30)>, Value = PriceEntry
     private static final Cache<String, PriceEntry> priceCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(5, TimeUnit.MINUTES)
-            .build();
+                                                                            .expireAfterWrite(5,
+                                                                                              TimeUnit.MINUTES)
+                                                                            .build();
 
     /**
      * Retrieves current price ticker information for a stock by ISIN.
@@ -50,12 +51,14 @@ public class PriceTickerService
         { throw new IllegalArgumentException("ISIN cannot be null or empty"); }
 
         // Cache-Key: ISIN_<(long)(Sekunden seit dem 1.1.2000 / 30)>
-        long secondsSince2000 = (System.currentTimeMillis() - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 1000L;
+        long secondsSince2000 = (System.currentTimeMillis()
+                        - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 1000L;
         long slice = secondsSince2000 / 30L;
         String cacheKey = isin + "_" + slice;
 
         PriceEntry cached = priceCache.getIfPresent(cacheKey);
-        if (cached != null) {
+        if (cached != null)
+        {
             PriceTickerResponse response = new PriceTickerResponse(isin, "EUR");
             List<PriceEntry> prices = new ArrayList<>();
             prices.add(cached);
@@ -64,7 +67,8 @@ public class PriceTickerService
         }
 
         PriceTickerResponse fresh = fetchPriceFromTradegate(isin);
-        if (fresh.getPrices() != null && !fresh.getPrices().isEmpty()) {
+        if (fresh.getPrices() != null && !fresh.getPrices().isEmpty())
+        {
             priceCache.put(cacheKey, fresh.getPrices().get(0));
         }
         return fresh;
@@ -120,8 +124,8 @@ public class PriceTickerService
                                               lowPrice,
                                               lastPrice,
                                               BigDecimal.valueOf(Math.round(CurrencyDB.convertFromEuro("USD",
-                                                                                               lastPrice.doubleValue(),
-                                                                                               DayCounter.yesterday())
+                                                                                                       lastPrice.doubleValue(),
+                                                                                                       DayCounter.yesterday())
                                                               * 100.0) / 100.0),
                                               Instant.now().toString(),
                                               "tradegate");

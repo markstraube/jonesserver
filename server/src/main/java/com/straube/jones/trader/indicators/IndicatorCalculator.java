@@ -19,8 +19,8 @@ public class IndicatorCalculator
 {
 
     /**
-     * Berechnet Indikatoren für die gesamte Preisliste.
-     * Die Liste muss absteigend sortiert sein (Index 0 = neuestes Datum).
+     * Berechnet Indikatoren für die gesamte Preisliste. Die Liste muss absteigend sortiert sein (Index 0 =
+     * neuestes Datum).
      * 
      * @param symbol Das Aktiensymbol
      * @param prices Liste der Tagespreise
@@ -222,7 +222,8 @@ public class IndicatorCalculator
         avgGain /= period;
         avgLoss /= period;
 
-        result[period] = 100.0 - (100.0 / (1.0 + (avgGain / (avgLoss == 0 ? 1 : avgLoss)))); // Avoid div by zero
+        result[period] = 100.0 - (100.0 / (1.0 + (avgGain / (avgLoss == 0 ? 1 : avgLoss)))); // Avoid div by
+                                                                                             // zero
 
         // Smoothed
         for (int i = period + 1; i < prices.size(); i++ )
@@ -272,7 +273,8 @@ public class IndicatorCalculator
         }
 
         // Signal Line = EMA(MACD Line, signalPeriod)
-        // Wir müssen EMA auf macdLine berechnen. Da calculateEMA DailyPrice erwartet, kopieren wir Logik oder wrappen.
+        // Wir müssen EMA auf macdLine berechnen. Da calculateEMA DailyPrice erwartet, kopieren wir Logik oder
+        // wrappen.
         // Einfacher: EMA Logik inline für Double array
         Double[] signalLine = calculateEMAOnArray(macdLine, signalPeriod);
 

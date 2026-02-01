@@ -110,16 +110,17 @@ public class OpenAIProvider
 
         try
         {
-            // OpenAI SSE chunks come with "data: " prefix usually, but WebClient might strip it if configured, 
+            // OpenAI SSE chunks come with "data: " prefix usually, but WebClient might strip it if
+            // configured,
             // or return lines. Usually `bodyToFlux` on SSE returns data lines.
-            // Actually WebClient treats SSE as line stream? 
+            // Actually WebClient treats SSE as line stream?
             // If the server sends `data: {...}`, bodyToFlux(String.class) might return the raw string.
             // Standard OpenAI response is `data: {...}`
 
             // Let's assume we get lines.
             // If multiple lines come in one chunk, we might need to split.
             // For now assuming the chunk is a line or set of lines.
-            // But usually Reactor Netty handles SSE via separate method or custom decoder. 
+            // But usually Reactor Netty handles SSE via separate method or custom decoder.
             // Since we used bodyToFlux(String.class), we might get concatenated buffers or lines.
 
             // A safer bet without specialized SSE decoder is to handle "data:" prefix
@@ -130,10 +131,11 @@ public class OpenAIProvider
             // However, this simple string parsing is prone to errors if split across chunks.
             // But let's assume valid JSON lines for this exercise or simple prefix stripping.
 
-            // Actually, standard `bodyToFlux` for `TEXT_EVENT_STREAM` handles this better, 
+            // Actually, standard `bodyToFlux` for `TEXT_EVENT_STREAM` handles this better,
             // but OpenAI returns application/json kind of stream or text/event-stream.
 
-            // Let's rely on simple string manipulation for the exercise, assuming well-formed lines from `bodyToFlux` if content-type is event-stream.
+            // Let's rely on simple string manipulation for the exercise, assuming well-formed lines from
+            // `bodyToFlux` if content-type is event-stream.
             // But OpenAI returns `application/json` sometimes on error, and `text/event-stream` on success.
 
             /*

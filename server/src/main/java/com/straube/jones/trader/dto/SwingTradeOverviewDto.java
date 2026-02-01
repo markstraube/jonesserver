@@ -60,13 +60,17 @@ public class SwingTradeOverviewDto
     /** Datum der letzten Aktualisierung */
     private String lastUpdated;
 
-    public String getIsin() {
+    public String getIsin()
+    {
         return isin;
     }
 
-    public void setIsin(String isin) {
+
+    public void setIsin(String isin)
+    {
         this.isin = isin;
     }
+
 
     public String getSymbol()
     {
@@ -139,51 +143,75 @@ public class SwingTradeOverviewDto
         this.rsi = rsi;
     }
 
-    public Double getMacdValue() {
+
+    public Double getMacdValue()
+    {
         return macdValue;
     }
 
-    public void setMacdValue(Double macdValue) {
+
+    public void setMacdValue(Double macdValue)
+    {
         this.macdValue = macdValue;
     }
 
-    public Double getMacdSignal() {
+
+    public Double getMacdSignal()
+    {
         return macdSignal;
     }
 
-    public void setMacdSignal(Double macdSignal) {
+
+    public void setMacdSignal(Double macdSignal)
+    {
         this.macdSignal = macdSignal;
     }
 
-    public Double getVolume() {
+
+    public Double getVolume()
+    {
         return volume;
     }
 
-    public void setVolume(Double volume) {
+
+    public void setVolume(Double volume)
+    {
         this.volume = volume;
     }
 
-    public String getSector() {
+
+    public String getSector()
+    {
         return sector;
     }
 
-    public void setSector(String sector) {
+
+    public void setSector(String sector)
+    {
         this.sector = sector;
     }
 
-    public String getCountry() {
+
+    public String getCountry()
+    {
         return country;
     }
 
-    public void setCountry(String country) {
+
+    public void setCountry(String country)
+    {
         this.country = country;
     }
 
-    public Double getMarketCap() {
+
+    public Double getMarketCap()
+    {
         return marketCap;
     }
 
-    public void setMarketCap(Double marketCap) {
+
+    public void setMarketCap(Double marketCap)
+    {
         this.marketCap = marketCap;
     }
 

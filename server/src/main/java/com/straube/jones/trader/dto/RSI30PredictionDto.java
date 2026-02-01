@@ -1,5 +1,6 @@
 package com.straube.jones.trader.dto;
 
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
@@ -47,95 +48,114 @@ public class RSI30PredictionDto
         return symbol;
     }
 
+
     public void setSymbol(String symbol)
     {
         this.symbol = symbol;
     }
+
 
     public long getTimestamp()
     {
         return timestamp;
     }
 
+
     public void setTimestamp(long timestamp)
     {
         this.timestamp = timestamp;
     }
+
 
     public double getCurrentPrice()
     {
         return currentPrice;
     }
 
+
     public void setCurrentPrice(double currentPrice)
     {
         this.currentPrice = currentPrice;
     }
+
 
     public double getCurrentRsi()
     {
         return currentRsi;
     }
 
+
     public void setCurrentRsi(double currentRsi)
     {
         this.currentRsi = currentRsi;
     }
+
 
     public double getProbabilityPercent()
     {
         return probabilityPercent;
     }
 
+
     public void setProbabilityPercent(double probabilityPercent)
     {
         this.probabilityPercent = probabilityPercent;
     }
+
 
     public String getAssessment()
     {
         return assessment;
     }
 
+
     public void setAssessment(String assessment)
     {
         this.assessment = assessment;
     }
+
 
     public int getEstimatedDaysToRSI30()
     {
         return estimatedDaysToRSI30;
     }
 
+
     public void setEstimatedDaysToRSI30(int estimatedDaysToRSI30)
     {
         this.estimatedDaysToRSI30 = estimatedDaysToRSI30;
     }
+
 
     public List<String> getFactors()
     {
         return factors;
     }
 
+
     public void setFactors(List<String> factors)
     {
         this.factors = factors;
     }
+
 
     public HistoricalAnalysisDto getHistoricalAnalysis()
     {
         return historicalAnalysis;
     }
 
+
     public void setHistoricalAnalysis(HistoricalAnalysisDto historicalAnalysis)
     {
         this.historicalAnalysis = historicalAnalysis;
     }
 
+
     public BuyPriceTargetsDto getBuyPriceTargets()
     {
         return buyPriceTargets;
     }
+
 
     public void setBuyPriceTargets(BuyPriceTargetsDto buyPriceTargets)
     {

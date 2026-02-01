@@ -46,7 +46,7 @@ public class EuroRates
         try
         {
             String response = HttpTools.downloadFromWebToFile(baseURL, htmlFile, false);
-            //String response = HttpTools.downloadFromWebToString(baseURL);
+            // String response = HttpTools.downloadFromWebToString(baseURL);
             Document doc = Jsoup.parse(response);
             String timestampString = doc.selectFirst("#page > h2.ecb").text();
             timestamp = extractTimestamp(timestampString);

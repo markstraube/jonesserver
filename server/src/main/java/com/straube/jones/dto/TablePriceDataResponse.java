@@ -199,7 +199,11 @@ public class TablePriceDataResponse
         @JsonProperty("displayCurrency")
         private String displayCurrency;
 
-        public MetaData(long minVolume, long maxVolume, long averageVolume, String originalCurrency, String displayCurrency)
+        public MetaData(long minVolume,
+                        long maxVolume,
+                        long averageVolume,
+                        String originalCurrency,
+                        String displayCurrency)
         {
             this.minVolume = minVolume;
             this.maxVolume = maxVolume;

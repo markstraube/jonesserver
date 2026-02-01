@@ -19,8 +19,6 @@ import java.util.logging.Level;
 
 import com.straube.jones.cmd.db.DBConnection;
 
-
-
 public class YahooPriceDownloader
 {
 
@@ -32,9 +30,14 @@ public class YahooPriceDownloader
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(daysBack);
         // String sql = "select cIsin, cSymbol from tStockCodes where cIsin in ("
-        //                 + "select distinct(cIsin) from tOnVista where cCountryCode in ('Deutschland','Frankreich','Großbritannien','Israel','Italien','Niederlande','USA')"
-        //                 + " AND cBranch in ('Computer-Hardware','Elektrotechnologie','Halbleiterindustrie','IT-Dienstleistungen','IT-Software (Telekommunikation und Internet)','Internetservice',"
-        //                 + "'Luft- und Raumfahrtindustrie','Netzwerktechnik und -systeme','Softwareservice / -dienstleistung','Sonstige Technologie','Spezialsoftware','Standardsoftware','Telekomdienstleister','Telekommunikationsausrüster'))";
+        // + "select distinct(cIsin) from tOnVista where cCountryCode in
+        // ('Deutschland','Frankreich','Großbritannien','Israel','Italien','Niederlande','USA')"
+        // + " AND cBranch in
+        // ('Computer-Hardware','Elektrotechnologie','Halbleiterindustrie','IT-Dienstleistungen','IT-Software
+        // (Telekommunikation und Internet)','Internetservice',"
+        // + "'Luft- und Raumfahrtindustrie','Netzwerktechnik und -systeme','Softwareservice /
+        // -dienstleistung','Sonstige
+        // Technologie','Spezialsoftware','Standardsoftware','Telekomdienstleister','Telekommunikationsausrüster'))";
 
         String sql = "SELECT cSymbol, cIsin FROM tCompany WHERE cIsin IS NOT NULL AND cSymbol IS NOT NULL";
         try (Connection conn = DBConnection.getStocksConnection();
@@ -52,7 +55,8 @@ public class YahooPriceDownloader
                 {
                     t.mkdirs();
                 }
-                LOGGER.log(Level.INFO, () -> "Writing data for symbol: " + symbol + " to folder: " + rootFolder);
+                LOGGER.log(Level.INFO,
+                           () -> "Writing data for symbol: " + symbol + " to folder: " + rootFolder);
                 File f = new File(rootFolder, isin + "_" + symbol + ".json");
                 Files.writeString(f.toPath(), rawJson, StandardCharsets.UTF_8);
             }
@@ -78,8 +82,8 @@ public class YahooPriceDownloader
 
 
     /**
-    * Lädt die rohen JSON-Daten von Yahoo Finance
-    */
+     * Lädt die rohen JSON-Daten von Yahoo Finance
+     */
     private static String downloadRawJson(String symbol, LocalDate startDate, LocalDate endDate)
         throws IOException
     {

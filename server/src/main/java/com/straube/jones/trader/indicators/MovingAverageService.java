@@ -18,13 +18,8 @@ public class MovingAverageService
 {
 
     /**
-     * Simple Moving Average (SMA).
-     *
-     * Bedeutung:
-     * Durchschnittlicher Schlusskurs der letzten N Tage.
-     *
-     * Formel:
-     * SMA = (Summe aller Schlusskurse) / N
+     * Simple Moving Average (SMA). Bedeutung: Durchschnittlicher Schlusskurs der letzten N Tage. Formel: SMA
+     * = (Summe aller Schlusskurse) / N
      */
     public double calculateSMA(List<DailyPrice> prices, int period)
     {
@@ -37,14 +32,9 @@ public class MovingAverageService
 
 
     /**
-     * Exponential Moving Average (EMA).
-     *
-     * Bedeutung:
-     * Gewichteter Durchschnitt, der jüngere Kurse stärker berücksichtigt.
-     *
-     * Vereinfachte Berechnung:
-     * EMA_today = Close_today × k + EMA_yesterday × (1 − k)
-     * mit k = 2 / (period + 1)
+     * Exponential Moving Average (EMA). Bedeutung: Gewichteter Durchschnitt, der jüngere Kurse stärker
+     * berücksichtigt. Vereinfachte Berechnung: EMA_today = Close_today × k + EMA_yesterday × (1 − k) mit k =
+     * 2 / (period + 1)
      */
     public double calculateEMA(List<DailyPrice> prices, int period)
     {

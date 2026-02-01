@@ -51,24 +51,32 @@ public class TableDataResponse
         rows.add(new TableRow(isin, date, dateLong, value));
     }
 
+
     public void addLines(List<String> lines, long fromDate, long toDate, int type)
     {
         // Implementation für die Verarbeitung von CSV-ähnlichen Datenzeilen
-        for (String line : lines) {
-            if (line != null && !line.trim().isEmpty()) {
+        for (String line : lines)
+        {
+            if (line != null && !line.trim().isEmpty())
+            {
                 String[] parts = line.split(",");
-                if (parts.length >= 4) {
-                    try {
+                if (parts.length >= 4)
+                {
+                    try
+                    {
                         String isin = parts[0].trim();
                         String date = parts[1].trim();
                         Long dateLong = Long.parseLong(parts[2].trim());
                         Double value = Double.parseDouble(parts[3].trim());
-                        
+
                         // Datum-Filter anwenden
-                        if (dateLong >= fromDate && dateLong <= toDate) {
+                        if (dateLong >= fromDate && dateLong <= toDate)
+                        {
                             addRow(isin, date, dateLong, value);
                         }
-                    } catch (NumberFormatException e) {
+                    }
+                    catch (NumberFormatException e)
+                    {
                         // Ignoriere fehlerhafte Zeilen
                     }
                 }
@@ -76,20 +84,23 @@ public class TableDataResponse
         }
     }
 
+
     @JsonIgnore // Diese Annotation verhindert, dass 'data' im JSON erscheint
     public List<List<Object>> getData()
     {
         List<List<Object>> result = new ArrayList<>();
-        
+
         // Header als Objekte hinzufügen
         List<Object> headerRow = new ArrayList<>();
-        for (String header : headers) {
+        for (String header : headers)
+        {
             headerRow.add(new FieldValue(header));
         }
         result.add(headerRow);
-        
+
         // Datenzeilen als Objekte hinzufügen
-        for (TableRow row : rows) {
+        for (TableRow row : rows)
+        {
             List<Object> dataRow = new ArrayList<>();
             dataRow.add(new FieldValue(row.getIsin()));
             dataRow.add(new FieldValue(row.getDate()));
@@ -97,24 +108,30 @@ public class TableDataResponse
             dataRow.add(new FieldValue(row.getValue()));
             result.add(dataRow);
         }
-        
+
         return result;
     }
 
     // Hilfsklasse um primitive Werte als Objekte zu verpacken
-    public static class FieldValue {
+    public static class FieldValue
+    {
         @JsonProperty("value")
         private Object value;
 
-        public FieldValue(Object value) {
+        public FieldValue(Object value)
+        {
             this.value = value;
         }
 
-        public Object getValue() {
+
+        public Object getValue()
+        {
             return value;
         }
 
-        public void setValue(Object value) {
+
+        public void setValue(Object value)
+        {
             this.value = value;
         }
     }

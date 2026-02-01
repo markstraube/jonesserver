@@ -1,12 +1,13 @@
 package com.straube.jones.trader.indicators.vwap;
 
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * VWAP (Volume Weighted Average Price) Analyzer for intraday stock trading analysis.
- * Calculates cumulative VWAP from market open and provides trading signals.
+ * VWAP (Volume Weighted Average Price) Analyzer for intraday stock trading analysis. Calculates cumulative
+ * VWAP from market open and provides trading signals.
  */
 public class VWAPAnalyzer
 {

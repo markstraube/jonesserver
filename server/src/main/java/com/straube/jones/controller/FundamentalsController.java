@@ -22,8 +22,7 @@ import com.straube.jones.service.FundamentalsService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
- * REST Controller für Fundamentaldaten von Aktien.
- * Bietet CRUD-Operationen über HTTP-Endpunkte.
+ * REST Controller für Fundamentaldaten von Aktien. Bietet CRUD-Operationen über HTTP-Endpunkte.
  */
 @RestController
 @RequestMapping("/api/fundamentals")
@@ -54,9 +53,7 @@ public class FundamentalsController
 
 
     /**
-     * Erstellt neue Fundamentaldaten für eine Aktie.
-     * 
-     * POST /api/fundamentals
+     * Erstellt neue Fundamentaldaten für eine Aktie. POST /api/fundamentals
      * 
      * @param fundamentals Die zu erstellenden Fundamentaldaten
      * @return ResponseEntity mit den erstellten Daten (201) oder Fehler (400, 409, 500)
@@ -87,9 +84,7 @@ public class FundamentalsController
 
 
     /**
-     * Findet Fundamentaldaten für eine bestimmte ISIN.
-     * 
-     * GET /api/fundamentals/{isin}
+     * Findet Fundamentaldaten für eine bestimmte ISIN. GET /api/fundamentals/{isin}
      * 
      * @param isin Die ISIN der Aktie
      * @return ResponseEntity mit den Fundamentaldaten (200) oder Not Found (404)
@@ -122,9 +117,7 @@ public class FundamentalsController
 
 
     /**
-     * Aktualisiert Fundamentaldaten für eine bestimmte ISIN.
-     * 
-     * PUT /api/fundamentals/{isin}
+     * Aktualisiert Fundamentaldaten für eine bestimmte ISIN. PUT /api/fundamentals/{isin}
      * 
      * @param isin Die ISIN der Aktie
      * @param fundamentals Die aktualisierten Fundamentaldaten
@@ -157,9 +150,7 @@ public class FundamentalsController
 
 
     /**
-     * Löscht Fundamentaldaten für eine bestimmte ISIN.
-     * 
-     * DELETE /api/fundamentals/{isin}
+     * Löscht Fundamentaldaten für eine bestimmte ISIN. DELETE /api/fundamentals/{isin}
      * 
      * @param isin Die ISIN der Aktie
      * @return ResponseEntity mit No Content (204) oder Not Found (404)
@@ -193,9 +184,7 @@ public class FundamentalsController
 
 
     /**
-     * Prüft, ob Fundamentaldaten für eine ISIN existieren.
-     * 
-     * GET /api/fundamentals/{isin}/exists
+     * Prüft, ob Fundamentaldaten für eine ISIN existieren. GET /api/fundamentals/{isin}/exists
      * 
      * @param isin Die ISIN der Aktie
      * @return ResponseEntity mit boolean (200)

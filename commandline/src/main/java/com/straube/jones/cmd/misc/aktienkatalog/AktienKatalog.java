@@ -30,7 +30,6 @@ import com.straube.jones.cmd.db.DBConnection;
 
 /**
  * @author mark
- *
  */
 public class AktienKatalog
 {
@@ -47,26 +46,14 @@ public class AktienKatalog
 
 
     /**
-     * die Methode holt die WKN und das Kürzel zu einer ISIN von der API von aktienkatalog.de
-     * Dazu lädt sie die vorhandenen ISINs aus der Datenbank, Tabelle tOnVista und fragt für jede ISIN die API ab.
-     * Der erhaltende JSON-String wird gesammelt und nachdem alle ISIN abgefragt sind werden alle Results in eine Datei StocksCode.json geschrieben.
-        REQUEST EXAMPLE:
-        Beispiel für eine POST-Anfrage an die API von aktienkatalog.de
-        POST https://aktienkatalog.de/api/convert-ticker-isin-wkn
-        Accept: application/json
-        Content-Type: application/x-www-form-urlencoded
-    
-        type=isin&search=GB00B1YW4409
-    
-        RESPONSE EXAMPLE:
-        Beispiel für eine JSON-Antwort von der API von aktienkatalog.de
-        {
-            "name": "3I Group PLC",
-            "code": "III.L",
-            "isin": "GB00B1YW4409",
-            "wkn": "A0MU9Q",
-            "logo": ".\/assets\/img\/placeholder.png"
-        }        
+     * die Methode holt die WKN und das Kürzel zu einer ISIN von der API von aktienkatalog.de Dazu lädt sie
+     * die vorhandenen ISINs aus der Datenbank, Tabelle tOnVista und fragt für jede ISIN die API ab. Der
+     * erhaltende JSON-String wird gesammelt und nachdem alle ISIN abgefragt sind werden alle Results in eine
+     * Datei StocksCode.json geschrieben. REQUEST EXAMPLE: Beispiel für eine POST-Anfrage an die API von
+     * aktienkatalog.de POST https://aktienkatalog.de/api/convert-ticker-isin-wkn Accept: application/json
+     * Content-Type: application/x-www-form-urlencoded type=isin&search=GB00B1YW4409 RESPONSE EXAMPLE:
+     * Beispiel für eine JSON-Antwort von der API von aktienkatalog.de { "name": "3I Group PLC", "code":
+     * "III.L", "isin": "GB00B1YW4409", "wkn": "A0MU9Q", "logo": ".\/assets\/img\/placeholder.png" }
      **/
     public boolean fetchCodes()
     {
@@ -103,8 +90,7 @@ public class AktienKatalog
                     {
                         final int currentCount = count[0];
                         final int totalIsins = isins.size();
-                        LOGGER.log(Level.INFO,
-                                   () -> currentCount + " of " + totalIsins + " ISINs fetched");
+                        LOGGER.log(Level.INFO, () -> currentCount + " of " + totalIsins + " ISINs fetched");
                     }
                 }
                 catch (InterruptedException e)
@@ -129,9 +115,7 @@ public class AktienKatalog
 
             final int finalCount = count[0];
             LOGGER.log(Level.INFO,
-                       () -> "Done! " + finalCount
-                                       + " Codes written to "
-                                       + outputFile.getAbsolutePath());
+                       () -> "Done! " + finalCount + " Codes written to " + outputFile.getAbsolutePath());
 
             return true;
         }
@@ -186,16 +170,17 @@ public class AktienKatalog
         }
     }
 
+
     public static void main(String[] args)
     {
         // Root-Folder für die Daten (z.B. "data")
         String rootFolder = args.length > 0 ? args[0] : "data";
-        
+
         LOGGER.log(Level.INFO, () -> "Starting AktienKatalog with root folder: " + rootFolder);
-        
+
         AktienKatalog katalog = new AktienKatalog(rootFolder);
         boolean success = katalog.fetchCodes();
-        
+
         if (success)
         {
             LOGGER.log(Level.INFO, "AktienKatalog completed successfully");

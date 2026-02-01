@@ -50,17 +50,18 @@ public class SwingTradeQueryService
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public List<com.straube.jones.dto.OnVistaDto> getCandidates() {
+
+    public List<com.straube.jones.dto.OnVistaDto> getCandidates()
+    {
         // Get max day counter for ratings
         String maxDaySql = "SELECT MAX(cDayCounter) FROM tRatings";
         Long maxDay = jdbcTemplate.queryForObject(maxDaySql, Long.class);
-        
-        if (maxDay == null) {
-            return new ArrayList<>();
-        }
+
+        if (maxDay == null)
+        { return new ArrayList<>(); }
 
         String sql = "select * from tOnVista where cIsin in (select distinct(cIsin) from tCompany where cSymbol in (select distinct(cSymbol) from tRatings where cDayCounter = ? and (cShort='BUY' or cMid='BUY' or cLong='BUY') )) order by cMarketCapitalization DESC";
-        
+
         return jdbcTemplate.query(sql, new Object[]{maxDay}, (rs, rowNum) -> {
             com.straube.jones.dto.OnVistaDto dto = new com.straube.jones.dto.OnVistaDto();
             dto.setIsin(rs.getString("cIsin"));
@@ -77,9 +78,12 @@ public class SwingTradeQueryService
             dto.setPerf1Year(rs.getObject("cPerf1Year") != null ? rs.getDouble("cPerf1Year") : null);
             dto.setPerf6Months(rs.getObject("cPerf6Months") != null ? rs.getDouble("cPerf6Months") : null);
             dto.setPerf4Weeks(rs.getObject("cPerf4Weeks") != null ? rs.getDouble("cPerf4Weeks") : null);
-            dto.setDividendYield(rs.getObject("cDividendYield") != null ? rs.getDouble("cDividendYield") : null);
+            dto.setDividendYield(rs.getObject("cDividendYield") != null ? rs.getDouble("cDividendYield")
+                            : null);
             dto.setDividend(rs.getObject("cDividend") != null ? rs.getDouble("cDividend") : null);
-            dto.setMarketCapitalization(rs.getObject("cMarketCapitalization") != null ? rs.getDouble("cMarketCapitalization") : null);
+            dto.setMarketCapitalization(rs.getObject("cMarketCapitalization") != null
+                            ? rs.getDouble("cMarketCapitalization")
+                            : null);
             dto.setRiskRating(rs.getObject("cRiskRating") != null ? rs.getDouble("cRiskRating") : null);
             dto.setEmployees(rs.getObject("cEmployees") != null ? rs.getDouble("cEmployees") : null);
             dto.setTurnover(rs.getObject("cTurnover") != null ? rs.getDouble("cTurnover") : null);
@@ -89,27 +93,27 @@ public class SwingTradeQueryService
     }
 
 
-
     public List<SwingTradeOverviewDto> getWatchlist(String statusFilter, Double minCrv, Double maxRsi)
     {
         // Get max day counter
         String maxDaySql = "SELECT MAX(cDayCounter) FROM tRatings";
         Long maxDay = jdbcTemplate.queryForObject(maxDaySql, Long.class);
-        
-        if (maxDay == null) return new ArrayList<>();
+
+        if (maxDay == null)
+            return new ArrayList<>();
 
         // SQL to get all data
-        String sql = "SELECT " +
-                "o.cIsin, o.cName, o.cSymbol, o.cLast, o.cSector, o.cCountryCode, o.cMarketCapitalization, " +
-                "i.cRSI, i.cMACDvalue, i.cMACDsignal, i.cVolume, i.cSupport, i.cResistance, " +
-                "r.cShort, r.cMid, r.cLong " +
-                "FROM tOnVista o " +
-                "JOIN tCompany c ON o.cIsin = c.cIsin " +
-                "JOIN tRatings r ON c.cSymbol = r.cSymbol " +
-                "LEFT JOIN tIndicators i ON c.cSymbol = i.cSymbol AND i.cDayCounter = (SELECT MAX(cDayCounter) FROM tIndicators) " +
-                "WHERE r.cDayCounter = ? " +
-                "AND (i.cMomentumScore >= 4) " +
-                "ORDER BY o.cMarketCapitalization DESC";
+        String sql = "SELECT "
+                        + "o.cIsin, o.cName, o.cSymbol, o.cLast, o.cSector, o.cCountryCode, o.cMarketCapitalization, "
+                        + "i.cRSI, i.cMACDvalue, i.cMACDsignal, i.cVolume, i.cSupport, i.cResistance, "
+                        + "r.cShort, r.cMid, r.cLong "
+                        + "FROM tOnVista o "
+                        + "JOIN tCompany c ON o.cIsin = c.cIsin "
+                        + "JOIN tRatings r ON c.cSymbol = r.cSymbol "
+                        + "LEFT JOIN tIndicators i ON c.cSymbol = i.cSymbol AND i.cDayCounter = (SELECT MAX(cDayCounter) FROM tIndicators) "
+                        + "WHERE r.cDayCounter = ? "
+                        + "AND (i.cMomentumScore >= 4) "
+                        + "ORDER BY o.cMarketCapitalization DESC";
 
         List<SwingTradeOverviewDto> list = jdbcTemplate.query(sql, new Object[]{maxDay}, (rs, rowNum) -> {
             SwingTradeOverviewDto dto = new SwingTradeOverviewDto();
@@ -120,56 +124,65 @@ public class SwingTradeQueryService
             dto.setSector(rs.getString("cSector"));
             dto.setCountry(rs.getString("cCountryCode"));
             dto.setMarketCap(rs.getDouble("cMarketCapitalization"));
-            
+
             dto.setRsi(rs.getDouble("cRSI"));
             dto.setMacdValue(rs.getObject("cMACDvalue") != null ? rs.getDouble("cMACDvalue") : null);
             dto.setMacdSignal(rs.getObject("cMACDsignal") != null ? rs.getDouble("cMACDsignal") : null);
             dto.setVolume(rs.getObject("cVolume") != null ? rs.getDouble("cVolume") : null);
-            
+
             double support = rs.getDouble("cSupport");
             double resistance = rs.getDouble("cResistance");
             double last = rs.getDouble("cLast");
-            
-            if (last > 0) {
+
+            if (last > 0)
+            {
                 dto.setDistanceToSupportPercent(((last - support) / last) * 100);
             }
-            
+
             // Calculate CRV
-            if (last > support && resistance > last) {
+            if (last > support && resistance > last)
+            {
                 double risk = last - support;
                 double chance = resistance - last;
-                if (risk > 0) {
+                if (risk > 0)
+                {
                     dto.setChanceRiskRatio(chance / risk);
                 }
             }
-            
+
             // Determine status based on ratings
             String s = rs.getString("cShort");
             String m = rs.getString("cMid");
             String l = rs.getString("cLong");
-            
-            if ("BUY".equals(s) && "BUY".equals(m)) {
+
+            if ("BUY".equals(s) && "BUY".equals(m))
+            {
                 dto.setStatus(com.straube.jones.trader.dasboard.TradeStatus.GREEN);
                 dto.setStatusSummary("Strong Buy (Short/Mid)");
-            } else if ("BUY".equals(m) || "BUY".equals(l)) {
+            }
+            else if ("BUY".equals(m) || "BUY".equals(l))
+            {
                 dto.setStatus(com.straube.jones.trader.dasboard.TradeStatus.YELLOW);
                 dto.setStatusSummary("Buy (Mid/Long)");
-            } else {
+            }
+            else
+            {
                 dto.setStatus(com.straube.jones.trader.dasboard.TradeStatus.RED);
                 dto.setStatusSummary("Watch");
             }
-            
+
             dto.setLastUpdated(LocalDateTime.now().toString());
-            
+
             return dto;
         });
 
         // Apply filters
         return list.stream()
-            .filter(dto -> statusFilter == null || dto.getStatus().name().equalsIgnoreCase(statusFilter))
-            .filter(dto -> minCrv == null || dto.getChanceRiskRatio() >= minCrv)
-            .filter(dto -> maxRsi == null || dto.getRsi() <= maxRsi)
-            .collect(java.util.stream.Collectors.toList());
+                   .filter(dto -> statusFilter == null
+                                   || dto.getStatus().name().equalsIgnoreCase(statusFilter))
+                   .filter(dto -> minCrv == null || dto.getChanceRiskRatio() >= minCrv)
+                   .filter(dto -> maxRsi == null || dto.getRsi() <= maxRsi)
+                   .collect(java.util.stream.Collectors.toList());
     }
 
 

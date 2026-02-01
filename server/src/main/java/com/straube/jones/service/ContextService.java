@@ -1,5 +1,6 @@
 package com.straube.jones.service;
 
+
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,120 +25,152 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 @Service
-public class ContextService {
+public class ContextService
+{
     private static final Logger logger = LoggerFactory.getLogger(ContextService.class);
     private final ObjectMapper objectMapper;
     private final AIAssistantConfig config;
 
-    public ContextService(ObjectMapper objectMapper,
-            AIAssistantConfig config) {
+    public ContextService(ObjectMapper objectMapper, AIAssistantConfig config)
+    {
         this.objectMapper = objectMapper;
         this.config = config;
     }
 
-    public Mono<AIContext> loadContext(String sessionId, User user, String type) {
+
+    public Mono<AIContext> loadContext(String sessionId, User user, String type)
+    {
         return Mono.fromCallable(() -> loadContextSync(sessionId, user, type))
                    .subscribeOn(Schedulers.boundedElastic());
     }
 
-    public AIContext loadContextSync(String sessionId, User user, String type) {
-        try {
+
+    public AIContext loadContextSync(String sessionId, User user, String type)
+    {
+        try
+        {
             String prefsJson = UserPrefsRepo.getPrefs(user, "chat#" + type + "#" + sessionId);
-            if (prefsJson == null || prefsJson.isEmpty()) {
-                return AIContext.builder().sessionId(sessionId).createdAt(Instant.now().toString()).build();
-            }
+            if (prefsJson == null || prefsJson.isEmpty())
+            { return AIContext.builder().sessionId(sessionId).createdAt(Instant.now().toString()).build(); }
 
             Map<String, Object> prefsMap = objectMapper.readValue(prefsJson,
-                    new TypeReference<Map<String, Object>>() {
-                    });
+                                                                  new TypeReference<Map<String, Object>>()
+                                                                  {});
             String key = type.equals("explain") ? "ai_explain_" + sessionId : "ai_analyze_" + sessionId;
 
-            if (prefsMap.containsKey(key)) {
+            if (prefsMap.containsKey(key))
+            {
                 Object ctxObj = prefsMap.get(key);
                 return objectMapper.convertValue(ctxObj, AIContext.class);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.error("Error parsing user preferences for session " + sessionId, e);
         }
 
         return AIContext.builder().sessionId(sessionId).createdAt(Instant.now().toString()).build();
     }
 
-    public Mono<Void> saveContext(AIContext context, User user, String type) {
+
+    public Mono<Void> saveContext(AIContext context, User user, String type)
+    {
         return Mono.fromRunnable(() -> {
-            try {
-                String prefsJson = UserPrefsRepo.getPrefs(user, "chat#" + type + "#" + context.getSessionId());
+            try
+            {
+                String prefsJson = UserPrefsRepo.getPrefs(user,
+                                                          "chat#" + type + "#" + context.getSessionId());
 
                 Map<String, Object> prefsMap = new HashMap<>();
-                if (prefsJson != null && !prefsJson.isEmpty()) {
-                    prefsMap = objectMapper.readValue(prefsJson, new TypeReference<Map<String, Object>>() {
-                    });
+                if (prefsJson != null && !prefsJson.isEmpty())
+                {
+                    prefsMap = objectMapper.readValue(prefsJson, new TypeReference<Map<String, Object>>()
+                    {});
                 }
 
                 String key = type.equals("explain") ? "ai_explain_" + context.getSessionId()
-                        : "ai_analyze_" + context.getSessionId();
+                                : "ai_analyze_" + context.getSessionId();
                 context.setLastAccessedAt(Instant.now().toString());
                 prefsMap.put(key, context);
 
                 // Cleanup old contexts if needed (omitted for brevity)
 
-                UserPrefsRepo.savePrefs(user, "chat#" + type + "#" + context.getSessionId(),
-                        objectMapper.writeValueAsString(prefsMap));
+                UserPrefsRepo.savePrefs(user,
+                                        "chat#" + type + "#" + context.getSessionId(),
+                                        objectMapper.writeValueAsString(prefsMap));
 
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 logger.error("Error saving user preferences", e);
                 // Don't fail the flow if save fails
             }
         }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
-    public java.util.List<ChatSessionSummary> getHistory(String type, User user) {
+
+    public java.util.List<ChatSessionSummary> getHistory(String type, User user)
+    {
         java.util.List<String> sessionIds = UserPrefsRepo.listPrefs(user, "chat#" + type);
         java.util.List<ChatSessionSummary> summaries = new java.util.ArrayList<>();
 
-        for (String sessionId : sessionIds) {
-            try {
+        for (String sessionId : sessionIds)
+        {
+            try
+            {
                 AIContext context = loadContextSync(sessionId, user, type);
-                
+
                 String title = "New Chat";
-                if (context.getMessages() != null) {
-                    for (Message m : context.getMessages()) {
-                        if ("user".equals(m.getRole())) {
+                if (context.getMessages() != null)
+                {
+                    for (Message m : context.getMessages())
+                    {
+                        if ("user".equals(m.getRole()))
+                        {
                             title = m.getContent();
-                            if (title != null && title.length() > 100) {
+                            if (title != null && title.length() > 100)
+                            {
                                 title = title.substring(0, 100) + "...";
                             }
                             break;
                         }
                     }
-                } else {
+                }
+                else
+                {
                     title = "Chat " + sessionId;
                 }
 
                 String timestamp = null;
-                if (context.getMessages() != null && !context.getMessages().isEmpty()) {
+                if (context.getMessages() != null && !context.getMessages().isEmpty())
+                {
                     timestamp = context.getMessages().get(context.getMessages().size() - 1).getTimestamp();
                 }
-                if (timestamp == null) {
+                if (timestamp == null)
+                {
                     timestamp = context.getLastAccessedAt();
                 }
-                if (timestamp == null) {
+                if (timestamp == null)
+                {
                     timestamp = context.getCreatedAt();
                 }
-                if (timestamp == null) {
+                if (timestamp == null)
+                {
                     timestamp = Instant.now().toString();
                 }
 
                 String fileName = "chat/" + type + "/" + sessionId + ".json";
-                
-                summaries.add(ChatSessionSummary.builder()
-                        .sessionId(sessionId)
-                        .title(title)
-                        .timestamp(timestamp)
-                        .fileName(fileName)
-                        .build());
 
-            } catch (Exception e) {
+                summaries.add(ChatSessionSummary.builder()
+                                                .sessionId(sessionId)
+                                                .title(title)
+                                                .timestamp(timestamp)
+                                                .fileName(fileName)
+                                                .build());
+
+            }
+            catch (Exception e)
+            {
                 logger.error("Error loading history for session " + sessionId, e);
             }
         }
@@ -147,7 +180,7 @@ public class ContextService {
             String t2 = s2.getTimestamp() != null ? s2.getTimestamp() : "";
             return t2.compareTo(t1);
         });
-        
+
         return summaries;
     }
 }

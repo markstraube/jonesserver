@@ -24,7 +24,7 @@ public class YahooPriceImporter
     private static final LocalDate REFERENCE_DATE = LocalDate.of(2000, 1, 1);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private final ObjectMapper objectMapper = new ObjectMapper();
-	private static final Logger LOGGER = Logger.getLogger(YahooPriceImporter.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(YahooPriceImporter.class.getName());
 
     public void uploadPriceData(String folder)
     {

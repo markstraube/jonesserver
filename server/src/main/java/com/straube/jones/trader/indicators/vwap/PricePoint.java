@@ -4,8 +4,8 @@ package com.straube.jones.trader.indicators.vwap;
 import java.time.LocalDateTime;
 
 /**
-     * Represents a single price point with timestamp
-     */
+ * Represents a single price point with timestamp
+ */
 public class PricePoint
 {
     private final LocalDateTime timestamp;

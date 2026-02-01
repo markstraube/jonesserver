@@ -25,43 +25,16 @@ import com.straube.jones.cmd.db.DBConnection;
 
 public class YahooCodeResolver
 {
-    /* OUTPUT EXAMPLE:
-        {
-            "explains": [],
-            "count": 1,
-            "quotes": [
-                {
-                "exchange": "JKT",
-                "shortname": "Bank Negara Indonesia  (Persero",
-                "quoteType": "EQUITY",
-                "symbol": "BBNI.JK",
-                "index": "quotes",
-                "score": 20005,
-                "typeDisp": "Equity",
-                "longname": "PT Bank Negara Indonesia (Persero) Tbk",
-                "exchDisp": "Jakarta",
-                "sector": "Financial Services",
-                "industry": "Banks—Regional",
-                "isYahooFinance": true
-                }
-            ],
-            "news": [],
-            "nav": [],
-            "lists": [],
-            "researchReports": [],
-            "screenerFieldResults": [],
-            "totalTime": 29,
-            "timeTakenForQuotes": 421,
-            "timeTakenForNews": 0,
-            "timeTakenForAlgowatchlist": 400,
-            "timeTakenForPredefinedScreener": 400,
-            "timeTakenForCrunchbase": 0,
-            "timeTakenForNav": 400,
-            "timeTakenForResearchReports": 0,
-            "timeTakenForScreenerField": 0,
-            "timeTakenForCulturalAssets": 0,
-            "timeTakenForSearchLists": 0
-        }
+    /*
+     * OUTPUT EXAMPLE: { "explains": [], "count": 1, "quotes": [ { "exchange": "JKT", "shortname":
+     * "Bank Negara Indonesia  (Persero", "quoteType": "EQUITY", "symbol": "BBNI.JK", "index": "quotes",
+     * "score": 20005, "typeDisp": "Equity", "longname": "PT Bank Negara Indonesia (Persero) Tbk", "exchDisp":
+     * "Jakarta", "sector": "Financial Services", "industry": "Banks—Regional", "isYahooFinance": true } ],
+     * "news": [], "nav": [], "lists": [], "researchReports": [], "screenerFieldResults": [], "totalTime": 29,
+     * "timeTakenForQuotes": 421, "timeTakenForNews": 0, "timeTakenForAlgowatchlist": 400,
+     * "timeTakenForPredefinedScreener": 400, "timeTakenForCrunchbase": 0, "timeTakenForNav": 400,
+     * "timeTakenForResearchReports": 0, "timeTakenForScreenerField": 0, "timeTakenForCulturalAssets": 0,
+     * "timeTakenForSearchLists": 0 }
      */
     private static final Logger LOGGER = Logger.getLogger(YahooCodeResolver.class.getName());
     private static final String YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search?q=%s&newsCount=0&listsCount=0&enableFuzzyQuery=false";
@@ -120,8 +93,8 @@ public class YahooCodeResolver
                                                        + ": "
                                                        + quoteCount
                                                        + " results, saving all");
-                            
-                            for (int i = 1; i < quotes.length(); i++)
+
+                            for (int i = 1; i < quotes.length(); i++ )
                             {
                                 JSONObject additionalQuote = quotes.getJSONObject(i);
                                 String key = isin + "_" + i;
@@ -192,7 +165,8 @@ public class YahooCodeResolver
     }
 
 
-    public List<String> getCodeForISIN(String isin) throws IOException
+    public List<String> getCodeForISIN(String isin)
+        throws IOException
     {
         List<String> symbols = new ArrayList<>();
         JSONObject json = queryYahooSearchISIN(isin);
@@ -200,7 +174,7 @@ public class YahooCodeResolver
         if (json != null && json.has("quotes"))
         {
             JSONArray quotes = json.getJSONArray("quotes");
-            for (int i = 0; i < quotes.length(); i++)
+            for (int i = 0; i < quotes.length(); i++ )
             {
                 JSONObject quote = quotes.getJSONObject(i);
                 if (quote.has("symbol"))
@@ -271,7 +245,6 @@ public class YahooCodeResolver
     }
 
 
-
     public static void main(String[] args)
     {
         try
@@ -284,7 +257,7 @@ public class YahooCodeResolver
             YahooCodeResolver resolver = new YahooCodeResolver(dataPath);
             JSONObject jo = resolver.queryYahooSearchISIN("DE0008404005"); // Testaufruf
             System.out.println(jo.toString(2));
-            //resolver.resolve();
+            // resolver.resolve();
 
             LOGGER.log(Level.INFO, "Yahoo Code Resolver completed successfully");
         }

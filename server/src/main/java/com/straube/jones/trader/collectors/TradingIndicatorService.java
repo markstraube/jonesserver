@@ -31,8 +31,7 @@ import com.zaxxer.hikari.HikariDataSource;
 @Service
 public class TradingIndicatorService
 {
-    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root",
-                                                                      "/opt/tomcat/data");
+    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root", "/opt/tomcat/data");
 
     private static final String ANALYSIS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/analysis";
     private static final Logger logger = LoggerFactory.getLogger(TradingIndicatorService.class);
@@ -330,8 +329,7 @@ public class TradingIndicatorService
     }
 
     /**
-     * Hauptfunktion: Analysiert aktuelle Marktlage und gibt Kauf/Verkauf-Signal
-     * Verwendet Standard-Parameter
+     * Hauptfunktion: Analysiert aktuelle Marktlage und gibt Kauf/Verkauf-Signal Verwendet Standard-Parameter
      * 
      * @param prices Liste der Tagespreise (Index 0 = neuestes Datum)
      * @return Analysis-Objekt mit Signal und Details
@@ -343,8 +341,7 @@ public class TradingIndicatorService
 
 
     /**
-     * Hauptfunktion: Analysiert aktuelle Marktlage und gibt Kauf/Verkauf-Signal
-     * Mit konfigurierbaren Perioden
+     * Hauptfunktion: Analysiert aktuelle Marktlage und gibt Kauf/Verkauf-Signal Mit konfigurierbaren Perioden
      * 
      * @param prices Liste der Tagespreise (Index 0 = neuestes Datum)
      * @param config Konfiguration mit allen Perioden-Parametern
@@ -570,6 +567,7 @@ public class TradingIndicatorService
 
     /**
      * Berechnet MACD (Moving Average Convergence Divergence)
+     * 
      * @param prices Liste der Preise (neueste zuerst)
      * @param shortPeriod Kurze EMA-Periode (Standard: 12)
      * @param longPeriod Lange EMA-Periode (Standard: 26)
@@ -678,6 +676,7 @@ public class TradingIndicatorService
 
     /**
      * Berechnet Bollinger Bands
+     * 
      * @return [Oberes Band, Mittleres Band, Unteres Band]
      */
     private static double[] calculateBollingerBands(List<DailyPrice> prices,
@@ -917,21 +916,22 @@ public class TradingIndicatorService
 
         // Get MAX(cDayCounter) for each symbol from tRatings table
         Map<String, Long> maxDayCounterPerSymbol = ratingService.getMaxDayCounterPerSymbol();
-        
+
         List<String> symbols = marketDataService.getAllSymbols();
 
         // Partition symbols
         int numThreads = 4;
         List<List<String>> partitions = new ArrayList<>();
-        int chunkSize = (int) Math.ceil((double) symbols.size() / numThreads);
-        
-        for (int i = 0; i < symbols.size(); i += chunkSize) {
+        int chunkSize = (int)Math.ceil((double)symbols.size() / numThreads);
+
+        for (int i = 0; i < symbols.size(); i += chunkSize)
+        {
             int end = Math.min(i + chunkSize, symbols.size());
             partitions.add(symbols.subList(i, end));
         }
 
         ExecutorService executor = Executors.newFixedThreadPool(partitions.size());
-        List<Future<?>> futures = new ArrayList<>();
+        List<Future< ? >> futures = new ArrayList<>();
 
         for (List<String> partition : partitions)
         {
@@ -939,20 +939,26 @@ public class TradingIndicatorService
         }
 
         // Wait for all threads to finish
-        for (Future<?> f : futures) {
-            try {
+        for (Future< ? > f : futures)
+        {
+            try
+            {
                 f.get();
-            } catch (Exception e) {
-                 logger.error("Error in rating update thread", e);
+            }
+            catch (Exception e)
+            {
+                logger.error("Error in rating update thread", e);
             }
         }
-        
+
         executor.shutdown();
         logger.info("Finished scheduled update of ratings.");
     }
 
 
-    private void processRatingBatch(List<String> symbols, Map<String, Long> maxDayCounterPerSymbol, long today)
+    private void processRatingBatch(List<String> symbols,
+                                    Map<String, Long> maxDayCounterPerSymbol,
+                                    long today)
     {
         List<RatingDto> ratings = new ArrayList<>();
 
@@ -963,11 +969,11 @@ public class TradingIndicatorService
                 // Get the starting day (max day counter + 1, or 0 if no data exists)
                 Long maxDay = maxDayCounterPerSymbol.getOrDefault(symbol, 0L);
                 long startDay = maxDay + 1;
-                
+
                 logger.info("Processing symbol: {} from day {} to {}", symbol, startDay, today);
-                
+
                 // Generate reports from startDay to today
-                for (long day = startDay; day <= today; day++)
+                for (long day = startDay; day <= today; day++ )
                 {
                     Report report = getReport(symbol, day);
 
