@@ -7,9 +7,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 
 import com.straube.jones.dataprovider.eurorates.CurrencyDB;
 import com.straube.jones.db.DayCounter;
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class PriceTickerService
 {
-    private static final String TRADEGATE_FINANCE_URL = "https://www.tradegate.de/orderbuch.php?isin=";
+    private static final String TRADEGATE_FINANCE_URL = "https://www.tradegatebsx.com/refresh.php?isin=";
     private static final int TIMEOUT_MS = 10000;
 
     // Guava Cache: Key = ISIN_<(long)(Sekunden seit 1.1.2000 / 30)>, Value = PriceEntry
@@ -50,11 +51,7 @@ public class PriceTickerService
         if (isin == null || isin.trim().isEmpty())
         { throw new IllegalArgumentException("ISIN cannot be null or empty"); }
 
-        // Cache-Key: ISIN_<(long)(Sekunden seit dem 1.1.2000 / 30)>
-        long secondsSince2000 = (System.currentTimeMillis()
-                        - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 1000L;
-        long slice = secondsSince2000 / 30L;
-        String cacheKey = isin + "_" + slice;
+        String cacheKey = calcCacheKey(isin);
 
         PriceEntry cached = priceCache.getIfPresent(cacheKey);
         if (cached != null)
@@ -75,6 +72,17 @@ public class PriceTickerService
     }
 
 
+    private String calcCacheKey(String isin)
+    {
+        // Cache-Key: ISIN_<(long)(Sekunden seit dem 1.1.2000 / 30)>
+        long secondsSince2000 = (System.currentTimeMillis()
+                        - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 1000L;
+        long slice = secondsSince2000 / 60L;
+        String cacheKey = isin + "_" + slice;
+        return cacheKey;
+    }
+
+
     /**
      * Fetches and parses price information from Tradegate.
      */
@@ -85,37 +93,30 @@ public class PriceTickerService
 
         try
         {
-            Document doc = Jsoup.connect(url)
+            String jsonResponse = Jsoup.connect(url)
                                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                                 .timeout(TIMEOUT_MS)
-                                .get();
+                                .ignoreContentType(true)
+                                .execute()
+                                .body();
 
-            Elements bid = doc.select("#bid");
-            if (bid.isEmpty())
-            { throw new IOException("No price blocks found on Tradegate page"); }
-            String bidValue = bid.first().text();
-            bidValue = bidValue.replace(".", "").replace(",", ".").replace(" ", "");
-            BigDecimal bidPrice = new BigDecimal(bidValue);
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(jsonResponse);
 
-            Elements ask = doc.select("#ask");
-            String askValue = ask.first().text();
-            askValue = askValue.replace(".", "").replace(",", ".").replace(" ", "");
-            BigDecimal askPrice = new BigDecimal(askValue);
+            BigDecimal bidPrice = parseGermanDecimal(root.path("bid"));
+            BigDecimal askPrice = parseGermanDecimal(root.path("ask"));
+            BigDecimal highPrice = parseGermanDecimal(root.path("high"));
+            BigDecimal lowPrice = parseGermanDecimal(root.path("low"));
+            BigDecimal lastPrice = parseGermanDecimal(root.path("last"));
 
-            Elements high = doc.select("#high");
-            String highValue = high.first().text();
-            highValue = highValue.replace(".", "").replace(",", ".").replace(" ", "");
-            BigDecimal highPrice = new BigDecimal(highValue);
-
-            Elements low = doc.select("#low");
-            String lowValue = low.first().text();
-            lowValue = lowValue.replace(".", "").replace(",", ".").replace(" ", "");
-            BigDecimal lowPrice = new BigDecimal(lowValue);
-
-            Elements last = doc.select("#last");
-            String lastValue = last.first().text();
-            lastValue = lastValue.replace(".", "").replace(",", ".").replace(" ", "");
-            BigDecimal lastPrice = new BigDecimal(lastValue);
+            BigDecimal referencePrice = null;
+            if (lastPrice != null)
+            {
+                referencePrice = BigDecimal.valueOf(Math.round(CurrencyDB.convertFromEuro("USD",
+                                                                                         lastPrice.doubleValue(),
+                                                                                         DayCounter.yesterday())
+                                        * 100.0) / 100.0);
+            }
 
             PriceEntry price = new PriceEntry(PriceEntry.PriceType.REGULAR,
                                               bidPrice,
@@ -123,14 +124,10 @@ public class PriceTickerService
                                               highPrice,
                                               lowPrice,
                                               lastPrice,
-                                              BigDecimal.valueOf(Math.round(CurrencyDB.convertFromEuro("USD",
-                                                                                                       lastPrice.doubleValue(),
-                                                                                                       DayCounter.yesterday())
-                                                              * 100.0) / 100.0),
+                                              referencePrice,
                                               Instant.now().toString(),
                                               "tradegate");
 
-            // Parse price blocks
             List<PriceEntry> prices = new ArrayList<>();
             prices.add(price);
 
@@ -142,6 +139,31 @@ public class PriceTickerService
         catch (IOException e)
         {
             throw new IOException("Failed to fetch data from Tradegate: " + e.getMessage(), e);
+        }
+    }
+
+
+    private BigDecimal parseGermanDecimal(JsonNode node)
+    {
+        if (node == null || node.isMissingNode() || node.isNull())
+        {
+            return null;
+        }
+        if (node.isNumber())
+        {
+            return node.decimalValue();
+        }
+        String text = node.asText();
+        if (text == null || text.trim().isEmpty())
+        {
+            return null;
+        }
+        text = text.replace(".", "").replace(",", ".").replace(" ", "");
+        
+        try{
+            return new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

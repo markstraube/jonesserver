@@ -14,6 +14,7 @@ import com.straube.jones.dataprovider.eurorates.CurrencyDB;
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.TablePriceDataResponse;
+import com.straube.jones.dto.TablePriceDataResponse.PriceTableRow;
 
 public class PricePointLoader
 {
@@ -77,7 +78,7 @@ public class PricePointLoader
                         + (type == 1 || type == 2 ? "ASC" : "DESC");
 
         Map<String, Double> normalizationValues = (type == 1) ? new HashMap<>() : null;
-        Map<String, Double> previousValues = (type == 2) ? new HashMap<>() : null;
+        Map<String, PriceTableRow> previousValues = (type == 2) ? new HashMap<>() : null;
 
         AtomicInteger rowCounter = new AtomicInteger(0);
         try (Connection connection = DBConnection.getStocksConnection();
@@ -94,6 +95,7 @@ public class PricePointLoader
                 boolean firstRow = true;
                 while (rs.next())
                 {
+                    PriceTableRow row = new PriceTableRow();
                     String isin = rs.getString("cIsin");
                     String symbol = rs.getString("cSymbol");
                     Date date = rs.getDate("cDate");
@@ -143,6 +145,18 @@ public class PricePointLoader
                                                                   DayCounter.yesterday(),
                                                                   convertToEuro);
                         currency = "EUR";
+
+                        row = new PriceTableRow(isin,
+                                                symbol,
+                                                dateLong,
+                                                open,
+                                                high,
+                                                low,
+                                                close,
+                                                adjClose,
+                                                currency,
+                                                volume,
+                                                dayCounter);
                     }
                     if (type == 1)
                     {
@@ -167,42 +181,59 @@ public class PricePointLoader
                             adjClose = (adjClose / base - 1.0d) * 100.0d;
                             currency = "%";
                         }
+                        row = new PriceTableRow(isin,
+                                                symbol,
+                                                dateLong,
+                                                open,
+                                                high,
+                                                low,
+                                                close,
+                                                adjClose,
+                                                currency,
+                                                volume,
+                                                dayCounter);
                     }
                     else if (type == 2)
                     {
-                        Double prev = previousValues.get(isin);
-                        double currentAdjClose = adjClose;
+                        PriceTableRow prev = previousValues.get(isin);
+                        previousValues.put(isin,
+                                           new PriceTableRow(isin,
+                                                             symbol,
+                                                             dateLong,
+                                                             open,
+                                                             high,
+                                                             low,
+                                                             close,
+                                                             adjClose,
+                                                             currency,
+                                                             volume,
+                                                             dayCounter));
+                        if (prev == null)
+                        {
+                            // Skip first row for each ISIN since we have no previous value to compare against
+                            continue;
+                        }
+                        double nightGap = 0;//(open - prev.getClose()) / open * 100.0d;
+                        high = (high - open) / open * 100.0d + nightGap;
+                        low = (low - open) / open * 100.0d + nightGap;
+                        close = (close - open) / open * 100.0d + nightGap;
+                        adjClose = (adjClose - open) / open * 100.0d + nightGap;
+                        open = nightGap;
+                        currency = "%";
 
-                        if (prev != null && prev != 0.0d)
-                        {
-                            open = (open / prev - 1.0d) * 100.0d;
-                            high = (high / prev - 1.0d) * 100.0d;
-                            low = (low / prev - 1.0d) * 100.0d;
-                            close = (close / prev - 1.0d) * 100.0d;
-                            adjClose = (adjClose / prev - 1.0d) * 100.0d;
-                            currency = "%";
-                        }
-                        else
-                        {
-                            open = 0.0d;
-                            high = 0.0d;
-                            low = 0.0d;
-                            close = 0.0d;
-                            adjClose = 0.0d;
-                        }
-                        previousValues.put(isin, currentAdjClose);
+                        row = new PriceTableRow(isin,
+                                                symbol,
+                                                dateLong,
+                                                open,
+                                                high,
+                                                low,
+                                                close,
+                                                adjClose,
+                                                currency,
+                                                volume,
+                                                dayCounter);
                     }
-                    data.addRow(isin,
-                                symbol,
-                                dateLong,
-                                Math.round(open * 100.0d) / 100.0d,
-                                Math.round(high * 100.0d) / 100.0d,
-                                Math.round(low * 100.0d) / 100.0d,
-                                Math.round(close * 100.0d) / 100.0d,
-                                Math.round(adjClose * 100.0d) / 100.0d,
-                                currency,
-                                volume,
-                                dayCounter);
+                    data.addRow(row);
                     rowCounter.incrementAndGet();
                     averageVolume += volume;
                 }

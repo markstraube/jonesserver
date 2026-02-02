@@ -72,6 +72,12 @@ public class TablePriceDataResponse
     }
 
 
+    public void addRow(PriceTableRow row)
+    {
+        this.rows.add(row);
+    }
+
+
     public void addRow(String isin,
                        String symbol,
                        Long dateLong,
@@ -84,17 +90,17 @@ public class TablePriceDataResponse
                        Long volume,
                        Integer dayCounter)
     {
-        rows.add(new PriceTableRow(isin,
-                                   symbol,
-                                   dateLong,
-                                   open,
-                                   high,
-                                   low,
-                                   close,
-                                   adjClose,
-                                   currency,
-                                   volume,
-                                   dayCounter));
+        this.rows.add(new PriceTableRow(isin,
+                                        symbol,
+                                        dateLong,
+                                        open,
+                                        high,
+                                        low,
+                                        close,
+                                        adjClose,
+                                        currency,
+                                        volume,
+                                        dayCounter));
     }
 
 

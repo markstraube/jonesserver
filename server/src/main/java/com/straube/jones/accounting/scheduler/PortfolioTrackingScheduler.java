@@ -40,8 +40,10 @@ public class PortfolioTrackingScheduler
 
     // Jeden Tag, Mo-Fr, 7:30-22:00 Uhr, alle 30 Sekunden
     // @Scheduled(cron = "0/30 30-59 7 * * MON-FRI,0/30 0-59 8-21 * * MON-FRI,0/30 0 22 * * MON-FRI")
-    // @Scheduled(cron = "0 30-59 7 * * MON-FRI,0 * 8-21 * * MON-FRI,0 0 22 * * MON-FRI")
-    @Scheduled(cron = "0 * 9-22 * * *")
+    @Scheduled(cron = "0 30-59 7 * * MON-FRI")
+    @Scheduled(cron = "0 * 8-21 * * MON-FRI")
+    @Scheduled(cron = "0 0 22 * * MON-FRI")
+    // @Scheduled(cron = "0 * 9-22 * * *")
     public void trackPortfolios()
     {
         List<User> users = userRepository.findAll();
@@ -51,6 +53,10 @@ public class PortfolioTrackingScheduler
 
         for (User user : users)
         {
+            if (!user.getUsername().equalsIgnoreCase("mark"))
+            {
+                continue; 
+            }
             try
             {
                 processUser(user, dayCounter, keepMe);
