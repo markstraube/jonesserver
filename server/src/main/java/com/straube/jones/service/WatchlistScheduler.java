@@ -1,20 +1,19 @@
 package com.straube.jones.service;
 
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
-import com.straube.jones.model.User;
-import com.straube.jones.trader.collectors.SwingTradeQueryService;
-import com.straube.jones.trader.dto.SwingTradeOverviewDto;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.boot.SpringApplication;
-import com.straube.jones.StocksApplication;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.straube.jones.StocksApplication;
+import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
+import com.straube.jones.trader.collectors.SwingTradeQueryService;
+import com.straube.jones.trader.dto.SwingTradeOverviewDto;
 
 @Service
 public class WatchlistScheduler

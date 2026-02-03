@@ -17,10 +17,7 @@ import com.straube.jones.dto.ai.AIContext;
 import com.straube.jones.dto.ai.ChatSessionSummary;
 import com.straube.jones.dto.ai.Message;
 import com.straube.jones.model.User;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
 
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 

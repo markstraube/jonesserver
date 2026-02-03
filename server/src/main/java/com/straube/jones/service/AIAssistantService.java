@@ -18,7 +18,6 @@ import com.straube.jones.repository.UserRepository;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 @Service
 public class AIAssistantService
