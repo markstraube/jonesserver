@@ -38,9 +38,9 @@ public class PortfolioTrackingScheduler
     }
 
 
-    @Scheduled(cron = "0 30-59 7 * * MON-FRI")
-    @Scheduled(cron = "0 * 8-21 * * MON-FRI")
-    @Scheduled(cron = "0 0 22 * * MON-FRI")
+    // @Scheduled(cron = "0 30-59 7 * * MON-FRI")
+    // @Scheduled(cron = "0 * 8-21 * * MON-FRI")
+    // @Scheduled(cron = "0 0 22 * * MON-FRI")
     public void trackPortfolios()
     {
         List<User> users = userRepository.findAll();

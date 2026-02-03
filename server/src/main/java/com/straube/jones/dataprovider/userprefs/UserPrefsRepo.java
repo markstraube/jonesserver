@@ -9,7 +9,7 @@ import com.straube.jones.model.User;
 
 public class UserPrefsRepo
 {
-    private static final String USER_PREFS_ROOT = "/opt/tomcat/data/userprefs";
+    public static final String USER_PREFS_ROOT = "/opt/tomcat/data/userprefs";
 
     static
     {

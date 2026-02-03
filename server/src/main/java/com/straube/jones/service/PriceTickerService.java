@@ -1,168 +1,318 @@
 package com.straube.jones.service;
 
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+import org.jsoup.Jsoup;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.jsoup.Jsoup;
-
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.straube.jones.dataprovider.eurorates.CurrencyDB;
+import com.straube.jones.dataprovider.userprefs.UserPrefsRepo;
+import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.dto.PriceEntry;
 import com.straube.jones.dto.PriceTickerResponse;
-
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import java.util.concurrent.TimeUnit;
+import com.straube.jones.dto.TradegateIntradayDto;
 
 /**
- * Service for retrieving stock price information from Yahoo Finance. Scrapes Yahoo Finance HTML pages to
- * extract current, pre-market, and after-market prices. Uses stable data-testid attributes instead of
- * volatile CSS classes for robustness.
+ * Service for retrieving stock price information from Tradegate.
  */
+@Service
 public class PriceTickerService
 {
     private static final String TRADEGATE_FINANCE_URL = "https://www.tradegatebsx.com/refresh.php?isin=";
     private static final int TIMEOUT_MS = 10000;
 
-    // Guava Cache: Key = ISIN_<(long)(Sekunden seit 1.1.2000 / 30)>, Value = PriceEntry
-    private static final Cache<String, PriceEntry> priceCache = CacheBuilder.newBuilder()
-                                                                            .expireAfterWrite(5,
-                                                                                              TimeUnit.MINUTES)
-                                                                            .build();
+    private static volatile Long cacheTimestamp;
+    private static Set<String> blackListedIsins = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    // Guava Cache: Key = ISIN_slicedSeconds, Value = TradegateIntradayDto
+    private static final Cache<String, TradegateIntradayDto> priceCache = CacheBuilder.newBuilder()
+                                                                                      .expireAfterWrite(5,
+                                                                                                        TimeUnit.MINUTES)
+                                                                                      .build();
+
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     /**
      * Retrieves current price ticker information for a stock by ISIN.
      * 
      * @param isin The ISIN of the stock
      * @return PriceTickerResponse containing all available price information
-     * @throws IllegalArgumentException if ISIN is invalid or cannot be resolved
-     * @throws IOException if Tradegate cannot be reached or parsed
      */
-    public PriceTickerResponse getPriceByIsinFromTradegate(String isin)
-        throws IOException
+    public static PriceTickerResponse getPriceByIsinFromTradegate(String isin)
     {
         if (isin == null || isin.trim().isEmpty())
         { throw new IllegalArgumentException("ISIN cannot be null or empty"); }
 
-        String cacheKey = calcCacheKey(isin);
+        if (cacheTimestamp == null)
+        { return new PriceTickerResponse(); }
 
-        PriceEntry cached = priceCache.getIfPresent(cacheKey);
+        String cacheKey = isin + "_" + cacheTimestamp;
+
+        TradegateIntradayDto cached = priceCache.getIfPresent(cacheKey);
         if (cached != null)
-        {
-            PriceTickerResponse response = new PriceTickerResponse(isin, "EUR");
-            List<PriceEntry> prices = new ArrayList<>();
-            prices.add(cached);
-            response.setPrices(prices);
-            return response;
-        }
+        { return convertToResponse(cached); }
 
-        PriceTickerResponse fresh = fetchPriceFromTradegate(isin);
-        if (fresh.getPrices() != null && !fresh.getPrices().isEmpty())
-        {
-            priceCache.put(cacheKey, fresh.getPrices().get(0));
-        }
-        return fresh;
+        return new PriceTickerResponse();
     }
 
 
-    private String calcCacheKey(String isin)
+    /**
+     * Loads prices for all watched stocks mainly from Tradegate.
+     */
+    @Scheduled(cron = "*/10 30-59 7 * * MON-FRI")
+    @Scheduled(cron = "*/10 * 8-21 * * MON-FRI")
+    @Scheduled(cron = "*/10 0 22 * * MON-FRI")
+    public static void loadPrices()
     {
-        // Cache-Key: ISIN_<(long)(Sekunden seit dem 1.1.2000 / 30)>
-        long secondsSince2000 = (System.currentTimeMillis()
-                        - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 1000L;
-        long slice = secondsSince2000 / 60L;
-        String cacheKey = isin + "_" + slice;
-        return cacheKey;
+        LocalTime now = LocalTime.now(ZoneId.of("Europe/Berlin"));
+        if (now.isBefore(LocalTime.of(7, 30)) || now.isAfter(LocalTime.of(22, 0)))
+        { return; }
+
+        long slicedSeconds = ((System.currentTimeMillis()
+                        - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 10000L) * 10L;
+
+        Set<String> isins = new HashSet<>();
+        File userPrefsRoot = new File(UserPrefsRepo.USER_PREFS_ROOT);
+        File[] userDirs = userPrefsRoot.listFiles(File::isDirectory);
+        if (userDirs != null)
+        {
+            for (File userDir : userDirs)
+            {
+                File watchlistFile = new File(userDir, "watchlist.json");
+                if (watchlistFile.exists())
+                {
+                    try
+                    {
+                        JsonNode root = mapper.readTree(watchlistFile);
+                        if (root.isArray())
+                        {
+                            for (JsonNode node : root)
+                            {
+                                if (node.has("isin"))
+                                {
+                                    isins.add(node.get("isin").asText());
+                                }
+                                else if (node.isTextual())
+                                {
+                                    isins.add(node.asText());
+                                }
+                            }
+                        }
+                        else if (root.has("isin"))
+                        {
+                            isins.add(root.get("isin").asText());
+                        }
+                    }
+                    catch (IOException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        List<TradegateIntradayDto> dtos = new ArrayList<>();
+        for (String isin : isins)
+        {
+            if (blackListedIsins.contains(isin))
+            {
+                continue;
+            }
+            try
+            {
+                TradegateIntradayDto dto = getPriceByIsinFromTradegate(isin, slicedSeconds);
+                if (dto != null)
+                {
+                    dto.setTimestamp(new java.sql.Timestamp(System.currentTimeMillis()));
+                    dtos.add(dto);
+                }
+            }
+            catch (IOException e)
+            {
+                System.err.println("Error fetching " + isin + ": " + e.getMessage());
+                blackListedIsins.add(isin);
+
+            }
+        }
+
+        String sql = "INSERT INTO tTradegateIntraday (cIsin, cSymbol, cBid, cAsk, cBidSize, cAskSize, cDelta, cStueck, cUmsatz, cAvg, cExecutions, cLast, cHigh, cLow, cClose, cTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DBConnection.getStocksConnection();
+                        PreparedStatement pstmt = conn.prepareStatement(sql))
+        {
+
+            for (TradegateIntradayDto dto : dtos)
+            {
+                pstmt.setString(1, dto.getIsin());
+                pstmt.setString(2, dto.getSymbol());
+                pstmt.setBigDecimal(3, dto.getBid());
+                pstmt.setBigDecimal(4, dto.getAsk());
+                pstmt.setInt(5, dto.getBidSize());
+                pstmt.setInt(6, dto.getAskSize());
+                pstmt.setBigDecimal(7, dto.getDelta());
+                pstmt.setLong(8, dto.getStueck());
+                pstmt.setBigDecimal(9, dto.getUmsatz());
+                pstmt.setBigDecimal(10, dto.getAvg());
+                pstmt.setInt(11, dto.getExecutions());
+                pstmt.setBigDecimal(12, dto.getLast());
+                pstmt.setBigDecimal(13, dto.getHigh());
+                pstmt.setBigDecimal(14, dto.getLow());
+                pstmt.setBigDecimal(15, dto.getClose());
+                pstmt.setTimestamp(16, dto.getTimestamp());
+
+                pstmt.addBatch();
+            }
+            pstmt.executeBatch();
+            conn.commit();
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+
+        cacheTimestamp = slicedSeconds;
+    }
+
+
+    public static TradegateIntradayDto getPriceByIsinFromTradegate(String isin, long slicedSeconds)
+        throws IOException
+    {
+        TradegateIntradayDto dto = fetchPriceFromTradegate(isin);
+        if (dto != null)
+        {
+            String cacheKey = isin + "_" + slicedSeconds;
+            priceCache.put(cacheKey, dto);
+        }
+        else
+        {
+            System.err.println("No data for ISIN " + isin);
+        }
+        return dto;
     }
 
 
     /**
      * Fetches and parses price information from Tradegate.
      */
-    private PriceTickerResponse fetchPriceFromTradegate(String isin)
+    private static TradegateIntradayDto fetchPriceFromTradegate(String isin)
         throws IOException
     {
         String url = TRADEGATE_FINANCE_URL + isin;
 
-        try
-        {
-            String jsonResponse = Jsoup.connect(url)
-                                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                                .timeout(TIMEOUT_MS)
-                                .ignoreContentType(true)
-                                .execute()
-                                .body();
-
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(jsonResponse);
-
-            BigDecimal bidPrice = parseGermanDecimal(root.path("bid"));
-            BigDecimal askPrice = parseGermanDecimal(root.path("ask"));
-            BigDecimal highPrice = parseGermanDecimal(root.path("high"));
-            BigDecimal lowPrice = parseGermanDecimal(root.path("low"));
-            BigDecimal lastPrice = parseGermanDecimal(root.path("last"));
-
-            BigDecimal referencePrice = null;
-            if (lastPrice != null)
-            {
-                referencePrice = BigDecimal.valueOf(Math.round(CurrencyDB.convertFromEuro("USD",
-                                                                                         lastPrice.doubleValue(),
-                                                                                         DayCounter.yesterday())
-                                        * 100.0) / 100.0);
-            }
-
-            PriceEntry price = new PriceEntry(PriceEntry.PriceType.REGULAR,
-                                              bidPrice,
-                                              askPrice,
-                                              highPrice,
-                                              lowPrice,
-                                              lastPrice,
-                                              referencePrice,
-                                              Instant.now().toString(),
-                                              "tradegate");
-
-            List<PriceEntry> prices = new ArrayList<>();
-            prices.add(price);
-
-            PriceTickerResponse response = new PriceTickerResponse(isin, "EUR");
-            response.setPrices(prices);
-
-            return response;
-        }
-        catch (IOException e)
-        {
-            throw new IOException("Failed to fetch data from Tradegate: " + e.getMessage(), e);
-        }
+        String jsonResponse = Jsoup.connect(url)
+                                   .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                                   .timeout(TIMEOUT_MS)
+                                   .ignoreContentType(true)
+                                   .execute()
+                                   .body();
+        
+        JsonNode node = mapper.readTree(jsonResponse);
+        TradegateIntradayDto dto = new TradegateIntradayDto();
+        if (node.has("bid")) dto.setBid(parseGermanDecimal(node.get("bid").asText()));
+        if (node.has("ask")) dto.setAsk(parseGermanDecimal(node.get("ask").asText()));
+        if (node.has("bidsize")) dto.setBidSize(node.get("bidsize").asInt());
+        if (node.has("asksize")) dto.setAskSize(node.get("asksize").asInt());
+        if (node.has("delta")) dto.setDelta(parseGermanDecimal(node.get("delta").asText()));
+        if (node.has("stueck")) dto.setStueck(node.get("stueck").asLong());
+        if (node.has("umsatz")) dto.setUmsatz(parseGermanDecimal(node.get("umsatz").asText()));
+        if (node.has("avg")) dto.setAvg(parseGermanDecimal(node.get("avg").asText()));
+        if (node.has("executions")) dto.setExecutions(node.get("executions").asInt());
+        if (node.has("last")) dto.setLast(parseGermanDecimal(node.get("last").asText()));
+        if (node.has("high")) dto.setHigh(parseGermanDecimal(node.get("high").asText()));
+        if (node.has("low")) dto.setLow(parseGermanDecimal(node.get("low").asText()));
+        if (node.has("close")) dto.setClose(parseGermanDecimal(node.get("close").asText()));
+        
+        dto.setIsin(isin);
+        return dto;
     }
 
 
-    private BigDecimal parseGermanDecimal(JsonNode node)
+    private static PriceTickerResponse convertToResponse(TradegateIntradayDto dto)
     {
-        if (node == null || node.isMissingNode() || node.isNull())
+        PriceTickerResponse response = new PriceTickerResponse(dto.getIsin(), "EUR");
+        List<PriceEntry> prices = new ArrayList<>();
+
+        BigDecimal bid = dto.getBid()   ;
+        BigDecimal ask = dto.getAsk();
+        BigDecimal last = dto.getLast();
+        BigDecimal high = dto.getHigh();
+        BigDecimal low = dto.getLow();
+        BigDecimal referencePrice = null;
+        if (last != null)
         {
-            return null;
+            try
+            {
+                referencePrice = BigDecimal.valueOf(Math.round(CurrencyDB.convertFromEuro("USD",
+                                                                                          last.doubleValue(),
+                                                                                          DayCounter.yesterday())
+                                * 100.0) / 100.0);
+            }
+            catch (Exception e)
+            {
+                // ignore currency conversion errors
+            }
         }
-        if (node.isNumber())
-        {
-            return node.decimalValue();
-        }
-        String text = node.asText();
+
+        PriceEntry price = new PriceEntry(PriceEntry.PriceType.REGULAR,
+                                          bid,
+                                          ask,
+                                          high,
+                                          low,
+                                          last,
+                                          referencePrice,
+                                          Instant.now().toString(),
+                                          "tradegate");
+        prices.add(price);
+        response.setPrices(prices);
+        return response;
+    }
+
+
+    private static BigDecimal parseGermanDecimal(String text)
+    {
         if (text == null || text.trim().isEmpty())
+        { return null; }
+        if (text.contains(".") && text.contains(","))
         {
-            return null;
+            text = text.replace("+", "").replace(".", "").replace(",", ".").replace(" ", "");
         }
-        text = text.replace(".", "").replace(",", ".").replace(" ", "");
-        
-        try{
+        else if (text.contains(","))
+        {
+            text = text.replace("+", "").replace(",", ".").replace(" ", "");
+        }
+        else
+        {
+            text = text.replace("+", "").replace(" ", "");
+        }
+
+        try
+        {
             return new BigDecimal(text);
-        } catch (NumberFormatException e) {
+        }
+        catch (NumberFormatException e)
+        {
             return null;
         }
     }

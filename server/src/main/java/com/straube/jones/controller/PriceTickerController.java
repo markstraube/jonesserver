@@ -36,26 +36,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Price Ticker API", description = "Retrieves current stock price information by scraping Yahoo Finance HTML pages")
 public class PriceTickerController
 {
-    private final PriceTickerService service;
-
-    /**
-     * Creates a new controller with the default service.
-     */
-    public PriceTickerController()
-    {
-        this.service = new PriceTickerService();
-    }
-
-
     /**
      * Creates a new controller with a custom service.
      * 
      * @param service The service to use
      */
-    public PriceTickerController(PriceTickerService service)
-    {
-        this.service = service;
-    }
+    public PriceTickerController()
+    {}
 
 
     /**
@@ -89,7 +76,7 @@ public class PriceTickerController
 
             // Get price information
             String isin = SymbolResolver.resolveIsin(code);
-            PriceTickerResponse response = service.getPriceByIsinFromTradegate(isin.trim());
+            PriceTickerResponse response = PriceTickerService.getPriceByIsinFromTradegate(isin.trim());
             return ResponseEntity.ok(response);
         }
         catch (IllegalArgumentException e)
@@ -107,35 +94,6 @@ public class PriceTickerController
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                      .body(PriceTickerErrorResponse.create("INVALID_REQUEST",
                                                                            "Invalid request parameters",
-                                                                           e.getMessage()));
-            }
-        }
-        catch (java.net.UnknownHostException | java.net.ConnectException e)
-        {
-            // Handle network connectivity issues
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                                 .body(PriceTickerErrorResponse.create("TRADEGATE_UNREACHABLE",
-                                                                       "Tradegate page not reachable",
-                                                                       "Unable to connect to Tradegate: "
-                                                                                       + e.getMessage()));
-        }
-        catch (IOException e)
-        {
-            // Check if it's a parsing issue (HTML structure changed)
-            if (e.getMessage().contains("No price information found") || e.getMessage().contains("parse")
-                            || e.getMessage().contains("structure"))
-            {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                                     .body(PriceTickerErrorResponse.create("HTML_STRUCTURE_CHANGED",
-                                                                           "HTML structure changed or price block not found",
-                                                                           e.getMessage()));
-            }
-            else
-            {
-                // General Yahoo Finance fetch error
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                                     .body(PriceTickerErrorResponse.create("YAHOO_FETCH_ERROR",
-                                                                           "Failed to fetch data from Yahoo Finance",
                                                                            e.getMessage()));
             }
         }
