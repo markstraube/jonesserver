@@ -43,13 +43,12 @@ public class PriceTickerService
     private static final String TRADEGATE_FINANCE_URL = "https://www.tradegatebsx.com/refresh.php?isin=";
     private static final int TIMEOUT_MS = 10000;
 
-    private static volatile Long cacheTimestamp;
     private static Set<String> blackListedIsins = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     // Guava Cache: Key = ISIN_slicedSeconds, Value = TradegateIntradayDto
     private static final Cache<String, TradegateIntradayDto> priceCache = CacheBuilder.newBuilder()
-                                                                                      .expireAfterWrite(5,
-                                                                                                        TimeUnit.MINUTES)
+                                                                                      .expireAfterWrite(3,
+                                                                                                        TimeUnit.DAYS)
                                                                                       .build();
 
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -65,12 +64,8 @@ public class PriceTickerService
         if (isin == null || isin.trim().isEmpty())
         { throw new IllegalArgumentException("ISIN cannot be null or empty"); }
 
-        if (cacheTimestamp == null)
-        { return new PriceTickerResponse(); }
-
-        String cacheKey = isin + "_" + cacheTimestamp;
-
-        TradegateIntradayDto cached = priceCache.getIfPresent(cacheKey);
+        TradegateIntradayDto cached = priceCache.getIfPresent(isin);
+        
         if (cached != null)
         { return convertToResponse(cached); }
 
@@ -191,8 +186,6 @@ public class PriceTickerService
         {
             e.printStackTrace();
         }
-
-        cacheTimestamp = slicedSeconds;
     }
 
 
@@ -202,8 +195,9 @@ public class PriceTickerService
         TradegateIntradayDto dto = fetchPriceFromTradegate(isin);
         if (dto != null)
         {
-            String cacheKey = isin + "_" + slicedSeconds;
-            priceCache.put(cacheKey, dto);
+            // ÄNDERUNG: Nutze nur die ISIN als Key.
+            // Dadurch wird der alte Eintrag für diese ISIN sofort überschrieben (speichereffizient).
+            priceCache.put(isin, dto);
         }
         else
         {
