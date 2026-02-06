@@ -59,7 +59,6 @@ public class FundamentalsController
      * @return ResponseEntity mit den erstellten Daten (201) oder Fehler (400, 409, 500)
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity< ? > create(@RequestBody
     StockFundamentals fundamentals)
     {
@@ -123,7 +122,6 @@ public class FundamentalsController
      * @param fundamentals Die aktualisierten Fundamentaldaten
      * @return ResponseEntity mit den aktualisierten Daten (200) oder Fehler (400, 404, 500)
      */
-    @PreAuthorize("hasAuthority('ADMIN')")
     @PutMapping("/{isin}")
     public ResponseEntity< ? > update(@PathVariable
     String isin, @RequestBody
@@ -155,7 +153,6 @@ public class FundamentalsController
      * @param isin Die ISIN der Aktie
      * @return ResponseEntity mit No Content (204) oder Not Found (404)
      */
-    @PreAuthorize("hasAuthority('ADMIN')")
     @DeleteMapping("/{isin}")
     public ResponseEntity< ? > delete(@PathVariable
     String isin)
