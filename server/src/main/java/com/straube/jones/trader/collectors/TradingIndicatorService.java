@@ -2,6 +2,7 @@ package com.straube.jones.trader.collectors;
 
 
 import java.io.File;
+import java.sql.Connection;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,19 +15,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
+import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.service.MarketDataService;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.trader.dto.RatingDto;
 import com.straube.jones.trader.indicators.RatingService;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 
 @Service
 public class TradingIndicatorService
@@ -1007,15 +1006,11 @@ public class TradingIndicatorService
 
     public static void main(String[] args)
     {
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
-        config.setUsername("stocksdb");
-        config.setPassword("stocksdb");
-        config.setDriverClassName("org.mariadb.jdbc.Driver");
-        config.setMaximumPoolSize(10);
-
-        HikariDataSource dataSource = new HikariDataSource(config);
-
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
+        dataSource.setUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
+        dataSource.setUsername("stocksdb");
+        dataSource.setPassword("stocksdb");
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
         RatingService ratingService = new RatingService(jdbcTemplate);
@@ -1024,7 +1019,7 @@ public class TradingIndicatorService
                                                                                ratingService);
         indicatorService.updateRatings();
 
-        dataSource.close();
+        // No need to close connection when using DriverManagerDataSource
     }
 
 
@@ -1048,52 +1043,52 @@ public class TradingIndicatorService
     }
 
 
-    // Beispiel-Verwendung
-    public static void main1(String[] args)
-    {
-        String symbol = "TSLA";
-        File analysisFolder = new File(ANALYSIS_ROOT_FOLDER);
-        analysisFolder.mkdirs();
+    // // Beispiel-Verwendung
+    // public static void main1(String[] args)
+    // {
+    //     String symbol = "TSLA";
+    //     File analysisFolder = new File(ANALYSIS_ROOT_FOLDER);
+    //     analysisFolder.mkdirs();
 
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
-        dataSource.setUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
-        dataSource.setUsername("stocksdb");
-        dataSource.setPassword("stocksdb");
+    //     DriverManagerDataSource dataSource = new DriverManagerDataSource();
+    //     dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
+    //     dataSource.setUrl("jdbc:mariadb://192.168.178.31:3306/StocksDB");
+    //     dataSource.setUsername("stocksdb");
+    //     dataSource.setPassword("stocksdb");
 
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
+    //     JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+    //     MarketDataService marketDataService = new MarketDataService(jdbcTemplate);
 
-        TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, null);
-        Long today = DayCounter.get(LocalDate.now());
-        for (int i = 0; i < 300; i++ )
-        {
-            long day = today - i;
-            Report report = indicatorService.getReport(symbol, day);
-            if (report != null && DayCounter.get(report.getDate()) == day)
-            {
-                String filename = String.format("%s/%s_%s_analysis.json",
-                                                ANALYSIS_ROOT_FOLDER,
-                                                symbol,
-                                                report.getDate());
-                File f = new File(filename);
-                if (f.exists())
-                {
-                    System.out.println("Analysis report already exists: " + filename + " - aborting loop");
-                    break;
-                }
-                try
-                {
-                    ObjectMapper mapper = new ObjectMapper();
-                    mapper.enable(SerializationFeature.INDENT_OUTPUT);
-                    mapper.writeValue(f, report);
-                    System.out.println("Analysis report saved to: " + filename);
-                }
-                catch (Exception e)
-                {
-                    System.err.println("Error saving analysis report: " + e.getMessage());
-                }
-            }
-        }
-    }
+    //     TradingIndicatorService indicatorService = new TradingIndicatorService(marketDataService, null);
+    //     Long today = DayCounter.get(LocalDate.now());
+    //     for (int i = 0; i < 300; i++ )
+    //     {
+    //         long day = today - i;
+    //         Report report = indicatorService.getReport(symbol, day);
+    //         if (report != null && DayCounter.get(report.getDate()) == day)
+    //         {
+    //             String filename = String.format("%s/%s_%s_analysis.json",
+    //                                             ANALYSIS_ROOT_FOLDER,
+    //                                             symbol,
+    //                                             report.getDate());
+    //             File f = new File(filename);
+    //             if (f.exists())
+    //             {
+    //                 System.out.println("Analysis report already exists: " + filename + " - aborting loop");
+    //                 break;
+    //             }
+    //             try
+    //             {
+    //                 ObjectMapper mapper = new ObjectMapper();
+    //                 mapper.enable(SerializationFeature.INDENT_OUTPUT);
+    //                 mapper.writeValue(f, report);
+    //                 System.out.println("Analysis report saved to: " + filename);
+    //             }
+    //             catch (Exception e)
+    //             {
+    //                 System.err.println("Error saving analysis report: " + e.getMessage());
+    //             }
+    //         }
+    //     }
+    // }
 }
