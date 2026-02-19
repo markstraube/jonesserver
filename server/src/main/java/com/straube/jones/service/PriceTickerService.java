@@ -59,7 +59,7 @@ public class PriceTickerService
      * @param isin The ISIN of the stock
      * @return PriceTickerResponse containing all available price information
      */
-    public static PriceTickerResponse getPriceByIsinFromTradegate(String isin)
+    public static PriceTickerResponse getPriceByIsinFromCache(String isin)
     {
         if (isin == null || isin.trim().isEmpty())
         { throw new IllegalArgumentException("ISIN cannot be null or empty"); }
@@ -76,17 +76,20 @@ public class PriceTickerService
     /**
      * Loads prices for all watched stocks mainly from Tradegate.
      */
+    static long loopCounter = 0;
     @Scheduled(cron = "*/10 30-59 7 * * MON-FRI")
     @Scheduled(cron = "*/10 * 8-21 * * MON-FRI")
     @Scheduled(cron = "*/10 0 22 * * MON-FRI")
     public static void loadPrices()
     {
+        if (loopCounter++ % 30 == 0) // try again after 5 minutes if there are blacklisted ISINs (e.g. due to temporary network issues)
+        {
+            blackListedIsins.clear();
+            blackListedIsins.add("US6311011026"); // exclude NASDQ Index
+        }
         LocalTime now = LocalTime.now(ZoneId.of("Europe/Berlin"));
         if (now.isBefore(LocalTime.of(7, 30)) || now.isAfter(LocalTime.of(22, 0)))
         { return; }
-
-        long slicedSeconds = ((System.currentTimeMillis()
-                        - java.sql.Timestamp.valueOf("2000-01-01 00:00:00").getTime()) / 10000L) * 10L;
 
         Set<String> isins = new HashSet<>();
         File userPrefsRoot = new File(UserPrefsRepo.USER_PREFS_ROOT);
@@ -137,7 +140,7 @@ public class PriceTickerService
             }
             try
             {
-                TradegateIntradayDto dto = getPriceByIsinFromTradegate(isin, slicedSeconds);
+                TradegateIntradayDto dto = getPriceByIsinFromTradegate(isin.trim());
                 if (dto != null)
                 {
                     dto.setTimestamp(new java.sql.Timestamp(System.currentTimeMillis()));
@@ -189,7 +192,7 @@ public class PriceTickerService
     }
 
 
-    public static TradegateIntradayDto getPriceByIsinFromTradegate(String isin, long slicedSeconds)
+    public static TradegateIntradayDto getPriceByIsinFromTradegate(String isin)
         throws IOException
     {
         TradegateIntradayDto dto = fetchPriceFromTradegate(isin);

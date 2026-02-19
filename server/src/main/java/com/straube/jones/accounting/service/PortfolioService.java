@@ -137,7 +137,7 @@ public class PortfolioService
         try
         {
             // Try by ISIN
-            PriceTickerResponse response = priceTickerService.getPriceByIsinFromTradegate(isin);
+            PriceTickerResponse response = priceTickerService.getPriceByIsinFromCache(isin);
             return extractBidPrice(response);
         }
         catch (Exception e)

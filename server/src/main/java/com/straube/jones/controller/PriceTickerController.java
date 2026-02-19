@@ -76,7 +76,7 @@ public class PriceTickerController
 
             // Get price information
             String isin = SymbolResolver.resolveIsin(code);
-            PriceTickerResponse response = PriceTickerService.getPriceByIsinFromTradegate(isin.trim());
+            PriceTickerResponse response = PriceTickerService.getPriceByIsinFromCache(isin.trim());
             return ResponseEntity.ok(response);
         }
         catch (IllegalArgumentException e)
