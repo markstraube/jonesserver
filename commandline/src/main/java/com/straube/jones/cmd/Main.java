@@ -11,6 +11,7 @@ import com.straube.jones.cmd.db.OnVistaModel;
 import com.straube.jones.cmd.db.StockCounterDB;
 import com.straube.jones.cmd.onVista.OnVistaCollector;
 import com.straube.jones.cmd.onVista.StocksLoader;
+import com.straube.jones.cmd.strategies.Strategy001;
 import com.straube.jones.cmd.yahoo.SymbolResolver;
 import com.straube.jones.cmd.yahoo.YahooPriceDownloader;
 import com.straube.jones.cmd.yahoo.YahooPriceImporter;
@@ -93,8 +94,11 @@ public class Main
         case "fundamentals":
             StockCounterDB.reloadAllCounter(dataRoot, dateString, true);
             break;
+        case "strategy001":
+            new Strategy001().execute();
+            break;
         default:
-            System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates | importOeNB | fundamentals] -DcreateModel=[false | true]");
+            System.out.println("Usage: -Ddata.root=./data -Dcommand=[onVista | stocks | eurorates | importOeNB | fundamentals | strategy001] -DcreateModel=[false | true]");
 
         }
         System.out.println("Done - leaving program");
