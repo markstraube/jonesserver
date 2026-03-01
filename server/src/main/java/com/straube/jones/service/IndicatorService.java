@@ -74,7 +74,8 @@ public class IndicatorService
                         + "cSMA5, cSMA10, cSMA20, cSMA30, "
                         + "cEMA5, cEMA10, cEMA20, cEMA30, "
                         + "cSupport, cResistance, "
-                        + "cRSL, cROC, cADX, cADXplusDI, cADXminusDI "
+                        + "cRSL, cROC, cADX, cADXplusDI, cADXminusDI, "
+                        + "cVWMA5, cVWMA10, cVWMA20, cVWMA30 "
                         + "FROM tIndicators "
                         + "WHERE cSymbol IN (:symbols) "
                         + "AND cDayCounter >= :startDay "
@@ -229,6 +230,35 @@ public class IndicatorService
             if (rs.wasNull())
                 dto.setAdxMinusDI(null);
 
+            // Volume Weighted Moving Averages
+            dto.setVwma5(CurrencyDB.getAsEuroOrOriginal(currency,
+                                                        rs.getDouble("cVWMA5"),
+                                                        DayCounter.yesterday(),
+                                                        convertToEuro));
+            if (rs.wasNull())
+                dto.setVwma5(null);
+
+            dto.setVwma10(CurrencyDB.getAsEuroOrOriginal(currency,
+                                                         rs.getDouble("cVWMA10"),
+                                                         DayCounter.yesterday(),
+                                                         convertToEuro));
+            if (rs.wasNull())
+                dto.setVwma10(null);
+
+            dto.setVwma20(CurrencyDB.getAsEuroOrOriginal(currency,
+                                                         rs.getDouble("cVWMA20"),
+                                                         DayCounter.yesterday(),
+                                                         convertToEuro));
+            if (rs.wasNull())
+                dto.setVwma20(null);
+
+            dto.setVwma30(CurrencyDB.getAsEuroOrOriginal(currency,
+                                                         rs.getDouble("cVWMA30"),
+                                                         DayCounter.yesterday(),
+                                                         convertToEuro));
+            if (rs.wasNull())
+                dto.setVwma30(null);
+
             return dto;
         });
     }
@@ -252,7 +282,8 @@ public class IndicatorService
                         + "cSMA5, cSMA10, cSMA20, cSMA30, "
                         + "cEMA5, cEMA10, cEMA20, cEMA30, "
                         + "cSupport, cResistance, "
-                        + "cRSL, cROC, cADX, cADXplusDI, cADXminusDI"
+                        + "cRSL, cROC, cADX, cADXplusDI, cADXminusDI, "
+                        + "cVWMA5, cVWMA10, cVWMA20, cVWMA30"
                         + ") VALUES ("
                         + ":symbol, :dateLong, :currency, :dayCounter, "
                         + ":bb15low, :bb15mid, :bb15high, "
@@ -261,7 +292,8 @@ public class IndicatorService
                         + ":sma5, :sma10, :sma20, :sma30, "
                         + ":ema5, :ema10, :ema20, :ema30, "
                         + ":support, :resistance, "
-                        + ":rsl, :roc, :adx, :adxPlusDI, :adxMinusDI"
+                        + ":rsl, :roc, :adx, :adxPlusDI, :adxMinusDI, "
+                        + ":vwma5, :vwma10, :vwma20, :vwma30"
                         + ") ON DUPLICATE KEY UPDATE "
                         + "cBB15low = VALUES(cBB15low), cBB15mid = VALUES(cBB15mid), cBB15high = VALUES(cBB15high), "
                         + "cRSI = VALUES(cRSI), cVolume = VALUES(cVolume), "
@@ -270,7 +302,8 @@ public class IndicatorService
                         + "cEMA5 = VALUES(cEMA5), cEMA10 = VALUES(cEMA10), cEMA20 = VALUES(cEMA20), cEMA30 = VALUES(cEMA30), "
                         + "cSupport = VALUES(cSupport), cResistance = VALUES(cResistance), "
                         + "cRSL = VALUES(cRSL), cROC = VALUES(cROC), cADX = VALUES(cADX), "
-                        + "cADXplusDI = VALUES(cADXplusDI), cADXminusDI = VALUES(cADXminusDI)";
+                        + "cADXplusDI = VALUES(cADXplusDI), cADXminusDI = VALUES(cADXminusDI), "
+                        + "cVWMA5 = VALUES(cVWMA5), cVWMA10 = VALUES(cVWMA10), cVWMA20 = VALUES(cVWMA20), cVWMA30 = VALUES(cVWMA30)";
 
         MapSqlParameterSource[] batch = indicators.stream().map(dto -> {
             MapSqlParameterSource params = new MapSqlParameterSource();
@@ -309,6 +342,41 @@ public class IndicatorService
             params.addValue("adxPlusDI", dto.getAdxPlusDI());
             params.addValue("adxMinusDI", dto.getAdxMinusDI());
 
+            params.addValue("vwma5", dto.getVwma5());
+            params.addValue("vwma10", dto.getVwma10());
+            params.addValue("vwma20", dto.getVwma20());
+            params.addValue("vwma30", dto.getVwma30());
+
+            return params;
+        }).toArray(MapSqlParameterSource[]::new);
+
+        namedParameterJdbcTemplate.batchUpdate(sql, batch);
+    }
+
+
+    /**
+     * Aktualisiert nur die VWMA-Spalten für bestehende Indicator-Zeilen.
+     * Nützlich um neue VWMA-Felder für bereits vorhandene Datensätze nachzutragen.
+     *
+     * @param indicators Liste von DTOs mit Symbol, Date und den vier VWMA-Werten
+     */
+    public void updateVWMABatch(List<IndicatorDto> indicators)
+    {
+        if (indicators == null || indicators.isEmpty())
+        { return; }
+
+        String sql = "UPDATE tIndicators "
+                        + "SET cVWMA5 = :vwma5, cVWMA10 = :vwma10, cVWMA20 = :vwma20, cVWMA30 = :vwma30 "
+                        + "WHERE cSymbol = :symbol AND cDayCounter = :dayCounter";
+
+        MapSqlParameterSource[] batch = indicators.stream().map(dto -> {
+            MapSqlParameterSource params = new MapSqlParameterSource();
+            params.addValue("symbol", dto.getSymbol());
+            params.addValue("dayCounter", DayCounter.get(dto.getDate()));
+            params.addValue("vwma5", dto.getVwma5());
+            params.addValue("vwma10", dto.getVwma10());
+            params.addValue("vwma20", dto.getVwma20());
+            params.addValue("vwma30", dto.getVwma30());
             return params;
         }).toArray(MapSqlParameterSource[]::new);
 

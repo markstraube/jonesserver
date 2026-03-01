@@ -87,6 +87,18 @@ public class IndicatorDto
     @Schema(description = "Negative Directional Indicator (-DI) (14-Tage-Periode)", example = "15.0")
     private Double adxMinusDI;
 
+    @Schema(description = "Volume Weighted Moving Average über 5 Tage", example = "148.40")
+    private Double vwma5;
+
+    @Schema(description = "Volume Weighted Moving Average über 10 Tage", example = "147.90")
+    private Double vwma10;
+
+    @Schema(description = "Volume Weighted Moving Average über 20 Tage", example = "146.70")
+    private Double vwma20;
+
+    @Schema(description = "Volume Weighted Moving Average über 30 Tage", example = "145.50")
+    private Double vwma30;
+
     // Getters and Setters
 
     public String getSymbol()
@@ -386,5 +398,53 @@ public class IndicatorDto
     public void setAdxMinusDI(Double adxMinusDI)
     {
         this.adxMinusDI = adxMinusDI;
+    }
+
+
+    public Double getVwma5()
+    {
+        return vwma5;
+    }
+
+
+    public void setVwma5(Double vwma5)
+    {
+        this.vwma5 = vwma5;
+    }
+
+
+    public Double getVwma10()
+    {
+        return vwma10;
+    }
+
+
+    public void setVwma10(Double vwma10)
+    {
+        this.vwma10 = vwma10;
+    }
+
+
+    public Double getVwma20()
+    {
+        return vwma20;
+    }
+
+
+    public void setVwma20(Double vwma20)
+    {
+        this.vwma20 = vwma20;
+    }
+
+
+    public Double getVwma30()
+    {
+        return vwma30;
+    }
+
+
+    public void setVwma30(Double vwma30)
+    {
+        this.vwma30 = vwma30;
     }
 }

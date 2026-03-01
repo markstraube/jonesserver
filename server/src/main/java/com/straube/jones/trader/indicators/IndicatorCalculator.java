@@ -63,6 +63,12 @@ public class IndicatorCalculator
         Double[] support = calculateSupport(chronologicalPrices, 20);
         Double[] resistance = calculateResistance(chronologicalPrices, 20);
 
+        // VWMA (Volume Weighted Moving Average)
+        Double[] vwma5 = VWMAcalculator.calculateVWMAArray(chronologicalPrices, 5);
+        Double[] vwma10 = VWMAcalculator.calculateVWMAArray(chronologicalPrices, 10);
+        Double[] vwma20 = VWMAcalculator.calculateVWMAArray(chronologicalPrices, 20);
+        Double[] vwma30 = VWMAcalculator.calculateVWMAArray(chronologicalPrices, 30);
+
         // Zusammenfügen
         for (int i = 0; i < size; i++ )
         {
@@ -102,6 +108,11 @@ public class IndicatorCalculator
 
             dto.setSupport(support[i]);
             dto.setResistance(resistance[i]);
+
+            dto.setVwma5(vwma5[i]);
+            dto.setVwma10(vwma10[i]);
+            dto.setVwma20(vwma20[i]);
+            dto.setVwma30(vwma30[i]);
 
             results.add(dto);
         }

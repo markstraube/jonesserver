@@ -3,6 +3,7 @@ package com.straube.jones.trader.collectors;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -14,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.straube.jones.db.DayCounter;
@@ -23,6 +23,7 @@ import com.straube.jones.service.MarketDataService;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.trader.dto.IndicatorDto;
 import com.straube.jones.trader.indicators.IndicatorCalculator;
+import com.straube.jones.trader.indicators.VWMAcalculator;
 
 /**
  * Collector für technische Indikatoren. Berechnet Indikatoren basierend auf historischen Marktdaten.
@@ -213,6 +214,104 @@ public class IndicatorCollector
     }
 
 
+    /**
+     * Trägt die VWMA-Indikatoren (5, 10, 20, 30) für alle bereits in der DB vorhandenen Datensätze nach.
+     * Bestehende Werte in den übrigen Spalten bleiben unverändert.
+     */
+    public void backfillVWMA()
+    {
+        logger.info("Starting VWMA backfill for all symbols...");
+        List<String> symbols = marketDataService.getAllSymbols();
+
+        int numThreads = 4;
+        List<List<String>> partitions = new ArrayList<>();
+        int chunkSize = (int)Math.ceil((double)symbols.size() / numThreads);
+
+        for (int i = 0; i < symbols.size(); i += chunkSize)
+        {
+            int end = Math.min(i + chunkSize, symbols.size());
+            partitions.add(symbols.subList(i, end));
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(partitions.size());
+        List<Future< ? >> futures = new ArrayList<>();
+
+        for (List<String> partition : partitions)
+        {
+            futures.add(executor.submit(() -> backfillVWMABatch(partition)));
+        }
+
+        for (Future< ? > f : futures)
+        {
+            try
+            {
+                f.get();
+            }
+            catch (Exception e)
+            {
+                logger.error("Error in VWMA backfill thread", e);
+            }
+        }
+
+        executor.shutdown();
+        logger.info("VWMA backfill finished.");
+    }
+
+
+    private void backfillVWMABatch(List<String> symbols)
+    {
+        for (String symbol : symbols)
+        {
+            try
+            {
+                List<DailyPrice> prices = marketDataService.getMarketData(symbol);
+                if (prices == null || prices.size() < 5)
+                {
+                    continue;
+                }
+
+                // Preisliste chronologisch (alt → neu) für VWMA-Berechnung
+                List<DailyPrice> chrono = new ArrayList<>(prices);
+                Collections.reverse(chrono);
+
+                Double[] vwma5 = VWMAcalculator.calculateVWMAArray(chrono, 5);
+                Double[] vwma10 = VWMAcalculator.calculateVWMAArray(chrono, 10);
+                Double[] vwma20 = VWMAcalculator.calculateVWMAArray(chrono, 20);
+                Double[] vwma30 = VWMAcalculator.calculateVWMAArray(chrono, 30);
+
+                List<IndicatorDto> updates = new ArrayList<>();
+                for (int i = 0; i < chrono.size(); i++)
+                {
+                    // Nur Einträge mit mindestens einem berechneten VWMA-Wert übernehmen
+                    if (vwma5[i] == null && vwma10[i] == null && vwma20[i] == null && vwma30[i] == null)
+                    {
+                        continue;
+                    }
+
+                    IndicatorDto dto = new IndicatorDto();
+                    dto.setSymbol(symbol);
+                    dto.setDate(DayCounter.toTimestamp(DayCounter.get(chrono.get(i).getDate())));
+                    dto.setVwma5(vwma5[i]);
+                    dto.setVwma10(vwma10[i]);
+                    dto.setVwma20(vwma20[i]);
+                    dto.setVwma30(vwma30[i]);
+                    updates.add(dto);
+                }
+
+                if (!updates.isEmpty())
+                {
+                    logger.info("Backfilling VWMA for {} ({} records)", symbol, updates.size());
+                    indicatorService.updateVWMABatch(updates);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.error("Error backfilling VWMA for symbol " + symbol, e);
+            }
+        }
+    }
+
+
     public static void main(String[] args)
     {
         // Setup Database Connection
@@ -231,6 +330,7 @@ public class IndicatorCollector
                                                               indicatorCalculator,
                                                               indicatorService);
 
-        collector.updateIndicators();
+        //collector.updateIndicators();
+        collector.backfillVWMA();
     }
 }
