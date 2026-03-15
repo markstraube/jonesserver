@@ -29,7 +29,7 @@ public class DayCounter
 
     public static long get(LocalDate date)
     {
-        return ChronoUnit.DAYS.between(REFERENCE_DATE, date);
+        return ChronoUnit.DAYS.between(REFERENCE_DATE, date) + 1;
     }
 
 
