@@ -535,6 +535,10 @@ public class StocksController
      * i.e. {@code Europe/Berlin}).  The day window covers exactly 24 hours, from midnight
      * to midnight local time.
      *
+     * <p>When {@code timestamp} is <em>omitted</em>, the endpoint automatically determines
+     * the most recent calendar day for which intraday data is present in the table for the
+     * requested ISIN and returns that day's data.
+     *
      * <p><b>Column renaming:</b> {@code cStueck} is exposed as {@code volume},
      * {@code cUmsatz} as {@code revenue}.
      *
@@ -575,22 +579,28 @@ public class StocksController
      * @param code      ISIN (e.g. {@code US0378331005}) or Yahoo Finance symbol
      *                  (e.g. {@code AAPL}).  Symbols are resolved to ISIN via
      *                  {@link SymbolResolver#resolveIsin(String)}.
-     * @param timestamp Unix time in milliseconds.  Used only to identify the calendar day;
-     *                  the exact time within the day is irrelevant.
+     * @param timestamp Optional Unix time in milliseconds used only to identify the
+     *                  calendar day (exact time within the day is irrelevant).
+     *                  When omitted, the endpoint determines the most recent day for
+     *                  which data is available in {@code tTradegateIntraday} for the
+     *                  requested ISIN and returns that day's data.
      * @param reduce    Optional time-bucket size for data aggregation.  Supported values:
      *                  {@code 1S} (1 second), {@code 10S} (10 seconds), {@code 30S}
      *                  (30 seconds), {@code 1M} (1 minute), {@code 5M} (5 minutes),
      *                  {@code 10M} (10 minutes).  Omit to receive raw data.
      * @return {@code 200 OK} with an {@link IntradayResponse} on success;
      *         {@code 400 Bad Request} for missing/invalid parameters;
-     *         {@code 404 Not Found} when the code cannot be resolved to an ISIN;
+     *         {@code 404 Not Found} when the code cannot be resolved to an ISIN or
+     *         no intraday data exists for the ISIN;
      *         {@code 500 Internal Server Error} on unexpected failures.
      */
     @GetMapping(path = "/intraday", produces = "application/json")
     @Operation(
         summary = "Get intraday price data for a single trading day",
         description = "Returns all price snapshots stored in tTradegateIntraday for the calendar day "
-                    + "identified by the supplied timestamp (Europe/Berlin timezone, 24 h window). "
+                    + "identified by the optional **timestamp** parameter (Europe/Berlin timezone, 24 h window). "
+                    + "**When timestamp is omitted**, the endpoint automatically determines the most recent day "
+                    + "for which intraday data is available in the database for the requested ISIN and returns that day's data. "
                     + "The optional **reduce** parameter aggregates raw snapshots into fixed-size time buckets "
                     + "(arithmetic mean per bucket, timestamp rounded to nearest second). "
                     + "The response contains a **header** with pre-calculated day statistics "
@@ -603,10 +613,10 @@ public class StocksController
                      description = "Intraday data successfully retrieved",
                      content = @Content(schema = @Schema(implementation = IntradayResponse.class))),
         @ApiResponse(responseCode = "400",
-                     description = "Missing or invalid parameter (code, timestamp, or reduce value)",
+                     description = "Missing or invalid parameter (code or reduce value)",
                      content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
         @ApiResponse(responseCode = "404",
-                     description = "Code cannot be resolved to a known ISIN",
+                     description = "Code cannot be resolved to a known ISIN, or no intraday data available for the ISIN",
                      content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
         @ApiResponse(responseCode = "500",
                      description = "Unexpected error during processing",
@@ -618,9 +628,10 @@ public class StocksController
         @RequestParam(required = true) String code,
 
         @Parameter(description = "Unix timestamp in milliseconds identifying the trading day. "
-                               + "Only the calendar date portion is used; the exact time is irrelevant.",
-                   required = true, schema = @Schema(type = "integer", format = "int64"))
-        @RequestParam(required = true) Long timestamp,
+                               + "Only the calendar date portion is used; the exact time is irrelevant. "
+                               + "When omitted, the most recent day with available data for the ISIN is used.",
+                   required = false, schema = @Schema(type = "integer", format = "int64"))
+        @RequestParam(required = false) Long timestamp,
 
         @Parameter(description = "Optional aggregation bucket size. "
                                + "Supported values: 1S, 10S, 30S, 1M, 5M, 10M "
@@ -680,7 +691,27 @@ public class StocksController
 
         // ---- 3. Compute day boundaries in Europe/Berlin local time -----------
         ZoneId zone = ZoneId.of("Europe/Berlin");
-        LocalDate date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate();
+
+        final LocalDate date;
+        if (timestamp != null)
+        {
+            date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate();
+        }
+        else
+        {
+            // Determine the most recent day that has data for this ISIN
+            LocalDate lastDay = resolveLastAvailableDay(isin);
+            if (lastDay == null)
+            {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                     .body(PriceTickerErrorResponse.create(
+                                         "NO_DATA",
+                                         "No intraday data available for ISIN",
+                                         "tTradegateIntraday contains no records for: " + isin));
+            }
+            date = lastDay;
+        }
+
         long dayStartMs = date.atStartOfDay(zone).toInstant().toEpochMilli();
         long dayEndMs   = dayStartMs + 24L * 60 * 60 * 1000;
 
@@ -794,6 +825,42 @@ public class StocksController
         response.setData(dataPoints);
 
         return ResponseEntity.ok(response);
+    }
+
+
+    /**
+     * Queries {@code tTradegateIntraday} for the most recent calendar day (Europe/Berlin)
+     * that contains at least one record for the given ISIN.
+     *
+     * @param isin the ISIN to look up
+     * @return the most recent {@link LocalDate} with data, or {@code null} if no data exists
+     */
+    private LocalDate resolveLastAvailableDay(String isin)
+    {
+        String sql = "SELECT MAX(cTimestamp) FROM tTradegateIntraday WHERE cIsin = ?";
+        try (Connection conn = DBConnection.getStocksConnection();
+             PreparedStatement ps = conn.prepareStatement(sql))
+        {
+            ps.setString(1, isin);
+            try (ResultSet rs = ps.executeQuery())
+            {
+                if (rs.next())
+                {
+                    Timestamp maxTs = rs.getTimestamp(1);
+                    if (maxTs != null)
+                    {
+                        return maxTs.toInstant()
+                                   .atZone(ZoneId.of("Europe/Berlin"))
+                                   .toLocalDate();
+                    }
+                }
+            }
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+        return null;
     }
 
 

@@ -192,6 +192,44 @@ public class PriceTickerService
     }
 
 
+    /**
+     * Reorganizes the {@code tTradegateIntraday} table by removing all records whose
+     * {@code cTimestamp} falls on a calendar day that is strictly older than 14 days
+     * (day-precise, evaluated in {@code Europe/Berlin} local time).
+     *
+     * <p>The cutoff is computed as midnight at the start of the local date 14 days ago,
+     * so data from today back to and including 14 days ago is retained, while everything
+     * before that boundary is deleted.
+     *
+     * <p>Runs automatically every working day at 06:30 local time via the
+     * {@code @Scheduled} cron expression, before the regular price-fetch window opens.
+     */
+    @Scheduled(cron = "0 30 6 * * MON-FRI", zone = "Europe/Berlin")
+    public static void cleanupIntraday()
+    {
+        ZoneId zone = ZoneId.of("Europe/Berlin");
+        // Cutoff = start of local day 14 days ago  →  records before this timestamp are deleted
+        java.time.LocalDate cutoffDate = java.time.LocalDate.now(zone).minusDays(14);
+        java.sql.Timestamp cutoff = java.sql.Timestamp.from(
+            cutoffDate.atStartOfDay(zone).toInstant());
+
+        String sql = "DELETE FROM tTradegateIntraday WHERE cTimestamp < ?";
+        try (Connection conn = DBConnection.getStocksConnection();
+             PreparedStatement ps = conn.prepareStatement(sql))
+        {
+            ps.setTimestamp(1, cutoff);
+            int deleted = ps.executeUpdate();
+            conn.commit();
+            System.out.println("tTradegateIntraday cleanup: " + deleted
+                               + " rows deleted (older than " + cutoffDate + ")");
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+
     public static TradegateIntradayDto getPriceByIsinFromTradegate(String isin)
         throws IOException
     {

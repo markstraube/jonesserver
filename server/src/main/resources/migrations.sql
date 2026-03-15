@@ -40,3 +40,21 @@ INSERT IGNORE INTO permissions (name) VALUES
 ('ADMIN');
 
 -- Note: Admin user creation is handled by DataInitializer on startup if not exists.
+
+-- ---------------------------------------------------------------------------
+-- Indexes for tTradegateIntraday
+-- ---------------------------------------------------------------------------
+-- Q1: Intraday data query  → WHERE cIsin = ? AND cTimestamp >= ? AND cTimestamp < ?  ORDER BY cTimestamp ASC
+-- Q2: Last-day resolution  → SELECT MAX(cTimestamp) … WHERE cIsin = ?
+-- Both are fully covered by the composite index (cIsin, cTimestamp):
+--   • cIsin equality reduces the scan to one ISIN's rows
+--   • cTimestamp range/sort is handled without a filesort
+CREATE INDEX IF NOT EXISTS tTradegateIntraday_cIsin_cTimestamp_IDX
+    ON tTradegateIntraday (cIsin, cTimestamp);
+
+-- Q3: Cleanup DELETE → WHERE cTimestamp < ?
+-- No cIsin filter → the composite index above cannot be used (leftmost-prefix rule).
+-- A standalone cTimestamp index allows the DELETE to do an index-range scan
+-- instead of a full table scan, which is critical given the high insert frequency.
+CREATE INDEX IF NOT EXISTS tTradegateIntraday_cTimestamp_IDX
+    ON tTradegateIntraday (cTimestamp);
