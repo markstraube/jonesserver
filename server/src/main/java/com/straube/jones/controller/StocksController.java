@@ -19,7 +19,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
@@ -539,15 +538,19 @@ public class StocksController
      * the most recent calendar day for which intraday data is present in the table for the
      * requested ISIN and returns that day's data.
      *
-     * <p><b>Column renaming:</b> {@code cStueck} is exposed as {@code volume},
-     * {@code cUmsatz} as {@code revenue}.
+     * <p><b>Column renaming:</b> {@code cStueck} is exposed as {@code volume}.
      *
-     * <p><b>Optional reduction:</b> When the {@code reduce} parameter is provided, multiple
-     * raw data points that fall within the same time bucket are aggregated into one:
+     * <p><b>Optional reduction:</b> When the {@code reduce} parameter is provided, raw
+     * snapshots are grouped into minute-aligned OHLC candles.  Bucket boundaries are
+     * aligned to the full hour (e.g. for {@code 10M}: 7:00–7:09:59, 7:10–7:19:59, …).
+     * Within each bucket:
      * <ul>
-     *   <li>All numeric price / value fields become the arithmetic mean of the bucket.</li>
-     *   <li>The {@code timestamp} of the aggregated point is the arithmetic mean of the
-     *       contained timestamps, rounded to the nearest second.</li>
+     *   <li>{@code open} / {@code close} / {@code high} / {@code low} reflect the price
+     *       development of {@code cLast} across all snapshots in the bucket.</li>
+     *   <li>{@code bid}, {@code ask}, {@code avg} are arithmetic means.</li>
+     *   <li>{@code volume} is {@code cStueck_newest − cStueck_oldest} (increment).</li>
+     *   <li>{@code delta} is the {@code cDelta} of the newest snapshot.</li>
+     *   <li>{@code timestamp} is the start of the bucket (oldest snapshot's timestamp).</li>
      * </ul>
      *
      * <p><b>Response structure:</b>
@@ -555,7 +558,7 @@ public class StocksController
      * {
      *   "isin": "US0378331005",
      *   "date": "2026-03-15",
-     *   "reduce": "1M",          // absent when not requested
+     *   "reduce": "10M",         // absent when not requested
      *   "header": {
      *     "open":             150.25,   // first cLast of the day
      *     "close":            152.50,   // last  cLast of the day
@@ -566,11 +569,12 @@ public class StocksController
      *     "previous-close":   151.00,   // cClose of last record (previous day close)
      *     "volume":           5000000,  // cStueck of last record (cumulative)
      *     "executions":       12500,    // cExecutions of last record (cumulative)
-     *     "delta":            1.50      // cDelta  of last record
+     *     "delta":            1.50,     // cDelta  of last record
+     *     "buckets":          57        // number of data points in the data array
      *   },
      *   "data": [
-     *     { "timestamp": ..., "last": ..., "bid": ..., "ask": ...,
-     *       "avg": ..., "volume": ..., "revenue": ..., "delta": ... },
+     *     { "timestamp": ..., "open": ..., "close": ..., "high": ..., "low": ...,
+     *       "bid": ..., "ask": ..., "avg": ..., "volume": ..., "delta": ... },
      *     ...
      *   ]
      * }
@@ -584,10 +588,11 @@ public class StocksController
      *                  When omitted, the endpoint determines the most recent day for
      *                  which data is available in {@code tTradegateIntraday} for the
      *                  requested ISIN and returns that day's data.
-     * @param reduce    Optional time-bucket size for data aggregation.  Supported values:
-     *                  {@code 1S} (1 second), {@code 10S} (10 seconds), {@code 30S}
-     *                  (30 seconds), {@code 1M} (1 minute), {@code 5M} (5 minutes),
-     *                  {@code 10M} (10 minutes).  Omit to receive raw data.
+     * @param reduce    Optional time-bucket size for OHLC candle aggregation.  Supported
+     *                  values: {@code 1M} (1 minute), {@code 10M} (10 minutes),
+     *                  {@code 30M} (30 minutes), {@code 60M} (60 minutes).
+     *                  Bucket boundaries are aligned to the full hour.
+     *                  Omit to receive raw snapshot data.
      * @return {@code 200 OK} with an {@link IntradayResponse} on success;
      *         {@code 400 Bad Request} for missing/invalid parameters;
      *         {@code 404 Not Found} when the code cannot be resolved to an ISIN or
@@ -601,12 +606,14 @@ public class StocksController
                     + "identified by the optional **timestamp** parameter (Europe/Berlin timezone, 24 h window). "
                     + "**When timestamp is omitted**, the endpoint automatically determines the most recent day "
                     + "for which intraday data is available in the database for the requested ISIN and returns that day's data. "
-                    + "The optional **reduce** parameter aggregates raw snapshots into fixed-size time buckets "
-                    + "(arithmetic mean per bucket, timestamp rounded to nearest second). "
-                    + "The response contains a **header** with pre-calculated day statistics "
+                    + "The optional **reduce** parameter aggregates raw snapshots into minute-aligned OHLC candles. "
+                    + "Supported bucket sizes: **1M** (1 min), **10M** (10 min), **30M** (30 min), **60M** (60 min). "
+                    + "Bucket boundaries are aligned to the full hour (e.g. 10M: 7:00–7:09:59, 7:10–7:19:59, …). "
+                    + "Each candle has open/close/high/low from cLast, averaged bid/ask/avg, "
+                    + "volume as cStueck increment within the bucket, and the latest delta. "
+                    + "The response **header** contains pre-calculated day statistics "
                     + "(open, close, high/low with timestamps, previous-close, cumulative volume, "
-                    + "executions, delta) and a chronologically ordered **data** array suitable "
-                    + "for direct use in chart libraries."
+                    + "executions, delta) plus the total number of data points (**buckets**)."
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200",
@@ -633,26 +640,26 @@ public class StocksController
                    required = false, schema = @Schema(type = "integer", format = "int64"))
         @RequestParam(required = false) Long timestamp,
 
-        @Parameter(description = "Optional aggregation bucket size. "
-                               + "Supported values: 1S, 10S, 30S, 1M, 5M, 10M "
-                               + "(S = seconds, M = minutes). "
-                               + "When set, raw snapshots within each bucket are averaged and the "
-                               + "bucket's timestamp is the rounded mean of its contained timestamps.",
-                   required = false, example = "1M")
+        @Parameter(description = "Optional OHLC candle aggregation bucket size. "
+                               + "Supported values: 1M (1 minute), 10M (10 minutes), "
+                               + "30M (30 minutes), 60M (60 minutes). "
+                               + "Bucket boundaries are aligned to the full hour. "
+                               + "When set, each data point is an OHLC candle aggregated from raw snapshots.",
+                   required = false, example = "10M")
         @RequestParam(required = false) String reduce)
     {
         // ---- 1. Validate & parse the 'reduce' parameter ----------------------
-        int bucketSeconds = 0;
+        int bucketMinutes = 0;
         if (reduce != null && !reduce.trim().isEmpty())
         {
-            bucketSeconds = parseReduceSeconds(reduce.trim());
-            if (bucketSeconds < 0)
+            bucketMinutes = parseReduceMinutes(reduce.trim());
+            if (bucketMinutes < 0)
             {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                      .body(PriceTickerErrorResponse.create(
                                          "INVALID_REDUCE",
                                          "Invalid reduce parameter",
-                                         "Supported values: 1S, 10S, 30S, 1M, 5M, 10M"));
+                                         "Supported values: 1M, 10M, 30M, 60M"));
             }
         }
 
@@ -716,7 +723,7 @@ public class StocksController
         long dayEndMs   = dayStartMs + 24L * 60 * 60 * 1000;
 
         // ---- 4. Query tTradegateIntraday -------------------------------------
-        String sql = "SELECT cBid, cAsk, cDelta, cStueck, cUmsatz, cAvg, cExecutions, "
+        String sql = "SELECT cBid, cAsk, cDelta, cStueck, cAvg, cExecutions, "
                    + "cLast, cClose, cTimestamp "
                    + "FROM tTradegateIntraday "
                    + "WHERE cIsin = ? AND cTimestamp >= ? AND cTimestamp < ? "
@@ -773,15 +780,17 @@ public class StocksController
                         }
                     }
 
-                    // --- build raw data point ---
+                    // --- build raw data point (open=close=high=low=cLast) ---
                     IntradayResponse.IntradayDataPoint dp = new IntradayResponse.IntradayDataPoint();
                     dp.setTimestamp(tsMs);
-                    dp.setLast(cLast);
+                    dp.setOpen(cLast);
+                    dp.setClose(cLast);
+                    dp.setHigh(cLast);
+                    dp.setLow(cLast);
                     dp.setBid(rs.getBigDecimal("cBid"));
                     dp.setAsk(rs.getBigDecimal("cAsk"));
                     dp.setAvg(rs.getBigDecimal("cAvg"));
                     dp.setVolume(rs.getLong("cStueck"));
-                    dp.setRevenue(rs.getBigDecimal("cUmsatz"));
                     dp.setDelta(rs.getBigDecimal("cDelta"));
                     rawPoints.add(dp);
                 }
@@ -799,8 +808,8 @@ public class StocksController
 
         // ---- 5. Optionally reduce / aggregate data points --------------------
         List<IntradayResponse.IntradayDataPoint> dataPoints =
-            (bucketSeconds > 0 && !rawPoints.isEmpty())
-                ? reduceIntradayPoints(rawPoints, bucketSeconds)
+            (bucketMinutes > 0 && !rawPoints.isEmpty())
+                ? reduceIntradayPoints(rawPoints, bucketMinutes, zone)
                 : rawPoints;
 
         // ---- 6. Build header -------------------------------------------------
@@ -815,12 +824,13 @@ public class StocksController
         header.setVolume(lastVolume);
         header.setExecutions(lastExec);
         header.setDelta(lastDelta);
+        header.setBuckets(dataPoints.size());
 
         // ---- 7. Assemble and return response ---------------------------------
         IntradayResponse response = new IntradayResponse();
         response.setIsin(isin);
         response.setDate(date.toString());
-        response.setReduce(bucketSeconds > 0 ? reduce.trim() : null);
+        response.setReduce(bucketMinutes > 0 ? reduce.trim() : null);
         response.setHeader(header);
         response.setData(dataPoints);
 
@@ -865,85 +875,110 @@ public class StocksController
 
 
     /**
-     * Parses a reduce parameter string into the corresponding bucket duration in seconds.
+     * Parses a reduce parameter string into the corresponding bucket duration in minutes.
      *
-     * @param reduce the reduce token (e.g. {@code "1M"})
-     * @return positive number of seconds for valid tokens, {@code -1} for unknown tokens
+     * @param reduce the reduce token (e.g. {@code "10M"})
+     * @return positive number of minutes for valid tokens, {@code -1} for unknown tokens
      */
-    private int parseReduceSeconds(String reduce)
+    private int parseReduceMinutes(String reduce)
     {
         switch (reduce)
         {
-            case "1S":  return 1;
-            case "10S": return 10;
-            case "30S": return 30;
-            case "1M":  return 60;
-            case "5M":  return 300;
-            case "10M": return 600;
+            case "1M":  return 1;
+            case "10M": return 10;
+            case "30M": return 30;
+            case "60M": return 60;
             default:    return -1;
         }
     }
 
 
     /**
-     * Aggregates a list of raw intraday data points into fixed-size time buckets.
+     * Aggregates raw intraday snapshots into minute-aligned OHLC candles.
      *
-     * <p>Each bucket contains all points whose timestamp falls in the same
-     * {@code [k * bucketMs, (k+1) * bucketMs)} interval.  The aggregated point for each
-     * bucket has:
+     * <p>Bucket boundaries are aligned to the full hour: for bucket width {@code N} minutes,
+     * the buckets within each hour are {@code [H:00, H:N), [H:N, H:2N), …}.
+     * The bucket key is computed as {@code floor(minuteOfDay / N) * N} where
+     * {@code minuteOfDay = hour * 60 + minute} in the {@code Europe/Berlin} timezone.
+     *
+     * <p>Aggregation rules per bucket:
      * <ul>
-     *   <li>{@code timestamp} = arithmetic mean of contained timestamps, rounded to the
-     *       nearest second.</li>
-     *   <li>All other numeric fields = arithmetic mean of the bucket's values.</li>
+     *   <li>{@code timestamp} – oldest snapshot's timestamp (bucket start).</li>
+     *   <li>{@code open}  – {@code cLast} of the first (oldest) snapshot.</li>
+     *   <li>{@code close} – {@code cLast} of the last (newest) snapshot.</li>
+     *   <li>{@code high}  – maximum {@code cLast}.</li>
+     *   <li>{@code low}   – minimum {@code cLast}.</li>
+     *   <li>{@code bid}, {@code ask}, {@code avg} – arithmetic mean.</li>
+     *   <li>{@code volume} – {@code cStueck_newest − cStueck_oldest} (increment).</li>
+     *   <li>{@code delta} – {@code cDelta} of the newest snapshot.</li>
      * </ul>
      *
-     * @param points        raw data ordered by timestamp (ascending)
-     * @param bucketSeconds bucket width in seconds
-     * @return aggregated list in chronological order
+     * @param points        raw data ordered by timestamp ascending
+     * @param bucketMinutes bucket width in minutes (1, 10, 30, or 60)
+     * @param zone          timezone used for local-time bucket alignment
+     * @return aggregated OHLC candles in chronological order
      */
     private List<IntradayResponse.IntradayDataPoint> reduceIntradayPoints(
-        List<IntradayResponse.IntradayDataPoint> points, int bucketSeconds)
+        List<IntradayResponse.IntradayDataPoint> points, int bucketMinutes, ZoneId zone)
     {
-        long bucketMs = bucketSeconds * 1000L;
-
-        // LinkedHashMap preserves insertion order, which equals chronological bucket order
-        // because the input is already sorted by timestamp.
-        Map<Long, List<IntradayResponse.IntradayDataPoint>> buckets = new LinkedHashMap<>();
+        // LinkedHashMap preserves insertion order = chronological bucket order
+        Map<Integer, List<IntradayResponse.IntradayDataPoint>> buckets = new LinkedHashMap<>();
         for (IntradayResponse.IntradayDataPoint dp : points)
         {
-            long bucketKey = (dp.getTimestamp() / bucketMs) * bucketMs;
+            java.time.LocalTime lt = Instant.ofEpochMilli(dp.getTimestamp())
+                                            .atZone(zone).toLocalTime();
+            int minuteOfDay = lt.getHour() * 60 + lt.getMinute();
+            int bucketKey   = (minuteOfDay / bucketMinutes) * bucketMinutes;
             buckets.computeIfAbsent(bucketKey, k -> new ArrayList<>()).add(dp);
         }
 
         List<IntradayResponse.IntradayDataPoint> result = new ArrayList<>();
         for (List<IntradayResponse.IntradayDataPoint> group : buckets.values())
         {
-            // Average timestamp → rounded to nearest second
-            double avgTsD = group.stream()
-                                 .mapToLong(IntradayResponse.IntradayDataPoint::getTimestamp)
-                                 .average()
-                                 .orElse(0);
-            long avgTs = Math.round(avgTsD / 1000.0) * 1000L;
+            IntradayResponse.IntradayDataPoint first = group.get(0);
+            IntradayResponse.IntradayDataPoint last  = group.get(group.size() - 1);
 
             IntradayResponse.IntradayDataPoint agg = new IntradayResponse.IntradayDataPoint();
-            agg.setTimestamp(avgTs);
-            agg.setLast(avgBigDecimal(group.stream()
-                .map(IntradayResponse.IntradayDataPoint::getLast).collect(Collectors.toList())));
+
+            agg.setTimestamp(first.getTimestamp());   // bucket start
+
+            // open: first non-null cLast in the bucket (scan forward)
+            agg.setOpen(group.stream()
+                .map(IntradayResponse.IntradayDataPoint::getOpen)
+                .filter(v -> v != null)
+                .findFirst().orElse(null));
+
+            // close: last non-null cLast in the bucket (scan backward)
+            agg.setClose(group.stream()
+                .map(IntradayResponse.IntradayDataPoint::getClose)
+                .filter(v -> v != null)
+                .reduce((a, b) -> b).orElse(null));
+
+            BigDecimal maxHigh = group.stream()
+                .map(IntradayResponse.IntradayDataPoint::getHigh)
+                .filter(v -> v != null)
+                .max(BigDecimal::compareTo).orElse(null);
+            agg.setHigh(maxHigh);
+
+            BigDecimal minLow = group.stream()
+                .map(IntradayResponse.IntradayDataPoint::getLow)
+                .filter(v -> v != null)
+                .min(BigDecimal::compareTo).orElse(null);
+            agg.setLow(minLow);
+
             agg.setBid(avgBigDecimal(group.stream()
                 .map(IntradayResponse.IntradayDataPoint::getBid).collect(Collectors.toList())));
             agg.setAsk(avgBigDecimal(group.stream()
                 .map(IntradayResponse.IntradayDataPoint::getAsk).collect(Collectors.toList())));
             agg.setAvg(avgBigDecimal(group.stream()
                 .map(IntradayResponse.IntradayDataPoint::getAvg).collect(Collectors.toList())));
-            agg.setRevenue(avgBigDecimal(group.stream()
-                .map(IntradayResponse.IntradayDataPoint::getRevenue).collect(Collectors.toList())));
-            agg.setDelta(avgBigDecimal(group.stream()
-                .map(IntradayResponse.IntradayDataPoint::getDelta).collect(Collectors.toList())));
 
-            // cStueck is a Long; round the average to the nearest whole number
-            OptionalDouble avgVol = group.stream()
-                .mapToLong(IntradayResponse.IntradayDataPoint::getVolume).average();
-            agg.setVolume(avgVol.isPresent() ? Math.round(avgVol.getAsDouble()) : null);
+            // volume = increment: newest cStueck - oldest cStueck
+            Long firstVol = first.getVolume();
+            Long lastVol  = last.getVolume();
+            agg.setVolume(firstVol != null && lastVol != null ? lastVol - firstVol : null);
+
+            agg.setDelta(last.getDelta());            // newest cDelta
 
             result.add(agg);
         }

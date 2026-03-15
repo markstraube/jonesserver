@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <table border="1">
  *   <tr><th>DB column</th><th>JSON field</th></tr>
  *   <tr><td>cStueck</td><td>volume</td></tr>
- *   <tr><td>cUmsatz</td><td>revenue</td></tr>
  * </table>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -184,6 +183,13 @@ public class IntradayResponse
          */
         private BigDecimal delta;
 
+        /**
+         * Total number of data points (candles / buckets) contained in the {@code data}
+         * array of this response.  In raw mode this equals the number of raw snapshots;
+         * in reduced mode it equals the number of aggregated time buckets.
+         */
+        private Integer buckets;
+
 
         // --- Getters & Setters ---
 
@@ -305,6 +311,18 @@ public class IntradayResponse
         {
             this.delta = delta;
         }
+
+
+        public Integer getBuckets()
+        {
+            return buckets;
+        }
+
+
+        public void setBuckets(Integer buckets)
+        {
+            this.buckets = buckets;
+        }
     }
 
 
@@ -313,52 +331,67 @@ public class IntradayResponse
     // =======================================================================
 
     /**
-     * A single intraday price snapshot or an aggregated time bucket.
+     * A single intraday price snapshot (raw mode) or an aggregated OHLC candle (reduced mode).
      *
      * <p><b>Raw mode</b> (no {@code reduce} parameter): each instance corresponds to one
-     * database row fetched from {@code tTradegateIntraday}.
+     * database row.  {@code open}, {@code close}, {@code high} and {@code low} are all set
+     * to the same {@code cLast} value of that snapshot.
      *
-     * <p><b>Reduced mode</b> ({@code reduce} parameter is set): all raw data points that
-     * fall within the same time bucket are aggregated.  Every numeric field is the
-     * arithmetic mean of the values in the bucket.  The {@code timestamp} is the arithmetic
-     * mean of all contained timestamps, rounded to the nearest second (millisecond precision
-     * in the JSON, rounded to a whole-second value).
+     * <p><b>Reduced mode</b> ({@code reduce} parameter is set): all raw snapshots that fall
+     * within the same minute-aligned time bucket are aggregated into a single OHLC candle:
+     * <ul>
+     *   <li>{@code timestamp} – start of the bucket (timestamp of the oldest raw point).</li>
+     *   <li>{@code open}  – {@code cLast} of the <em>first</em> (oldest) raw snapshot.</li>
+     *   <li>{@code close} – {@code cLast} of the <em>last</em> (newest) raw snapshot.</li>
+     *   <li>{@code high}  – maximum {@code cLast} across all snapshots in the bucket.</li>
+     *   <li>{@code low}   – minimum {@code cLast} across all snapshots in the bucket.</li>
+     *   <li>{@code bid}, {@code ask}, {@code avg} – arithmetic mean within the bucket.</li>
+     *   <li>{@code volume} – {@code cStueck_newest − cStueck_oldest} (increment traded
+     *       within the bucket).</li>
+     *   <li>{@code delta} – {@code cDelta} of the newest snapshot (end-of-bucket value).</li>
+     * </ul>
      */
     public static class IntradayDataPoint
     {
         /**
-         * Unix timestamp in milliseconds identifying this price snapshot.
-         * In reduced mode this is the rounded average of the bucket's timestamps.
+         * Unix timestamp in milliseconds identifying this data point.
+         * In raw mode: the exact snapshot timestamp.
+         * In reduced mode: the timestamp of the oldest raw snapshot in the bucket
+         * (= bucket start).
          */
         private Long timestamp;
 
-        /** Last traded price (cLast). */
-        private BigDecimal last;
+        /** Opening price of the bucket: {@code cLast} of the first raw snapshot. */
+        private BigDecimal open;
 
-        /** Best bid price at this moment (cBid). */
+        /** Closing price of the bucket: {@code cLast} of the last raw snapshot. */
+        private BigDecimal close;
+
+        /** Highest {@code cLast} value within the bucket. */
+        private BigDecimal high;
+
+        /** Lowest {@code cLast} value within the bucket. */
+        private BigDecimal low;
+
+        /** Best bid price – arithmetic mean of {@code cBid} within the bucket. */
         private BigDecimal bid;
 
-        /** Best ask price at this moment (cAsk). */
+        /** Best ask price – arithmetic mean of {@code cAsk} within the bucket. */
         private BigDecimal ask;
 
-        /** Volume-weighted average price reported by Tradegate (cAvg). */
+        /** Volume-weighted average price – arithmetic mean of {@code cAvg} within the bucket. */
         private BigDecimal avg;
 
         /**
-         * Cumulative traded volume in pieces since market open (mapped from cStueck).
-         * In reduced mode this is the rounded average of cStueck within the bucket.
+         * Traded volume within the bucket (mapped from {@code cStueck}).
+         * In raw mode: the cumulative {@code cStueck} value of this snapshot.
+         * In reduced mode: {@code cStueck_newest − cStueck_oldest} within the bucket.
          */
         private Long volume;
 
         /**
-         * Cumulative traded turnover in order currency since market open
-         * (mapped from cUmsatz).  In reduced mode this is the average within the bucket.
-         */
-        private BigDecimal revenue;
-
-        /**
-         * Current price delta relative to the previous close in percent (cDelta).
-         * In reduced mode this is the average within the bucket.
+         * Price delta relative to the previous close in percent (mapped from {@code cDelta}).
+         * In reduced mode: the value of the newest snapshot in the bucket.
          */
         private BigDecimal delta;
 
@@ -377,15 +410,51 @@ public class IntradayResponse
         }
 
 
-        public BigDecimal getLast()
+        public BigDecimal getOpen()
         {
-            return last;
+            return open;
         }
 
 
-        public void setLast(BigDecimal last)
+        public void setOpen(BigDecimal open)
         {
-            this.last = last;
+            this.open = open;
+        }
+
+
+        public BigDecimal getClose()
+        {
+            return close;
+        }
+
+
+        public void setClose(BigDecimal close)
+        {
+            this.close = close;
+        }
+
+
+        public BigDecimal getHigh()
+        {
+            return high;
+        }
+
+
+        public void setHigh(BigDecimal high)
+        {
+            this.high = high;
+        }
+
+
+        public BigDecimal getLow()
+        {
+            return low;
+        }
+
+
+        public void setLow(BigDecimal low)
+        {
+            this.low = low;
         }
 
 
@@ -434,18 +503,6 @@ public class IntradayResponse
         public void setVolume(Long volume)
         {
             this.volume = volume;
-        }
-
-
-        public BigDecimal getRevenue()
-        {
-            return revenue;
-        }
-
-
-        public void setRevenue(BigDecimal revenue)
-        {
-            this.revenue = revenue;
         }
 
 
