@@ -3,3 +3,6 @@
 POST https://aktienkatalog.de/api/convert-ticker-isin-wkn
 Accept: application/json
 Content-Type: application/x-www-form-urlencoded
+
+###
+GET https://query2.finance.yahoo.com/v8/finance/chart/ENR.DE?period1=1773234859&period2=1773494059&interval=1d&events=history
