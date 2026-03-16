@@ -1,0 +1,115 @@
+    "/api/stocks/intraday": {
+      "get": {
+        "tags": [
+          "Stocks API"
+        ],
+        "summary": "Get intraday price data for a single trading day",
+        "description": "Returns all price snapshots stored in tTradegateIntraday for the calendar day identified by the optional **timestamp** parameter (Europe/Berlin timezone, 24 h window). **When timestamp is omitted**, the endpoint automatically determines the most recent day for which intraday data is available in the database for the requested ISIN and returns that day's data. The optional **reduce** parameter aggregates raw snapshots into minute-aligned OHLC candles. Supported bucket sizes: **1M** (1 min), **10M** (10 min), **30M** (30 min), **60M** (60 min). Bucket boundaries are aligned to the full hour (e.g. 10M: 7:00–7:09:59, 7:10–7:19:59, …). Each candle has open/close/high/low from cLast, averaged bid/ask/avg, volume as cStueck increment within the bucket, and the latest delta. The response **header** contains pre-calculated day statistics (open, close, high/low with timestamps, previous-close, cumulative volume, executions, delta) plus the total number of data points (**buckets**).",
+        "operationId": "getIntraday",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "description": "ISIN (e.g. US0378331005) or Yahoo Finance symbol (e.g. AAPL)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "US0378331005"
+          },
+          {
+            "name": "timestamp",
+            "in": "query",
+            "description": "Unix timestamp in milliseconds identifying the trading day. Only the calendar date portion is used; the exact time is irrelevant. When omitted, the most recent day with available data for the ISIN is used.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "reduce",
+            "in": "query",
+            "description": "Optional OHLC candle aggregation bucket size. Supported values: 1M (1 minute), 10M (10 minutes), 30M (30 minutes), 60M (60 minutes). Bucket boundaries are aligned to the full hour. When set, each data point is an OHLC candle aggregated from raw snapshots.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "10M"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intraday data successfully retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntradayResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid parameter (code or reduce value)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Code cannot be resolved to a known ISIN, or no intraday data available for the ISIN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error during processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+	 "IntradayResponse": {
+        "type": "object",
+        "properties": {
+          "isin": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "reduce": {
+            "type": "string"
+          },
+          "header": {
+            "$ref": "#/components/schemas/IntradayHeader"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntradayDataPoint"
+            }
+          }
+        }
+      },
+	        "PriceTickerErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        }
+      }
