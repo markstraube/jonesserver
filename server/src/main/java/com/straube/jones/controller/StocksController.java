@@ -14,6 +14,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -44,6 +45,7 @@ import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.dto.IntradayResponse;
 import com.straube.jones.dto.LastSharePriceResponse;
+import com.straube.jones.dto.OHLCResponse;
 import com.straube.jones.dto.OnVistaReportResponse;
 import com.straube.jones.dto.PriceTickerErrorResponse;
 import com.straube.jones.dto.ServiceInfoResponse;
@@ -589,7 +591,7 @@ public class StocksController
      *                  which data is available in {@code tTradegateIntraday} for the
      *                  requested ISIN and returns that day's data.
      * @param reduce    Optional time-bucket size for OHLC candle aggregation.  Supported
-     *                  values: {@code 1M} (1 minute), {@code 10M} (10 minutes),
+     *                  values: {@code 1M} (1 minute), {@code 5M} (5 minutes), {@code 10M} (10 minutes),
      *                  {@code 30M} (30 minutes), {@code 60M} (60 minutes).
      *                  Bucket boundaries are aligned to the full hour.
      *                  Omit to receive raw snapshot data.
@@ -839,6 +841,291 @@ public class StocksController
 
 
     /**
+     * Liefert den aktuellen (laufenden) OHLC-Kerze-Datensatz für den Minuten-Bucket, der
+     * die aktuelle Serverzeit ({@code Europe/Berlin}) enthält.
+     *
+     * <p>Die Bucket-Grenzen werden aus der aktuellen Uhrzeit abgeleitet.  Der Bucket-Start
+     * ergibt sich durch Rückrechnung auf den letzten vollen Bucket-Beginn, wobei die
+     * Bucket-Grenzen zur vollen Stunde aligniert sind:
+     * <pre>
+     * bucketKey   = floor(minuteOfDay / bucketMinutes) × bucketMinutes
+     * bucketStart = Mitternacht (CET) + bucketKey Minuten
+     * bucketEnd   = bucketStart + bucketMinutes  (exklusiv)
+     * </pre>
+     *
+     * <p><b>Beispiel</b> (bucket={@code 5M}, aktuelle Zeit {@code 14:02:23 CET}):
+     * <ul>
+     *   <li>Bucket-Start: {@code 14:00:00.000 CET}</li>
+     *   <li>Bucket-Ende:  {@code 14:04:59.999 CET} (inklusiv; exklusiv: {@code 14:05:00.000 CET})</li>
+     * </ul>
+     *
+     * <p>Alle Snapshots in {@code tTradegateIntraday} innerhalb dieser Grenzen werden zu
+     * einem einzigen OHLC-Datensatz aggregiert:
+     * <ul>
+     *   <li>{@code open}   – {@code cLast} des frühesten Snapshots im Bucket.</li>
+     *   <li>{@code close}  – {@code cLast} des letzten Snapshots im Bucket.</li>
+     *   <li>{@code high}   – Maximum von {@code cLast} über alle Snapshots.</li>
+     *   <li>{@code low}    – Minimum von {@code cLast} über alle Snapshots.</li>
+     *   <li>{@code bid}, {@code ask}, {@code avg} – arithmetische Mittelwerte.</li>
+     *   <li>{@code volume} – {@code cStueck_newest − cStueck_oldest} (Zuwachs im Bucket).</li>
+     *   <li>{@code delta}  – {@code cDelta} des neuesten Snapshots.</li>
+     *   <li>{@code timestamp} – Bucket-Start in Millisekunden seit Epoch.</li>
+     * </ul>
+     *
+     * <p><b>Response-Struktur:</b>
+     * <pre>
+     * {
+     *   "isin":         "US0378331005",
+     *   "date":         "2026-03-19",
+     *   "bucket":       "5M",
+     *   "bucket-start": 1742389200000,
+     *   "bucket-end":   1742389499999,
+     *   "candle": {
+     *     "timestamp": 1742389200000,
+     *     "open":      150.25,
+     *     "close":     151.00,
+     *     "high":      151.50,
+     *     "low":       150.10,
+     *     "bid":       150.95,
+     *     "ask":       151.05,
+     *     "avg":       150.80,
+     *     "volume":    12500,
+     *     "delta":     0.52
+     *   }
+     * }
+     * </pre>
+     *
+     * @param code   ISIN (z.B. {@code US0378331005}) oder Yahoo-Finance-Symbol (z.B. {@code AAPL}).
+     *               Symbole werden über {@link SymbolResolver#resolveIsin(String)} in ISINs aufgelöst.
+     * @param bucket Minuten-Bucket-Größe.  Erlaubte Werte: {@code 1M} (1 Minute),
+     *               {@code 5M} (5 Minuten), {@code 10M} (10 Minuten).
+     *               Bucket-Grenzen sind zur vollen Stunde aligniert.
+     * @return {@code 200 OK} mit einem einzelnen OHLC-Kerze-Datensatz auf Erfolg;
+     *         {@code 400 Bad Request} bei fehlendem oder ungültigem Parameter;
+     *         {@code 404 Not Found} wenn der Code nicht zu einer ISIN aufgelöst werden kann
+     *         oder keine Daten im aktuellen Bucket vorhanden sind;
+     *         {@code 500 Internal Server Error} bei unerwarteten Fehlern.
+     */
+    @GetMapping(path = "/intraday/current-candle", produces = "application/json")
+    @Operation(
+        summary = "Aktuellen OHLC-Kerze-Datensatz abrufen",
+        description = "Liefert den aktuellen (laufenden) OHLC-Datensatz für den Minuten-Bucket, der die "
+                    + "aktuelle Serverzeit (Europe/Berlin) enthält. "
+                    + "Die Bucket-Grenzen werden durch Rückrechnung auf den letzten vollen Bucket-Beginn "
+                    + "ermittelt, der zur vollen Stunde aligniert ist. "
+                    + "Beispiel: aktuelle Zeit 14:02:23, bucket=5M → Bucket 14:00–14:04:59. "
+                    + "Alle Snapshots im Bucket werden zu einem OHLC-Datensatz aggregiert: "
+                    + "open/close/high/low aus cLast, bid/ask/avg als arithmetische Mittelwerte, "
+                    + "volume als cStueck-Zuwachs (newest − oldest), delta aus dem letzten Snapshot."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200",
+                     description = "OHLC-Kerze für den aktuellen Bucket erfolgreich ermittelt",
+                     content = @Content(schema = @Schema(implementation = OHLCResponse.class))),
+        @ApiResponse(responseCode = "400",
+                     description = "Fehlender oder ungültiger Parameter (code oder bucket)",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
+        @ApiResponse(responseCode = "404",
+                     description = "Code kann nicht zu einer ISIN aufgelöst werden oder keine Daten im aktuellen Bucket",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
+        @ApiResponse(responseCode = "500",
+                     description = "Unerwarteter Fehler während der Verarbeitung",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class)))
+    })
+    public ResponseEntity<?> getCurrentCandle(
+        @Parameter(description = "ISIN (z.B. US0378331005) oder Yahoo-Finance-Symbol (z.B. AAPL)",
+                   required = true, example = "US0378331005")
+        @RequestParam(required = true) String code,
+
+        @Parameter(description = "Minuten-Bucket-Größe für die OHLC-Aggregation. "
+                               + "Erlaubte Werte: 1M (1 Minute), 5M (5 Minuten), 10M (10 Minuten). "
+                               + "Bucket-Grenzen sind zur vollen Stunde aligniert.",
+                   required = true, example = "5M")
+        @RequestParam(required = true) String bucket)
+    {
+        // ---- 1. 'code' validieren --------------------------------------------
+        if (code == null || code.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "INVALID_CODE",
+                                     "Missing or empty code parameter",
+                                     "The 'code' query parameter is required"));
+        }
+
+        // ---- 2. 'bucket' validieren und in Minuten umrechnen ----------------
+        if (bucket == null || bucket.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "INVALID_BUCKET",
+                                     "Missing or empty bucket parameter",
+                                     "Supported values: 1M, 5M, 10M"));
+        }
+        int bucketMinutes;
+        switch (bucket.trim())
+        {
+            case "1M":  bucketMinutes = 1;  break;
+            case "5M":  bucketMinutes = 5;  break;
+            case "10M": bucketMinutes = 10; break;
+            default:
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                     .body(PriceTickerErrorResponse.create(
+                                         "INVALID_BUCKET",
+                                         "Invalid bucket parameter: " + bucket,
+                                         "Supported values: 1M, 5M, 10M"));
+        }
+
+        // ---- 3. Symbol zu ISIN auflösen -------------------------------------
+        String isin;
+        try
+        {
+            isin = SymbolResolver.resolveIsin(code.trim());
+        }
+        catch (IllegalArgumentException e)
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "ISIN_NOT_FOUND",
+                                     "Code cannot be resolved to a known ISIN",
+                                     e.getMessage()));
+        }
+        if (isin == null || isin.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "ISIN_NOT_FOUND",
+                                     "Code cannot be resolved to a known ISIN",
+                                     "No ISIN found for: " + code));
+        }
+        isin = isin.trim();
+
+        // ---- 4. Bucket-Grenzen aus aktueller Uhrzeit berechnen --------------
+        //
+        // Bucket-Grenzen sind zur vollen Stunde aligniert:
+        //   bucketKey   = floor(minuteOfDay / bucketMinutes) * bucketMinutes
+        //   bucketStart = Mitternacht CET + bucketKey Minuten
+        //   bucketEnd   = bucketStart + bucketMinutes (exklusiv)
+        //
+        // Beispiel: aktuelle Zeit 14:02:23, bucket=5M
+        //   minuteOfDay = 14*60 + 2 = 842
+        //   bucketKey   = (842/5)*5 = 840  →  14:00
+        //   bucketStart = heute 14:00:00.000 CET
+        //   bucketEnd   = heute 14:05:00.000 CET (exklusiv)
+        ZoneId zone = ZoneId.of("Europe/Berlin");
+        ZonedDateTime now = ZonedDateTime.now(zone);
+        LocalDate today   = now.toLocalDate();
+
+        int minuteOfDay = now.getHour() * 60 + now.getMinute();
+        int bucketKey   = (minuteOfDay / bucketMinutes) * bucketMinutes;
+
+        long bucketStartMs = today.atStartOfDay(zone).toInstant().toEpochMilli()
+                             + (long) bucketKey * 60 * 1000;
+        long bucketEndMs   = bucketStartMs + (long) bucketMinutes * 60 * 1000;
+
+        // ---- 5. Datenbank abfragen ------------------------------------------
+        String sql = "SELECT cBid, cAsk, cDelta, cStueck, cAvg, cLast, cTimestamp "
+                   + "FROM tTradegateIntraday "
+                   + "WHERE cIsin = ? AND cTimestamp >= ? AND cTimestamp < ? "
+                   + "ORDER BY cTimestamp ASC";
+
+        List<IntradayResponse.IntradayDataPoint> snapshots = new ArrayList<>();
+        try (Connection conn = DBConnection.getStocksConnection();
+             PreparedStatement ps = conn.prepareStatement(sql))
+        {
+            ps.setString(1, isin);
+            ps.setTimestamp(2, new Timestamp(bucketStartMs));
+            ps.setTimestamp(3, new Timestamp(bucketEndMs));
+
+            try (ResultSet rs = ps.executeQuery())
+            {
+                while (rs.next())
+                {
+                    BigDecimal cLast = rs.getBigDecimal("cLast");
+                    long tsMs = rs.getTimestamp("cTimestamp").getTime();
+
+                    IntradayResponse.IntradayDataPoint dp = new IntradayResponse.IntradayDataPoint();
+                    dp.setTimestamp(tsMs);
+                    dp.setOpen(cLast);
+                    dp.setClose(cLast);
+                    dp.setHigh(cLast);
+                    dp.setLow(cLast);
+                    dp.setBid(rs.getBigDecimal("cBid"));
+                    dp.setAsk(rs.getBigDecimal("cAsk"));
+                    dp.setAvg(rs.getBigDecimal("cAvg"));
+                    dp.setVolume(rs.getLong("cStueck"));
+                    dp.setDelta(rs.getBigDecimal("cDelta"));
+                    snapshots.add(dp);
+                }
+            }
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "DB_ERROR",
+                                     "Database error while reading intraday data",
+                                     e.getMessage()));
+        }
+
+        if (snapshots.isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "NO_DATA",
+                                     "No intraday data available for the current bucket",
+                                     String.format("No data found for ISIN %s in bucket [%s, %s)",
+                                                   isin,
+                                                   new Timestamp(bucketStartMs),
+                                                   new Timestamp(bucketEndMs))));
+        }
+
+        // ---- 6. Snapshots zum OHLC-Datensatz aggregieren --------------------
+        IntradayResponse.IntradayDataPoint first = snapshots.get(0);
+        IntradayResponse.IntradayDataPoint last  = snapshots.get(snapshots.size() - 1);
+
+        IntradayResponse.IntradayDataPoint candle = new IntradayResponse.IntradayDataPoint();
+        candle.setTimestamp(bucketStartMs);
+        candle.setOpen(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getOpen)
+            .filter(v -> v != null).findFirst().orElse(null));
+        candle.setClose(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getClose)
+            .filter(v -> v != null).reduce((a, b) -> b).orElse(null));
+        candle.setHigh(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getHigh)
+            .filter(v -> v != null).max(BigDecimal::compareTo).orElse(null));
+        candle.setLow(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getLow)
+            .filter(v -> v != null).min(BigDecimal::compareTo).orElse(null));
+        candle.setBid(avgBigDecimal(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getBid).collect(Collectors.toList())));
+        candle.setAsk(avgBigDecimal(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getAsk).collect(Collectors.toList())));
+        candle.setAvg(avgBigDecimal(snapshots.stream()
+            .map(IntradayResponse.IntradayDataPoint::getAvg).collect(Collectors.toList())));
+
+        // volume = Zuwachs: cStueck_newest − cStueck_oldest
+        Long firstVol = first.getVolume();
+        Long lastVol  = last.getVolume();
+        candle.setVolume(firstVol != null && lastVol != null ? lastVol - firstVol : null);
+        candle.setDelta(last.getDelta());
+
+        // ---- 7. Antwort zusammenstellen -------------------------------------
+        OHLCResponse result = new OHLCResponse();
+        result.setIsin(isin);
+        result.setDate(today.toString());
+        result.setBucket(bucket.trim());
+        result.setBucketStart(bucketStartMs);
+        result.setBucketEnd(bucketEndMs - 1);   // inklusiv letzte Millisekunde
+        result.setCandle(candle);
+
+        return ResponseEntity.ok(result);
+    }
+
+
+    /**
      * Queries {@code tTradegateIntraday} for the most recent calendar day (Europe/Berlin)
      * that contains at least one record for the given ISIN.
      *
@@ -885,6 +1172,7 @@ public class StocksController
         switch (reduce)
         {
             case "1M":  return 1;
+            case "5M":  return 5;
             case "10M": return 10;
             case "30M": return 30;
             case "60M": return 60;

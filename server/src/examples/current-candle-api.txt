@@ -1,0 +1,99 @@
+"/api/stocks/intraday/current-candle": {
+      "get": {
+        "tags": [
+          "Stocks API"
+        ],
+        "summary": "Aktuellen OHLC-Kerze-Datensatz abrufen",
+        "description": "Liefert den aktuellen (laufenden) OHLC-Datensatz für den Minuten-Bucket, der die aktuelle Serverzeit (Europe/Berlin) enthält. Die Bucket-Grenzen werden durch Rückrechnung auf den letzten vollen Bucket-Beginn ermittelt, der zur vollen Stunde aligniert ist. Beispiel: aktuelle Zeit 14:02:23, bucket=5M → Bucket 14:00–14:04:59. Alle Snapshots im Bucket werden zu einem OHLC-Datensatz aggregiert: open/close/high/low aus cLast, bid/ask/avg als arithmetische Mittelwerte, volume als cStueck-Zuwachs (newest − oldest), delta aus dem letzten Snapshot.",
+        "operationId": "getCurrentCandle",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "description": "ISIN (z.B. US0378331005) oder Yahoo-Finance-Symbol (z.B. AAPL)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "US0378331005"
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "description": "Minuten-Bucket-Größe für die OHLC-Aggregation. Erlaubte Werte: 1M (1 Minute), 5M (5 Minuten), 10M (10 Minuten). Bucket-Grenzen sind zur vollen Stunde aligniert.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "5M"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OHLC-Kerze für den aktuellen Bucket erfolgreich ermittelt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OHLCResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Code kann nicht zu einer ISIN aufgelöst werden oder keine Daten im aktuellen Bucket",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unerwarteter Fehler während der Verarbeitung",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fehlender oder ungültiger Parameter (code oder bucket)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "OHLCResponse": {
+        "type": "object",
+        "properties": {
+          "isin": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "candle": {
+            "$ref": "#/components/schemas/IntradayDataPoint"
+          },
+          "bucket-start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bucket-end": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
