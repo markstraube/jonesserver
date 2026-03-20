@@ -7,6 +7,8 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.straube.jones.trader.dto.PricePoint;
+
 
 /**
  * Response DTO for the {@code GET /api/stocks/intraday} endpoint.
@@ -351,7 +353,7 @@ public class IntradayResponse
      *   <li>{@code delta} – {@code cDelta} of the newest snapshot (end-of-bucket value).</li>
      * </ul>
      */
-    public static class IntradayDataPoint
+    public static class IntradayDataPoint implements PricePoint
     {
         /**
          * Unix timestamp in milliseconds identifying this data point.
@@ -515,6 +517,17 @@ public class IntradayResponse
         public void setDelta(BigDecimal delta)
         {
             this.delta = delta;
+        }
+
+        /**
+         * Gibt den Schlusskurs des Buckets zurück (für Indikatorberechnungen).
+         *
+         * @see PricePoint
+         */
+        @Override
+        public double getCloseValue()
+        {
+            return close != null ? close.doubleValue() : 0.0;
         }
     }
 }

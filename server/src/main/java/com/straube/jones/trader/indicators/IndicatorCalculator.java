@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.trader.dto.DailyPrice;
 import com.straube.jones.trader.dto.IndicatorDto;
+import com.straube.jones.trader.dto.PricePoint;
 
 /**
  * Berechnet technische Indikatoren für eine Zeitreihe von Preisen.
@@ -148,7 +149,7 @@ public class IndicatorCalculator
     }
 
 
-    private static Double[] calculateEMA(List<DailyPrice> prices, int period)
+    private static Double[] calculateEMA(List<? extends PricePoint> prices, int period)
     {
         Double[] result = new Double[prices.size()];
         double k = 2.0 / (period + 1);
@@ -158,7 +159,7 @@ public class IndicatorCalculator
         double sum = 0;
         for (int i = 0; i < prices.size(); i++ )
         {
-            sum += prices.get(i).getAdjClose();
+            sum += prices.get(i).getCloseValue();
             if (i == period - 1)
             {
                 ema = sum / period;
@@ -166,7 +167,7 @@ public class IndicatorCalculator
             }
             else if (i >= period)
             {
-                ema = prices.get(i).getAdjClose() * k + ema * (1 - k);
+                ema = prices.get(i).getCloseValue() * k + ema * (1 - k);
                 result[i] = ema;
             }
             else
@@ -262,17 +263,22 @@ public class IndicatorCalculator
     /**
      * Berechnet den MACD (Moving Average Convergence Divergence) Indikator.
      *
-     * @param prices       Liste der Tagespreise (chronologisch aufsteigend)
+     * <p>Die Methode akzeptiert jede Preiszeitreihe, die {@link PricePoint} implementiert,
+     * also sowohl tägliche ({@link DailyPrice}) als auch Intraday-Daten
+     * ({@code IntradayResponse.IntradayDataPoint}).
+     *
+     * @param prices       Preisliste (chronologisch aufsteigend, älteste zuerst),
+     *                     implementiert {@link PricePoint}
      * @param shortPeriod  Periode des kurzen EMA (typisch 12)
      * @param longPeriod   Periode des langen EMA (typisch 26)
      * @param signalPeriod Periode des Signal-EMA (typisch 9)
      * @return double[2][n] — result[0] = MACD-Linie, result[1] = Signal-Linie;
      *         fehlende Werte sind als {@code Double.NaN} kodiert
      */
-    public static double[][] calculateMACD(List<DailyPrice> prices,
-                                    int shortPeriod,
-                                    int longPeriod,
-                                    int signalPeriod)
+    public static double[][] calculateMACD(List<? extends PricePoint> prices,
+                                           int shortPeriod,
+                                           int longPeriod,
+                                           int signalPeriod)
     {
         int size = prices.size();
         double[] macdValues = new double[size];

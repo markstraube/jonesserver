@@ -94,7 +94,10 @@ public class MomentumIndicators
 
                 ADXResult adx = ADXcalculator.calculateADX(prices, 14);
                 Double roc = ROCcalculator.calculateROC(prices, 12);
-                Double rsl = RSLcalculator.calculateRSLevy(prices, benchmarkPrices, 63);
+                // benchmarkPrices wird auf denselben dayCounter zugeschnitten, damit get(0) und get(period)
+                // zum gleichen Zeitpunkt wie die Aktienpreise zeigen und nicht zum aktuellsten Datensatz.
+                List<DailyPrice> slicedBenchmark = slicePrices(benchmarkPrices, dayCounter);
+                Double rsl = RSLcalculator.calculateRSLevy(prices, slicedBenchmark, 63);
 
                 // OBVcalculator.OBVResult obv = OBVcalculator.calculateOBV(prices);
                 // StochasticResult stochastic =

@@ -6,7 +6,7 @@ import java.time.LocalDate;
 /**
  * Repräsentiert einen Handelstag einer Aktie. Diese Daten kommen direkt von der Börse / Marktdaten-API.
  */
-public class DailyPrice
+public class DailyPrice implements PricePoint
 {
 
     /** Handelstag */
@@ -151,5 +151,16 @@ public class DailyPrice
     public void setCurrency(String currency)
     {
         this.currency = currency;
+    }
+
+    /**
+     * Gibt den adjustierten Schlusskurs zurück (für Indikatorberechnungen).
+     *
+     * @see PricePoint
+     */
+    @Override
+    public double getCloseValue()
+    {
+        return adjClose;
     }
 }
