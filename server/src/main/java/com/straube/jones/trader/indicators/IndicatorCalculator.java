@@ -56,8 +56,8 @@ public class IndicatorCalculator
         // RSI (14 Tage)
         Double[] rsi = calculateRSI(chronologicalPrices, 14);
 
-        // MACD (12, 26, 9)
-        MacdResult[] macd = calculateMACD(chronologicalPrices, 12, 26, 9);
+        // MACD (12, 26, 9) — result[0] = MACD-Linie, result[1] = Signal-Linie
+        double[][] macd = calculateMACD(chronologicalPrices, 12, 26, 9);
 
         // Support/Resistance (z.B. 20 Tage Lookback)
         Double[] support = calculateSupport(chronologicalPrices, 20);
@@ -100,10 +100,10 @@ public class IndicatorCalculator
 
             dto.setRsi(rsi[i]);
 
-            if (macd[i] != null)
+            if (!Double.isNaN(macd[0][i]) && !Double.isNaN(macd[1][i]))
             {
-                dto.setMacdValue(macd[i].value);
-                dto.setMacdSignal(macd[i].signal);
+                dto.setMacdValue(macd[0][i]);
+                dto.setMacdSignal(macd[1][i]);
             }
 
             dto.setSupport(support[i]);
@@ -148,7 +148,7 @@ public class IndicatorCalculator
     }
 
 
-    private Double[] calculateEMA(List<DailyPrice> prices, int period)
+    private static Double[] calculateEMA(List<DailyPrice> prices, int period)
     {
         Double[] result = new Double[prices.size()];
         double k = 2.0 / (period + 1);
@@ -259,23 +259,31 @@ public class IndicatorCalculator
         return result;
     }
 
-    private static class MacdResult
+    /**
+     * Berechnet den MACD (Moving Average Convergence Divergence) Indikator.
+     *
+     * @param prices       Liste der Tagespreise (chronologisch aufsteigend)
+     * @param shortPeriod  Periode des kurzen EMA (typisch 12)
+     * @param longPeriod   Periode des langen EMA (typisch 26)
+     * @param signalPeriod Periode des Signal-EMA (typisch 9)
+     * @return double[2][n] — result[0] = MACD-Linie, result[1] = Signal-Linie;
+     *         fehlende Werte sind als {@code Double.NaN} kodiert
+     */
+    public static double[][] calculateMACD(List<DailyPrice> prices,
+                                    int shortPeriod,
+                                    int longPeriod,
+                                    int signalPeriod)
     {
-        double value, signal;
-    }
+        int size = prices.size();
+        double[] macdValues = new double[size];
+        double[] signalValues = new double[size];
 
-    private MacdResult[] calculateMACD(List<DailyPrice> prices,
-                                       int shortPeriod,
-                                       int longPeriod,
-                                       int signalPeriod)
-    {
-        MacdResult[] result = new MacdResult[prices.size()];
         Double[] emaShort = calculateEMA(prices, shortPeriod);
         Double[] emaLong = calculateEMA(prices, longPeriod);
 
-        // MACD Line = EMA_short - EMA_long
-        Double[] macdLine = new Double[prices.size()];
-        for (int i = 0; i < prices.size(); i++ )
+        // MACD-Linie = EMA_short - EMA_long
+        Double[] macdLine = new Double[size];
+        for (int i = 0; i < size; i++ )
         {
             if (emaShort[i] != null && emaLong[i] != null)
             {
@@ -283,27 +291,20 @@ public class IndicatorCalculator
             }
         }
 
-        // Signal Line = EMA(MACD Line, signalPeriod)
-        // Wir müssen EMA auf macdLine berechnen. Da calculateEMA DailyPrice erwartet, kopieren wir Logik oder
-        // wrappen.
-        // Einfacher: EMA Logik inline für Double array
+        // Signal-Linie = EMA(MACD-Linie, signalPeriod)
         Double[] signalLine = calculateEMAOnArray(macdLine, signalPeriod);
 
-        for (int i = 0; i < prices.size(); i++ )
+        for (int i = 0; i < size; i++ )
         {
-            if (macdLine[i] != null && signalLine[i] != null)
-            {
-                MacdResult res = new MacdResult();
-                res.value = macdLine[i];
-                res.signal = signalLine[i];
-                result[i] = res;
-            }
+            macdValues[i] = macdLine[i] != null ? macdLine[i] : Double.NaN;
+            signalValues[i] = signalLine[i] != null ? signalLine[i] : Double.NaN;
         }
-        return result;
+
+        return new double[][] { macdValues, signalValues };
     }
 
 
-    private Double[] calculateEMAOnArray(Double[] values, int period)
+    private static Double[] calculateEMAOnArray(Double[] values, int period)
     {
         Double[] result = new Double[values.length];
         double k = 2.0 / (period + 1);
