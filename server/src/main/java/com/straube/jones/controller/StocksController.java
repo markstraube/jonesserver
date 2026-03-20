@@ -43,8 +43,10 @@ import com.straube.jones.dataprovider.stocks.StockPointLoader;
 import com.straube.jones.dataprovider.stocks.StocksLoader;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DBConnection;
+import com.straube.jones.dto.IntradayMacdResponse;
 import com.straube.jones.dto.IntradayResponse;
 import com.straube.jones.dto.LastSharePriceResponse;
+import com.straube.jones.trader.indicators.IndicatorCalculator;
 import com.straube.jones.dto.OHLCResponse;
 import com.straube.jones.dto.OnVistaReportResponse;
 import com.straube.jones.dto.PriceTickerErrorResponse;
@@ -841,6 +843,302 @@ public class StocksController
 
 
     /**
+     * Berechnet den MACD (Moving Average Convergence Divergence) Indikator für Intraday-Daten
+     * eines einzelnen Handelstages.
+     *
+     * <p>Um die Anlaufphase der exponentiell gewichteten Mittelwerte (EMA) zu überwinden, werden
+     * intern die vollständigen Intraday-Daten der letzten 14 Tage aus {@code tTradegateIntraday}
+     * geladen.  Die MACD-Berechnung erfolgt auf der gesamten Historie; zurückgegeben werden
+     * jedoch nur die Werte des angeforderten Handelstages.
+     *
+     * <p><b>Bucket-Sortierung:</b> Die Buckets werden tagesübergreifend korrekt zusammengefasst,
+     * d.h. Snapshots verschiedener Tage mit gleicher Uhrzeit landen in separaten Buckets.
+     *
+     * <p><b>MACD-Berechnung:</b>
+     * <ul>
+     *   <li>MACD-Linie  = EMA({@code shortPeriod}) − EMA({@code longPeriod})</li>
+     *   <li>Signal-Linie = EMA(MACD-Linie, {@code signalPeriod})</li>
+     *   <li>Histogramm  = MACD-Linie − Signal-Linie</li>
+     * </ul>
+     * Für die ersten Buckets (Anlaufphase) sind MACD, Signal und Histogramm {@code null}.
+     * Valide Werte entstehen ab dem ({@code longPeriod + signalPeriod})-ten Bucket
+     * über alle geladenen Tage.
+     *
+     * <p><b>Preisbasis:</b> Für jeden Bucket wird der Close-Preis des Buckets verwendet
+     * (= {@code cLast} des letzten Snapshots im Bucket; unbereinigt).
+     *
+     * <p><b>Response-Struktur:</b>
+     * <pre>
+     * {
+     *   "isin":          "US0378331005",
+     *   "date":          "2026-03-19",
+     *   "reduce":        "5M",
+     *   "short-period":  12,
+     *   "long-period":   26,
+     *   "signal-period": 9,
+     *   "data": [
+     *     { "timestamp": 1742378400000, "macd": 0.1234, "signal": 0.1100, "histogram": 0.0134 },
+     *     { "timestamp": 1742378700000, "macd": null,   "signal": null,   "histogram": null   }
+     *   ]
+     * }
+     * </pre>
+     *
+     * @param code         ISIN (z.B. {@code US0378331005}) oder Yahoo-Finance-Symbol (z.B. {@code AAPL}).
+     *                     Symbole werden über {@link SymbolResolver#resolveIsin(String)} aufgelöst.
+     * @param timestamp    Optionaler Unix-Zeitstempel in Millisekunden zur Identifikation des
+     *                     Handelstages (nur der Kalendertag wird verwendet).
+     *                     Fehlt der Parameter, wird der jüngste Tag mit vorhandenen Daten verwendet.
+     * @param reduce       Optionale Bucket-Größe für OHLC-Aggregation.
+     *                     Unterstützte Werte: {@code 1M}, {@code 2M}, {@code 3M}, {@code 5M},
+     *                     {@code 10M}, {@code 30M}, {@code 60M}.
+     *                     Ohne {@code reduce}: MACD auf den rohen Snapshot-Daten.
+     * @param shortPeriod  EMA-Periode der kurzen Linie (Standard: 12).
+     * @param longPeriod   EMA-Periode der langen Linie (Standard: 26).
+     * @param signalPeriod EMA-Periode der Signal-Linie (Standard: 9).
+     * @return {@code 200 OK} mit {@link IntradayMacdResponse} bei Erfolg;
+     *         {@code 400 Bad Request} bei ungültigen Parametern;
+     *         {@code 404 Not Found} wenn der Code nicht aufgelöst werden kann oder keine Daten vorhanden;
+     *         {@code 500 Internal Server Error} bei Datenbankfehlern.
+     */
+    @GetMapping(path = "/intraday/macd", produces = "application/json")
+    @Operation(
+        summary = "MACD-Indikator für Intraday-Daten berechnen",
+        description = "Berechnet den MACD (Moving Average Convergence Divergence) Indikator für jeden "
+                    + "Zeitbucket eines Handelstages. \n\n"
+                    + "**Historische Basis:** Intern werden bis zu 14 Tage Intraday-Daten geladen, "
+                    + "um die EMA-Anlaufphase zu überwinden. Zurückgegeben werden nur die Werte "
+                    + "des angeforderten Tages.\n\n"
+                    + "**MACD-Formel:** MACD-Linie = EMA(shortPeriod) − EMA(longPeriod); "
+                    + "Signal = EMA(MACD-Linie, signalPeriod); Histogramm = MACD − Signal.\n\n"
+                    + "**Null-Werte:** Für die Anlaufphase (erste longPeriod+signalPeriod Buckets "
+                    + "des gesamten Beobachtungszeitraums) sind macd/signal/histogram null.\n\n"
+                    + "**Preisbasis:** Close-Preis des jeweiligen Buckets (cLast des letzten Snapshots).\n\n"
+                    + "**Bucket-Aggregation (reduce):** Gleiche Logik wie /intraday — Bucket-Grenzen "
+                    + "sind zur vollen Stunde aligniert (Europe/Berlin). Ohne reduce: rohe Snapshots."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200",
+                     description = "MACD-Daten erfolgreich berechnet",
+                     content = @Content(schema = @Schema(implementation = IntradayMacdResponse.class))),
+        @ApiResponse(responseCode = "400",
+                     description = "Ungültiger Parameter (code oder reduce)",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
+        @ApiResponse(responseCode = "404",
+                     description = "Code kann nicht zu ISIN aufgelöst werden oder keine Intraday-Daten vorhanden",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
+        @ApiResponse(responseCode = "500",
+                     description = "Datenbankfehler oder unerwarteter Fehler",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class)))
+    })
+    public ResponseEntity<?> getIntradayMacd(
+        @Parameter(description = "ISIN (z.B. US0378331005) oder Yahoo-Finance-Symbol (z.B. AAPL)",
+                   required = true, example = "US0378331005")
+        @RequestParam(required = true) String code,
+
+        @Parameter(description = "Unix-Zeitstempel in Millisekunden zur Identifikation des Handelstages. "
+                               + "Nur der Kalendertag wird ausgewertet. "
+                               + "Fehlt der Parameter, wird der jüngste Tag mit vorhandenen Daten verwendet.",
+                   required = false, schema = @Schema(type = "integer", format = "int64"))
+        @RequestParam(required = false) Long timestamp,
+
+        @Parameter(description = "Optionale Bucket-Größe für OHLC-Aggregation. "
+                               + "Unterstützte Werte: 1M, 2M, 3M, 5M, 10M, 30M, 60M. "
+                               + "Bucket-Grenzen werden zur vollen Stunde aligniert (Europe/Berlin). "
+                               + "Ohne reduce: MACD auf rohen Snapshot-Daten.",
+                   required = false, example = "5M")
+        @RequestParam(required = false) String reduce,
+
+        @Parameter(description = "EMA-Periode der kurzen Linie (Standard: 12).",
+                   required = false, schema = @Schema(type = "integer", defaultValue = "12"))
+        @RequestParam(required = false, defaultValue = "12") int shortPeriod,
+
+        @Parameter(description = "EMA-Periode der langen Linie (Standard: 26).",
+                   required = false, schema = @Schema(type = "integer", defaultValue = "26"))
+        @RequestParam(required = false, defaultValue = "26") int longPeriod,
+
+        @Parameter(description = "EMA-Periode der Signal-Linie (Standard: 9).",
+                   required = false, schema = @Schema(type = "integer", defaultValue = "9"))
+        @RequestParam(required = false, defaultValue = "9") int signalPeriod)
+    {
+        // ---- 1. Validate & parse 'reduce' ------------------------------------
+        int bucketMinutes = 0;
+        if (reduce != null && !reduce.trim().isEmpty())
+        {
+            bucketMinutes = parseReduceMinutes(reduce.trim());
+            if (bucketMinutes < 0)
+            {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                     .body(PriceTickerErrorResponse.create(
+                                         "INVALID_REDUCE",
+                                         "Invalid reduce parameter",
+                                         "Supported values: 1M, 2M, 3M, 5M, 10M, 30M, 60M"));
+            }
+        }
+
+        // ---- 2. Validate 'code' and resolve to ISIN -------------------------
+        if (code == null || code.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "INVALID_CODE",
+                                     "Missing or empty code parameter",
+                                     "The 'code' query parameter is required"));
+        }
+        String isin;
+        try
+        {
+            isin = SymbolResolver.resolveIsin(code.trim());
+        }
+        catch (IllegalArgumentException e)
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "ISIN_NOT_FOUND",
+                                     "Code cannot be resolved to a known ISIN",
+                                     e.getMessage()));
+        }
+        if (isin == null || isin.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "ISIN_NOT_FOUND",
+                                     "Code cannot be resolved to a known ISIN",
+                                     "No ISIN found for: " + code));
+        }
+        isin = isin.trim();
+
+        // ---- 3. Determine requested calendar day ----------------------------
+        ZoneId zone = ZoneId.of("Europe/Berlin");
+        final LocalDate date;
+        if (timestamp != null)
+        {
+            date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate();
+        }
+        else
+        {
+            LocalDate lastDay = resolveLastAvailableDay(isin);
+            if (lastDay == null)
+            {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                     .body(PriceTickerErrorResponse.create(
+                                         "NO_DATA",
+                                         "No intraday data available for ISIN",
+                                         "tTradegateIntraday contains no records for: " + isin));
+            }
+            date = lastDay;
+        }
+
+        // ---- 4. Load raw snapshots for 14 days ending at end of requested day
+        //
+        // 14 Tage Historie stellen sicher, dass genügend Buckets für die EMA-Anlaufphase
+        // (longPeriod + signalPeriod Buckets) vorhanden sind, bevor der angefragte Tag beginnt.
+        long historyStartMs = date.minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli();
+        long dayEndMs       = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();
+        long dayStartMs     = date.atStartOfDay(zone).toInstant().toEpochMilli();
+
+        // Nur cLast und cTimestamp werden für die MACD-Berechnung benötigt
+        String sql = "SELECT cLast, cTimestamp "
+                   + "FROM tTradegateIntraday "
+                   + "WHERE cIsin = ? AND cTimestamp >= ? AND cTimestamp < ? "
+                   + "ORDER BY cTimestamp ASC";
+
+        List<IntradayResponse.IntradayDataPoint> rawPoints = new ArrayList<>();
+        try (Connection conn = DBConnection.getStocksConnection();
+             PreparedStatement ps = conn.prepareStatement(sql))
+        {
+            ps.setString(1, isin);
+            ps.setTimestamp(2, new Timestamp(historyStartMs));
+            ps.setTimestamp(3, new Timestamp(dayEndMs));
+
+            try (ResultSet rs = ps.executeQuery())
+            {
+                while (rs.next())
+                {
+                    BigDecimal cLast = rs.getBigDecimal("cLast");
+                    IntradayResponse.IntradayDataPoint dp = new IntradayResponse.IntradayDataPoint();
+                    dp.setTimestamp(rs.getTimestamp("cTimestamp").getTime());
+                    // open = close = high = low = cLast; getCloseValue() via PricePoint für EMA genutzt
+                    dp.setClose(cLast);
+                    dp.setOpen(cLast);
+                    dp.setHigh(cLast);
+                    dp.setLow(cLast);
+                    rawPoints.add(dp);
+                }
+            }
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "DB_ERROR",
+                                     "Database error while reading intraday data",
+                                     e.getMessage()));
+        }
+
+        if (rawPoints.isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "NO_DATA",
+                                     "No intraday data available for ISIN",
+                                     "No records found for ISIN " + isin + " in the 14-day window"));
+        }
+
+        // ---- 5. Aggregate into buckets (multi-day aware) --------------------
+        //
+        // Im Unterschied zu reduceIntradayPoints werden hier tagesübergreifend korrekte
+        // Buckets gebildet: gleiche Uhrzeit an verschiedenen Tagen → separate Buckets.
+        List<IntradayResponse.IntradayDataPoint> allBuckets =
+            (bucketMinutes > 0)
+                ? reduceIntradayPointsMultiDay(rawPoints, bucketMinutes, zone)
+                : rawPoints;
+
+        // ---- 6. Berechne MACD auf der vollständigen Zeitreihe ---------------
+        //
+        // IndicatorCalculator.calculateMACD erwartet aufsteigende chronologische Reihenfolge,
+        // was durch ORDER BY cTimestamp ASC sichergestellt ist.
+        double[][] macdResult = IndicatorCalculator.calculateMACD(
+            allBuckets, shortPeriod, longPeriod, signalPeriod);
+
+        // ---- 7. Filtere auf den angeforderten Tag und baue Response-Liste ---
+        List<IntradayMacdResponse.MacdDataPoint> responseData = new ArrayList<>();
+        for (int i = 0; i < allBuckets.size(); i++)
+        {
+            long ts = allBuckets.get(i).getTimestamp();
+            if (ts < dayStartMs || ts >= dayEndMs)
+                continue;
+
+            double macdVal   = macdResult[0][i];
+            double signalVal = macdResult[1][i];
+
+            IntradayMacdResponse.MacdDataPoint point = new IntradayMacdResponse.MacdDataPoint();
+            point.setTimestamp(ts);
+            // NaN → null: Anlaufphase der EMA noch nicht abgeschlossen
+            point.setMacd(!Double.isNaN(macdVal) ? macdVal : null);
+            point.setSignal(!Double.isNaN(signalVal) ? signalVal : null);
+            if (!Double.isNaN(macdVal) && !Double.isNaN(signalVal))
+            {
+                point.setHistogram(macdVal - signalVal);
+            }
+            responseData.add(point);
+        }
+
+        // ---- 8. Antwort zusammenstellen -------------------------------------
+        IntradayMacdResponse response = new IntradayMacdResponse();
+        response.setIsin(isin);
+        response.setDate(date.toString());
+        response.setReduce(bucketMinutes > 0 ? reduce.trim() : null);
+        response.setShortPeriod(shortPeriod);
+        response.setLongPeriod(longPeriod);
+        response.setSignalPeriod(signalPeriod);
+        response.setData(responseData);
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    /**
      * Liefert den aktuellen (laufenden) OHLC-Kerze-Datensatz für den Minuten-Bucket, der
      * die aktuelle Serverzeit ({@code Europe/Berlin}) enthält.
      *
@@ -1274,6 +1572,66 @@ public class StocksController
 
             agg.setDelta(last.getDelta());            // newest cDelta
 
+            result.add(agg);
+        }
+        return result;
+    }
+
+
+    /**
+     * Tagesübergreifende Variante von {@link #reduceIntradayPoints}.
+     *
+     * <p>Im Gegensatz zu {@link #reduceIntradayPoints}, das den {@code minuteOfDay}-Wert
+     * (ein {@code int}) als Bucket-Schlüssel verwendet und daher Snapshots verschiedener
+     * Tage mit gleicher Uhrzeit in dasselbe Bucket fasst, verwendet diese Methode den
+     * absoluten Bucket-Start in Millisekunden seit Epoch als Schlüssel.
+     * Dadurch entstehen für jeden Handelstag separate Buckets, was für tagesübergreifende
+     * Indikatorberechnungen (z.B. MACD) korrekt ist.
+     *
+     * <p>Aggregationsregeln pro Bucket sind identisch mit {@link #reduceIntradayPoints}:
+     * open = erstes non-null close-Äquivalent, close = letztes, high = max, low = min.
+     *
+     * @param points        rohe Datenpunkte, aufsteigend nach Zeitstempel sortiert
+     * @param bucketMinutes Bucket-Breite in Minuten (1, 2, 3, 5, 10, 30 oder 60)
+     * @param zone          Zeitzone für die lokale Bucket-Ausrichtung
+     * @return aggregierte OHLC-Kerzen in chronologischer Reihenfolge
+     */
+    private List<IntradayResponse.IntradayDataPoint> reduceIntradayPointsMultiDay(
+        List<IntradayResponse.IntradayDataPoint> points, int bucketMinutes, ZoneId zone)
+    {
+        // LinkedHashMap erhält Einfüge-Reihenfolge = chronologische Bucket-Reihenfolge
+        Map<Long, List<IntradayResponse.IntradayDataPoint>> buckets = new LinkedHashMap<>();
+        for (IntradayResponse.IntradayDataPoint dp : points)
+        {
+            ZonedDateTime zdt      = Instant.ofEpochMilli(dp.getTimestamp()).atZone(zone);
+            LocalDate     bucketDate = zdt.toLocalDate();
+            int minuteOfDay = zdt.getHour() * 60 + zdt.getMinute();
+            int bucketKey   = (minuteOfDay / bucketMinutes) * bucketMinutes;
+            // Absoluter Bucket-Start in ms: eindeutig über Tagesgrenzen hinweg
+            long bucketStartMs = bucketDate.atStartOfDay(zone).toInstant().toEpochMilli()
+                                 + (long) bucketKey * 60 * 1000;
+            buckets.computeIfAbsent(bucketStartMs, k -> new ArrayList<>()).add(dp);
+        }
+
+        List<IntradayResponse.IntradayDataPoint> result = new ArrayList<>();
+        for (Map.Entry<Long, List<IntradayResponse.IntradayDataPoint>> entry : buckets.entrySet())
+        {
+            List<IntradayResponse.IntradayDataPoint> group = entry.getValue();
+            IntradayResponse.IntradayDataPoint first = group.get(0);
+            IntradayResponse.IntradayDataPoint last  = group.get(group.size() - 1);
+
+            IntradayResponse.IntradayDataPoint agg = new IntradayResponse.IntradayDataPoint();
+            agg.setTimestamp(entry.getKey());
+            agg.setOpen(group.stream().map(IntradayResponse.IntradayDataPoint::getOpen)
+                            .filter(v -> v != null).findFirst().orElse(null));
+            agg.setClose(group.stream().map(IntradayResponse.IntradayDataPoint::getClose)
+                             .filter(v -> v != null).reduce((a, b) -> b).orElse(null));
+            agg.setHigh(group.stream().map(IntradayResponse.IntradayDataPoint::getHigh)
+                            .filter(v -> v != null).max(BigDecimal::compareTo).orElse(null));
+            agg.setLow(group.stream().map(IntradayResponse.IntradayDataPoint::getLow)
+                           .filter(v -> v != null).min(BigDecimal::compareTo).orElse(null));
+            // bid/ask/avg/volume/delta werden für die MACD-Berechnung nicht benötigt
+            // und stehen in diesem Kontext nicht zur Verfügung (wurden nicht geladen)
             result.add(agg);
         }
         return result;

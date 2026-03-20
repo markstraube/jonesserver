@@ -1,0 +1,146 @@
+ "/api/stocks/intraday/macd": {
+      "get": {
+        "tags": [
+          "Stocks API"
+        ],
+        "summary": "MACD-Indikator für Intraday-Daten berechnen",
+        "description": "Berechnet den MACD (Moving Average Convergence Divergence) Indikator für jeden Zeitbucket eines Handelstages. \n\n**Historische Basis:** Intern werden bis zu 14 Tage Intraday-Daten geladen, um die EMA-Anlaufphase zu überwinden. Zurückgegeben werden nur die Werte des angeforderten Tages.\n\n**MACD-Formel:** MACD-Linie = EMA(shortPeriod) − EMA(longPeriod); Signal = EMA(MACD-Linie, signalPeriod); Histogramm = MACD − Signal.\n\n**Null-Werte:** Für die Anlaufphase (erste longPeriod+signalPeriod Buckets des gesamten Beobachtungszeitraums) sind macd/signal/histogram null.\n\n**Preisbasis:** Close-Preis des jeweiligen Buckets (cLast des letzten Snapshots).\n\n**Bucket-Aggregation (reduce):** Gleiche Logik wie /intraday — Bucket-Grenzen sind zur vollen Stunde aligniert (Europe/Berlin). Ohne reduce: rohe Snapshots.",
+        "operationId": "getIntradayMacd",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "description": "ISIN (z.B. US0378331005) oder Yahoo-Finance-Symbol (z.B. AAPL)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "US0378331005"
+          },
+          {
+            "name": "timestamp",
+            "in": "query",
+            "description": "Unix-Zeitstempel in Millisekunden zur Identifikation des Handelstages. Nur der Kalendertag wird ausgewertet. Fehlt der Parameter, wird der jüngste Tag mit vorhandenen Daten verwendet.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "reduce",
+            "in": "query",
+            "description": "Optionale Bucket-Größe für OHLC-Aggregation. Unterstützte Werte: 1M, 2M, 3M, 5M, 10M, 30M, 60M. Bucket-Grenzen werden zur vollen Stunde aligniert (Europe/Berlin). Ohne reduce: MACD auf rohen Snapshot-Daten.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "5M"
+          },
+          {
+            "name": "shortPeriod",
+            "in": "query",
+            "description": "EMA-Periode der kurzen Linie (Standard: 12).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 12
+            }
+          },
+          {
+            "name": "longPeriod",
+            "in": "query",
+            "description": "EMA-Periode der langen Linie (Standard: 26).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 26
+            }
+          },
+          {
+            "name": "signalPeriod",
+            "in": "query",
+            "description": "EMA-Periode der Signal-Linie (Standard: 9).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 9
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Code kann nicht zu ISIN aufgelöst werden oder keine Intraday-Daten vorhanden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ungültiger Parameter (code oder reduce)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Datenbankfehler oder unerwarteter Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceTickerErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "MACD-Daten erfolgreich berechnet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntradayMacdResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+          "IntradayMacdResponse": {
+        "type": "object",
+        "properties": {
+          "isin": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "reduce": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MacdDataPoint"
+            }
+          },
+          "short-period": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "long-period": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "signal-period": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
