@@ -1,8 +1,6 @@
 package com.straube.jones.trader.collectors;
 
 
-import java.io.File;
-import java.sql.Connection;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +18,6 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
-import com.straube.jones.db.DBConnection;
 import com.straube.jones.db.DayCounter;
 import com.straube.jones.service.MarketDataService;
 import com.straube.jones.trader.dto.DailyPrice;
@@ -30,9 +27,6 @@ import com.straube.jones.trader.indicators.RatingService;
 @Service
 public class TradingIndicatorService
 {
-    private static final String DATA_ROOT_FOLDER = System.getProperty("data.root", "/opt/tomcat/data");
-
-    private static final String ANALYSIS_ROOT_FOLDER = DATA_ROOT_FOLDER + "/analysis";
     private static final Logger logger = LoggerFactory.getLogger(TradingIndicatorService.class);
 
     private final MarketDataService marketDataService;

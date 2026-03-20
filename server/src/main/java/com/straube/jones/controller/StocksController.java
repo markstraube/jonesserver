@@ -609,7 +609,7 @@ public class StocksController
                     + "**When timestamp is omitted**, the endpoint automatically determines the most recent day "
                     + "for which intraday data is available in the database for the requested ISIN and returns that day's data. "
                     + "The optional **reduce** parameter aggregates raw snapshots into minute-aligned OHLC candles. "
-                    + "Supported bucket sizes: **1M** (1 min), **10M** (10 min), **30M** (30 min), **60M** (60 min). "
+                    + "Supported bucket sizes: **1M** (1 min), **2M** (2 min), **3M** (3 min), **5M** (5 min), **10M** (10 min), **30M** (30 min), **60M** (60 min). "
                     + "Bucket boundaries are aligned to the full hour (e.g. 10M: 7:00–7:09:59, 7:10–7:19:59, …). "
                     + "Each candle has open/close/high/low from cLast, averaged bid/ask/avg, "
                     + "volume as cStueck increment within the bucket, and the latest delta. "
@@ -897,8 +897,8 @@ public class StocksController
      *
      * @param code   ISIN (z.B. {@code US0378331005}) oder Yahoo-Finance-Symbol (z.B. {@code AAPL}).
      *               Symbole werden über {@link SymbolResolver#resolveIsin(String)} in ISINs aufgelöst.
-     * @param bucket Minuten-Bucket-Größe.  Erlaubte Werte: {@code 1M} (1 Minute),
-     *               {@code 5M} (5 Minuten), {@code 10M} (10 Minuten).
+     * @param bucket Minuten-Bucket-Größe.  Erlaubte Werte: {@code 1M} (1 Minute), {@code 2M} (2 Minuten), {@code 3M} (3 Minuten),
+     *               {@code 5M} (5 Minuten), {@code 10M} (10 Minuten), {@code 30M} (30 Minuten), {@code 60M} (60 Minuten).
      *               Bucket-Grenzen sind zur vollen Stunde aligniert.
      * @return {@code 200 OK} mit einem einzelnen OHLC-Kerze-Datensatz auf Erfolg;
      *         {@code 400 Bad Request} bei fehlendem oder ungültigem Parameter;
@@ -966,14 +966,18 @@ public class StocksController
         switch (bucket.trim())
         {
             case "1M":  bucketMinutes = 1;  break;
+            case "2M":  bucketMinutes = 2;  break;
+            case "3M":  bucketMinutes = 3;  break;
             case "5M":  bucketMinutes = 5;  break;
             case "10M": bucketMinutes = 10; break;
+            case "30M": bucketMinutes = 30; break;
+            case "60M": bucketMinutes = 60; break;
             default:
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                      .body(PriceTickerErrorResponse.create(
                                          "INVALID_BUCKET",
                                          "Invalid bucket parameter: " + bucket,
-                                         "Supported values: 1M, 5M, 10M"));
+                                         "Supported values: 1M, 2M, 3M, 5M, 10M, 30M, 60M"));
         }
 
         // ---- 3. Symbol zu ISIN auflösen -------------------------------------
@@ -1172,6 +1176,8 @@ public class StocksController
         switch (reduce)
         {
             case "1M":  return 1;
+            case "2M":  return 2;
+            case "3M":  return 3;
             case "5M":  return 5;
             case "10M": return 10;
             case "30M": return 30;
