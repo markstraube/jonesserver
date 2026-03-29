@@ -1055,6 +1055,7 @@ public class StocksController
                 while (rs.next())
                 {
                     BigDecimal cLast = rs.getBigDecimal("cLast");
+                    if (cLast == null) continue; // Skip records without a price (pre-market snapshots)
                     IntradayResponse.IntradayDataPoint dp = new IntradayResponse.IntradayDataPoint();
                     dp.setTimestamp(rs.getTimestamp("cTimestamp").getTime());
                     // open = close = high = low = cLast; getCloseValue() via PricePoint für EMA genutzt

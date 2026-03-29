@@ -28,3 +28,6 @@ GET https://aktienkatalog.de/api-docs
 
 ###
 GET https://api.frankfurter.dev/v1/latest
+
+###
+GET https://www.tradegatebsx.com/refresh.php?isin=DE000A0B9N37

@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import jakarta.annotation.PostConstruct;
 import org.jsoup.Jsoup;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -74,6 +75,18 @@ public class PriceTickerService
 
 
     /**
+     * Fetches prices for all watched stocks once on application startup,
+     * regardless of the current time, so the cache is populated immediately.
+     */
+    @PostConstruct
+    public void initPriceCache()
+    {
+        blackListedIsins.clear();
+        blackListedIsins.add("US6311011026"); // exclude NASDQ Index
+        doLoadPrices();
+    }
+
+    /**
      * Loads prices for all watched stocks mainly from Tradegate.
      */
     static long loopCounter = 0;
@@ -91,6 +104,11 @@ public class PriceTickerService
         if (now.isBefore(LocalTime.of(7, 30)) || now.isAfter(LocalTime.of(22, 0)))
         { return; }
 
+        doLoadPrices();
+    }
+
+    private static void doLoadPrices()
+    {
         Set<String> isins = new HashSet<>();
         File userPrefsRoot = new File(UserPrefsRepo.USER_PREFS_ROOT);
         File[] userDirs = userPrefsRoot.listFiles(File::isDirectory);
