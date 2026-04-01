@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
@@ -76,6 +77,26 @@ public class StocksController
     {
         new File(FUNDAMENTALS_ROOT_FOLDER).mkdirs();
     }
+
+    // ---- Intraday response cache (8-second TTL) --------------------------------
+    // Key: "<isin>|<localDate>|<reduce>"
+    private static final long INTRADAY_CACHE_TTL_MS = 8_000L;
+
+    private static class IntradayCacheEntry
+    {
+        final ResponseEntity<?> response;
+        final long              expiresAt;
+
+        IntradayCacheEntry(ResponseEntity<?> response)
+        {
+            this.response  = response;
+            this.expiresAt = System.currentTimeMillis() + INTRADAY_CACHE_TTL_MS;
+        }
+
+        boolean isExpired() { return System.currentTimeMillis() > expiresAt; }
+    }
+
+    private final ConcurrentHashMap<String, IntradayCacheEntry> intradayCache = new ConcurrentHashMap<>();
 
     @Operation(summary = "Get Service Information", description = "**Use Case:** Health check and service discovery. Returns metadata about the stocks API service including version, status, and available features. **When to use:** To verify service availability, check API version compatibility, or during system monitoring and diagnostics.")
     @ApiResponse(responseCode = "200", description = "Service metadata and health status")
@@ -726,6 +747,14 @@ public class StocksController
         long dayStartMs = date.atStartOfDay(zone).toInstant().toEpochMilli();
         long dayEndMs   = dayStartMs + 24L * 60 * 60 * 1000;
 
+        // ---- Cache lookup ---------------------------------------------------
+        String cacheKey = isin + "|" + date + "|" + (reduce != null ? reduce.trim() : "");
+        IntradayCacheEntry cached = intradayCache.get(cacheKey);
+        if (cached != null && !cached.isExpired())
+        {
+            return cached.response;
+        }
+
         // ---- 4. Query tTradegateIntraday -------------------------------------
         String sql = "SELECT cBid, cAsk, cDelta, cStueck, cAvg, cExecutions, "
                    + "cLast, cClose, cTimestamp "
@@ -838,7 +867,9 @@ public class StocksController
         response.setHeader(header);
         response.setData(dataPoints);
 
-        return ResponseEntity.ok(response);
+        ResponseEntity<?> result = ResponseEntity.ok(response);
+        intradayCache.put(cacheKey, new IntradayCacheEntry(result));
+        return result;
     }
 
 
