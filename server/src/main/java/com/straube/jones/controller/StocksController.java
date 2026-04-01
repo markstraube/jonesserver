@@ -1402,10 +1402,10 @@ public class StocksController
         candle.setLow(snapshots.stream()
             .map(IntradayResponse.IntradayDataPoint::getLow)
             .filter(v -> v != null).min(BigDecimal::compareTo).orElse(null));
-        candle.setBid(avgBigDecimal(snapshots.stream()
-            .map(IntradayResponse.IntradayDataPoint::getBid).collect(Collectors.toList())));
-        candle.setAsk(avgBigDecimal(snapshots.stream()
-            .map(IntradayResponse.IntradayDataPoint::getAsk).collect(Collectors.toList())));
+        candle.setBid(snapshots.stream().map(IntradayResponse.IntradayDataPoint::getBid)
+            .filter(v -> v != null).reduce((a, b) -> b).orElse(null));
+        candle.setAsk(snapshots.stream().map(IntradayResponse.IntradayDataPoint::getAsk)
+            .filter(v -> v != null).reduce((a, b) -> b).orElse(null));
         candle.setAvg(avgBigDecimal(snapshots.stream()
             .map(IntradayResponse.IntradayDataPoint::getAvg).collect(Collectors.toList())));
 
@@ -1559,10 +1559,10 @@ public class StocksController
                 .min(BigDecimal::compareTo).orElse(null);
             agg.setLow(minLow);
 
-            agg.setBid(avgBigDecimal(group.stream()
-                .map(IntradayResponse.IntradayDataPoint::getBid).collect(Collectors.toList())));
-            agg.setAsk(avgBigDecimal(group.stream()
-                .map(IntradayResponse.IntradayDataPoint::getAsk).collect(Collectors.toList())));
+            agg.setBid(group.stream().map(IntradayResponse.IntradayDataPoint::getBid)
+                .filter(v -> v != null).reduce((a, b) -> b).orElse(null));
+            agg.setAsk(group.stream().map(IntradayResponse.IntradayDataPoint::getAsk)
+                .filter(v -> v != null).reduce((a, b) -> b).orElse(null));
             agg.setAvg(avgBigDecimal(group.stream()
                 .map(IntradayResponse.IntradayDataPoint::getAvg).collect(Collectors.toList())));
 
