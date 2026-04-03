@@ -27,11 +27,10 @@ public class PortfolioService
     private final PriceTickerService priceTickerService;
 
     @Autowired
-    public PortfolioService(AccountingRepository repository)
+    public PortfolioService(AccountingRepository repository, PriceTickerService priceTickerService)
     {
         this.repository = repository;
-        this.priceTickerService = new PriceTickerService(); // Assuming default constructor is available and
-                                                            // functional
+        this.priceTickerService = priceTickerService;
     }
 
 

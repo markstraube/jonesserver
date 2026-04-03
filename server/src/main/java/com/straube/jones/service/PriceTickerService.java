@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import jakarta.annotation.PostConstruct;
 import org.jsoup.Jsoup;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -41,6 +43,15 @@ import com.straube.jones.dto.TradegateIntradayDto;
 @Service
 public class PriceTickerService
 {
+    /** Static reference set via constructor injection so @Scheduled static methods can use it. */
+    private static TradingCalendarService tradingCalendarService;
+
+    @Autowired
+    public PriceTickerService(TradingCalendarService calendarService)
+    {
+        PriceTickerService.tradingCalendarService = calendarService;
+    }
+
     private static final String TRADEGATE_FINANCE_URL = "https://www.tradegatebsx.com/refresh.php?isin=";
     private static final int TIMEOUT_MS = 10000;
 
@@ -100,6 +111,14 @@ public class PriceTickerService
             blackListedIsins.clear();
             blackListedIsins.add("US6311011026"); // exclude NASDQ Index
         }
+
+        // Skip polling on Tradegate exchange holidays
+        if (tradingCalendarService != null
+                && tradingCalendarService.isTradegateHoliday(LocalDate.now(ZoneId.of("Europe/Berlin"))))
+        {
+            return;
+        }
+
         LocalTime now = LocalTime.now(ZoneId.of("Europe/Berlin"));
         if (now.isBefore(LocalTime.of(7, 30)) || now.isAfter(LocalTime.of(22, 0)))
         { return; }
