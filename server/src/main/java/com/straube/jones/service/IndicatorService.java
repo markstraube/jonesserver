@@ -403,6 +403,7 @@ public class IndicatorService
         for (Map<String, Object> result : results)
         {
             maxDayMap.put((String)result.get("symbol"), (Long)result.get("maxDay"));
+            //maxDayMap.put((String)result.get("symbol"), 9580L);
         }
         return maxDayMap;
     }

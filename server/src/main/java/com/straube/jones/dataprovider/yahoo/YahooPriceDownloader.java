@@ -158,7 +158,14 @@ public class YahooPriceDownloader
                         + " for the past "
                         + daysBack
                         + " days.");
-        YahooPriceDownloader.fetchPrices(daysBack, "^IXIC", "US6311011026", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "RHM.DE", "DE0007030009", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "IFX.DE", "DE0006231004", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "SAP.DE", "DE0007164600", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "NEM.DE", "DE0006452907", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "HOT.DE", "DE0006070006", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "ALV.DE", "DE0008404005", DAILY_PRICE_FOLDER);
+        // YahooPriceDownloader.fetchPrices(daysBack, "MTX.DE", "DE000A0D9PT0", DAILY_PRICE_FOLDER);
+        YahooPriceDownloader.fetchPrices(daysBack);
         System.out.println("Download finished.");
     }
 }

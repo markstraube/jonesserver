@@ -4337,3 +4337,568 @@ Caused by: java.sql.SQLSyntaxErrorException: (conn=25195) Unknown column 'cUser'
 2026-01-30 15:17:36 [http-nio-0.0.0.0-8080-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
 2026-01-30 15:17:36 [http-nio-0.0.0.0-8080-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
 2026-01-30 15:17:36 [http-nio-0.0.0.0-8080-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2026-04-03 18:32:44 [main] WARN  o.m.jdbc.message.server.ErrorPacket - Error: 1062-23000: Duplicate entry 'US6311011026' for key 'tCompany.tCompany_cIsin_IDX'
+2026-04-03 18:36:02 [main] WARN  o.m.jdbc.message.server.ErrorPacket - Error: 1062-23000: Duplicate entry 'US6311011026' for key 'tCompany.tCompany_cIsin_IDX'
+2026-04-03 18:39:21 [main] WARN  o.m.jdbc.message.server.ErrorPacket - Error: 1062-23000: Duplicate entry 'US6311011026' for key 'tCompany.tCompany_cIsin_IDX'
+2026-04-03 19:19:24 [main] INFO  c.s.j.t.c.IndicatorCollector - Starting VWMA backfill for all symbols...
+2026-04-03 19:19:24 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PAYC (333 records)
+2026-04-03 19:19:24 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SSNC (333 records)
+2026-04-03 19:19:24 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MU (333 records)
+2026-04-03 19:19:24 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NEM.DE (335 records)
+2026-04-03 19:19:28 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MPWR (333 records)
+2026-04-03 19:19:28 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CMCSA (333 records)
+2026-04-03 19:19:28 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DT (333 records)
+2026-04-03 19:19:28 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for XYZ (333 records)
+2026-04-03 19:19:31 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ARM (279 records)
+2026-04-03 19:19:31 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FFIV (333 records)
+2026-04-03 19:19:31 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CHKP (333 records)
+2026-04-03 19:19:32 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SBAC (333 records)
+2026-04-03 19:19:32 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SNX (333 records)
+2026-04-03 19:19:35 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FLY (162 records)
+2026-04-03 19:19:35 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LDO.MI (334 records)
+2026-04-03 19:19:35 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for VOD.L (338 records)
+2026-04-03 19:19:35 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GEN (333 records)
+2026-04-03 19:19:37 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for VSAT (321 records)
+2026-04-03 19:19:38 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FISV (333 records)
+2026-04-03 19:19:38 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CAP.PA (339 records)
+2026-04-03 19:19:39 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CIEN (333 records)
+2026-04-03 19:19:40 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for KER.PA (314 records)
+2026-04-03 19:19:41 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PHIA.AS (339 records)
+2026-04-03 19:19:41 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TMO (333 records)
+2026-04-03 19:19:42 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NXPI (333 records)
+2026-04-03 19:19:44 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DOX (333 records)
+2026-04-03 19:19:44 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SAP.DE (335 records)
+2026-04-03 19:19:45 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SNAP (333 records)
+2026-04-03 19:19:45 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CSCO (333 records)
+2026-04-03 19:19:48 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for QCOM (333 records)
+2026-04-03 19:19:48 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GEV (333 records)
+2026-04-03 19:19:48 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CDW (333 records)
+2026-04-03 19:19:49 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ALV.DE (333 records)
+2026-04-03 19:19:51 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SMCI (333 records)
+2026-04-03 19:19:51 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MTX.DE (335 records)
+2026-04-03 19:19:51 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ANET (333 records)
+2026-04-03 19:19:53 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HEI (333 records)
+2026-04-03 19:19:54 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FJET (69 records)
+2026-04-03 19:19:55 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ADYEN.AS (339 records)
+2026-04-03 19:19:55 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MRVL (333 records)
+2026-04-03 19:19:55 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for UCG.MI (312 records)
+2026-04-03 19:19:56 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ORA.PA (339 records)
+2026-04-03 19:19:58 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CRM (333 records)
+2026-04-03 19:19:59 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for APLD (314 records)
+2026-04-03 19:19:59 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AM.PA (339 records)
+2026-04-03 19:19:59 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for Z (333 records)
+2026-04-03 19:20:02 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BAH (333 records)
+2026-04-03 19:20:02 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TEAM (333 records)
+2026-04-03 19:20:03 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HPQ (333 records)
+2026-04-03 19:20:03 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for VZ (333 records)
+2026-04-03 19:20:05 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for STX (333 records)
+2026-04-03 19:20:06 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LDOS (333 records)
+2026-04-03 19:20:06 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PL (330 records)
+2026-04-03 19:20:06 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BKSY (330 records)
+2026-04-03 19:20:08 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ASM.AS (339 records)
+2026-04-03 19:20:09 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for WDAY (333 records)
+2026-04-03 19:20:10 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LUNR (314 records)
+2026-04-03 19:20:11 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AVAV (314 records)
+2026-04-03 19:20:12 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LRCX (333 records)
+2026-04-03 19:20:13 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ROK (333 records)
+2026-04-03 19:20:14 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TRMB (333 records)
+2026-04-03 19:20:14 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BSY (333 records)
+2026-04-03 19:20:15 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TTD (333 records)
+2026-04-03 19:20:16 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CDNS (333 records)
+2026-04-03 19:20:17 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for T (333 records)
+2026-04-03 19:20:17 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for JNJ (308 records)
+2026-04-03 19:20:19 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for RKLB (333 records)
+2026-04-03 19:20:19 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for EA (333 records)
+2026-04-03 19:20:21 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for RHM.DE (333 records)
+2026-04-03 19:20:21 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ^IXIC (327 records)
+2026-04-03 19:20:22 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NTAP (333 records)
+2026-04-03 19:20:23 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ESLT.TA (329 records)
+2026-04-03 19:20:25 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AYV.PA (339 records)
+2026-04-03 19:20:25 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DSY.PA (339 records)
+2026-04-03 19:20:26 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for APP (333 records)
+2026-04-03 19:20:26 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CRWD (333 records)
+2026-04-03 19:20:28 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for UI (333 records)
+2026-04-03 19:20:28 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for IFX.DE (335 records)
+2026-04-03 19:20:29 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TWLO (333 records)
+2026-04-03 19:20:29 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for VRSN (333 records)
+2026-04-03 19:20:31 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for COHR (333 records)
+2026-04-03 19:20:32 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HEI-A (333 records)
+2026-04-03 19:20:33 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PSN (333 records)
+2026-04-03 19:20:33 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for OTIS (333 records)
+2026-04-03 19:20:35 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GFS (333 records)
+2026-04-03 19:20:35 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for JBL (333 records)
+2026-04-03 19:20:36 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MSFT (333 records)
+2026-04-03 19:20:36 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HON (308 records)
+2026-04-03 19:20:38 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GNRC (333 records)
+2026-04-03 19:20:39 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AMT (333 records)
+2026-04-03 19:20:40 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HOT.DE (303 records)
+2026-04-03 19:20:40 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HYMC (321 records)
+2026-04-03 19:20:42 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SMIN.L (338 records)
+2026-04-03 19:20:42 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SWKS (333 records)
+2026-04-03 19:20:43 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TOST (333 records)
+2026-04-03 19:20:44 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DVA (310 records)
+2026-04-03 19:20:45 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SNOW (333 records)
+2026-04-03 19:20:46 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AVGO (333 records)
+2026-04-03 19:20:47 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FLEX (333 records)
+2026-04-03 19:20:48 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BA (333 records)
+2026-04-03 19:20:49 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MRNA (326 records)
+2026-04-03 19:20:49 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TKMS.DE (111 records)
+2026-04-03 19:20:50 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for EQIX (333 records)
+2026-04-03 19:20:51 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BWXT (333 records)
+2026-04-03 19:20:52 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CW (333 records)
+2026-04-03 19:20:53 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for RR.L (337 records)
+2026-04-03 19:20:54 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NOW (333 records)
+2026-04-03 19:20:54 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PSTG (333 records)
+2026-04-03 19:20:55 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for INTU (333 records)
+2026-04-03 19:20:56 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LUV (333 records)
+2026-04-03 19:20:57 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LMT (333 records)
+2026-04-03 19:20:57 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for EPAM (333 records)
+2026-04-03 19:20:58 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GOOGL (326 records)
+2026-04-03 19:21:00 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TMUS (333 records)
+2026-04-03 19:21:01 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TER (310 records)
+2026-04-03 19:21:01 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MDB (333 records)
+2026-04-03 19:21:02 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NVDA (333 records)
+2026-04-03 19:21:03 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for WDC (333 records)
+2026-04-03 19:21:04 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ENTG (333 records)
+2026-04-03 19:21:05 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for WAT (333 records)
+2026-04-03 19:21:07 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GSAT (321 records)
+2026-04-03 19:21:07 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GILD (310 records)
+2026-04-03 19:21:07 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AMD (333 records)
+2026-04-03 19:21:08 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FRES.L (321 records)
+2026-04-03 19:21:10 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DELL (333 records)
+2026-04-03 19:21:11 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for USAR (316 records)
+2026-04-03 19:21:11 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NDSN (333 records)
+2026-04-03 19:21:12 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ON (333 records)
+2026-04-03 19:21:14 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PLTR (333 records)
+2026-04-03 19:21:14 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CCI (333 records)
+2026-04-03 19:21:15 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ADSK (333 records)
+2026-04-03 19:21:15 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ADP (333 records)
+2026-04-03 19:21:17 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AIR.PA (339 records)
+2026-04-03 19:21:18 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ED (333 records)
+2026-04-03 19:21:18 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SAF.PA (339 records)
+2026-04-03 19:21:19 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ORCL (333 records)
+2026-04-03 19:21:21 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for IBM (333 records)
+2026-04-03 19:21:21 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NOVO-B.CO (313 records)
+2026-04-03 19:21:21 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BT-A.L (338 records)
+2026-04-03 19:21:23 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FTI (333 records)
+2026-04-03 19:21:24 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SU.PA (339 records)
+2026-04-03 19:21:25 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ZM (333 records)
+2026-04-03 19:21:25 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AMAT (333 records)
+2026-04-03 19:21:26 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DTE.DE (335 records)
+2026-04-03 19:21:28 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for JKHY (333 records)
+2026-04-03 19:21:28 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DRO.AX (344 records)
+2026-04-03 19:21:29 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DOCU (333 records)
+2026-04-03 19:21:30 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HWM (333 records)
+2026-04-03 19:21:31 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for COIN (333 records)
+2026-04-03 19:21:33 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SNPS (333 records)
+2026-04-03 19:21:33 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SMSD.IL (303 records)
+2026-04-03 19:21:33 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ENR.DE (392 records)
+2026-04-03 19:21:35 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FTNT (333 records)
+2026-04-03 19:21:35 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CLS.TO (314 records)
+2026-04-03 19:21:36 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ASTS (326 records)
+2026-04-03 19:21:37 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TDY (333 records)
+2026-04-03 19:21:38 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ESTC (333 records)
+2026-04-03 19:21:38 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CTSH (333 records)
+2026-04-03 19:21:40 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TXN (333 records)
+2026-04-03 19:21:40 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for INTC (333 records)
+2026-04-03 19:21:41 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ROP (333 records)
+2026-04-03 19:21:42 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for RBLX (333 records)
+2026-04-03 19:21:44 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for VRT (333 records)
+2026-04-03 19:21:44 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NET (333 records)
+2026-04-03 19:21:45 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TSLA (313 records)
+2026-04-03 19:21:46 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MCHP (333 records)
+2026-04-03 19:21:47 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DDOG (333 records)
+2026-04-03 19:21:47 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CHTR (333 records)
+2026-04-03 19:21:49 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MSI (333 records)
+2026-04-03 19:21:49 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for SGE.L (338 records)
+2026-04-03 19:21:51 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NOVN.SW (310 records)
+2026-04-03 19:21:51 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NOC (333 records)
+2026-04-03 19:21:52 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for XOM (306 records)
+2026-04-03 19:21:52 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LITE (291 records)
+2026-04-03 19:21:54 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GD (333 records)
+2026-04-03 19:21:54 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TDG (333 records)
+2026-04-03 19:21:56 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FTAI (320 records)
+2026-04-03 19:21:56 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for IRM (333 records)
+2026-04-03 19:21:58 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for KTOS (387 records)
+2026-04-03 19:21:58 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BESI.AS (339 records)
+2026-04-03 19:22:00 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ASML.AS (339 records)
+2026-04-03 19:22:00 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for WCC (333 records)
+2026-04-03 19:22:00 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for GWRE (333 records)
+2026-04-03 19:22:01 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for IEX (333 records)
+2026-04-03 19:22:03 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for LHX (333 records)
+2026-04-03 19:22:03 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ADI (333 records)
+2026-04-03 19:22:03 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PCOR (333 records)
+2026-04-03 19:22:04 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HLMA.L (338 records)
+2026-04-03 19:22:07 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for IR (333 records)
+2026-04-03 19:22:07 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for WWD (333 records)
+2026-04-03 19:22:07 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FICO (333 records)
+2026-04-03 19:22:08 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for RVTY (333 records)
+2026-04-03 19:22:10 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for WAB (333 records)
+2026-04-03 19:22:10 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HO.PA (339 records)
+2026-04-03 19:22:10 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AAPL (333 records)
+2026-04-03 19:22:11 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PANW (333 records)
+2026-04-03 19:22:13 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for CPAY (333 records)
+2026-04-03 19:22:13 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AKAM (333 records)
+2026-04-03 19:22:14 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PINS (333 records)
+2026-04-03 19:22:15 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for DE000HAG0005.SG (46 records)
+2026-04-03 19:22:16 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for BA.L (338 records)
+2026-04-03 19:22:17 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for APH (333 records)
+2026-04-03 19:22:17 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for A (333 records)
+2026-04-03 19:22:18 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HPE (333 records)
+2026-04-03 19:22:19 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for KEYS (333 records)
+2026-04-03 19:22:20 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for PTC (333 records)
+2026-04-03 19:22:20 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for KPN.AS (339 records)
+2026-04-03 19:22:21 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for HII (333 records)
+2026-04-03 19:22:22 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for U (333 records)
+2026-04-03 19:22:24 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for MTSI (333 records)
+2026-04-03 19:22:24 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ZS (333 records)
+2026-04-03 19:22:25 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TTWO (333 records)
+2026-04-03 19:22:26 [pool-1-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ADBE (333 records)
+2026-04-03 19:22:27 [pool-1-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for AXON (333 records)
+2026-04-03 19:22:27 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for NTNX (333 records)
+2026-04-03 19:22:28 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for TYL (333 records)
+2026-04-03 19:22:30 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for VEEV (333 records)
+2026-04-03 19:22:31 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for FNV.TO (317 records)
+2026-04-03 19:22:34 [pool-1-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for RTX (303 records)
+2026-04-03 19:22:35 [pool-1-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Backfilling VWMA for ETM.AX (330 records)
+2026-04-03 19:22:38 [main] INFO  c.s.j.t.c.IndicatorCollector - VWMA backfill finished.
+2026-04-09 12:55:30 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+2026-04-09 12:55:30 [main] INFO  com.straube.jones.trader.Updater - Starting Updater using Java 17.0.18 with PID 6396 (C:\Users\marks\git\jonesserver\server\target\classes started by marks in C:\Users\marks\git\jonesserver)
+2026-04-09 12:55:30 [main] INFO  com.straube.jones.trader.Updater - No active profile set, falling back to 1 default profile: "default"
+2026-04-09 12:55:33 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-09 12:55:33 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 267 ms. Found 2 JPA repository interfaces.
+2026-04-09 12:55:35 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2026-04-09 12:55:35 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-09 12:55:35 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-09 12:55:35 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-04-09 12:55:35 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-09 12:55:35 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 4568 ms
+2026-04-09 12:55:35 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-04-09 12:55:35 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-04-09 12:55:35 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+2026-04-09 12:55:36 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-09 12:55:36 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-04-09 12:55:36 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.mariadb.jdbc.Connection@f453129
+2026-04-09 12:55:36 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-04-09 12:55:36 [main] WARN  org.hibernate.dialect.Dialect - HHH000511: The 8.0.0 version for [org.hibernate.dialect.MariaDBDialect] is no longer supported, hence certain features may not work properly. The minimum supported version is 10.4.0. Check the community dialects project for available legacy versions.
+2026-04-09 12:55:38 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-09 12:55:38 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-09 12:55:40 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-04-09 12:55:41 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page: class path resource [static/index.html]
+2026-04-09 12:55:41 [main] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint(s) beneath base path '/actuator'
+2026-04-09 12:55:41 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@232e4e1d, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@988eae9, org.springframework.security.web.context.SecurityContextHolderFilter@29c471f6, org.springframework.security.web.header.HeaderWriterFilter@3199c2c1, org.springframework.web.filter.CorsFilter@3e93ee71, org.springframework.security.web.authentication.logout.LogoutFilter@358caf3a, com.straube.jones.security.jwt.AuthTokenFilter@7b88a2e2, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@1ea6446b, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@6a8a54f5, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@1cfa5e46, org.springframework.security.web.session.SessionManagementFilter@50e0541, org.springframework.security.web.access.ExceptionTranslationFilter@573f95b2, org.springframework.security.web.access.intercept.AuthorizationFilter@12b9d405]
+2026-04-09 12:55:42 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-09 12:55:42 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path ''
+2026-04-09 12:55:42 [main] INFO  com.straube.jones.trader.Updater - Started Updater in 12.185 seconds (process running for 13.192)
+2026-04-09 12:55:45 [RMI TCP Connection(2)-127.0.0.1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-09 12:55:45 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-04-09 12:55:45 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2026-04-09 13:00:14 [main] INFO  c.s.j.t.c.IndicatorCollector - Starting scheduled update of indicators...
+2026-04-09 13:00:14 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ESLT.TA from day 9595 to 9596
+2026-04-09 13:00:14 [main] INFO  c.s.j.t.c.IndicatorCollector - Finished scheduled update of indicators.
+2026-04-09 13:00:20 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Stopping ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-09 13:00:22 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-04-09 13:00:22 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-04-09 13:00:22 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-04-09 13:09:48 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+2026-04-09 13:09:49 [main] INFO  com.straube.jones.trader.Updater - Starting Updater using Java 17.0.18 with PID 38144 (C:\Users\marks\git\jonesserver\server\target\classes started by marks in c:\Users\marks\git\jonesserver)
+2026-04-09 13:09:49 [main] INFO  com.straube.jones.trader.Updater - No active profile set, falling back to 1 default profile: "default"
+2026-04-09 13:09:51 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-09 13:09:51 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 264 ms. Found 2 JPA repository interfaces.
+2026-04-09 13:09:53 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2026-04-09 13:09:53 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-09 13:09:53 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-09 13:09:53 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-04-09 13:09:53 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-09 13:09:53 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 4320 ms
+2026-04-09 13:09:53 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-04-09 13:09:53 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-04-09 13:09:54 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+2026-04-09 13:09:54 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-09 13:09:54 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-04-09 13:09:54 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.mariadb.jdbc.Connection@60cc20e1
+2026-04-09 13:09:54 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-04-09 13:09:54 [main] WARN  org.hibernate.dialect.Dialect - HHH000511: The 8.0.0 version for [org.hibernate.dialect.MariaDBDialect] is no longer supported, hence certain features may not work properly. The minimum supported version is 10.4.0. Check the community dialects project for available legacy versions.
+2026-04-09 13:09:56 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-09 13:09:56 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-09 13:09:58 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-04-09 13:09:58 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page: class path resource [static/index.html]
+2026-04-09 13:09:59 [main] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint(s) beneath base path '/actuator'
+2026-04-09 13:09:59 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@1d07fb2, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@46f5030f, org.springframework.security.web.context.SecurityContextHolderFilter@39d5376c, org.springframework.security.web.header.HeaderWriterFilter@6cd8aee2, org.springframework.web.filter.CorsFilter@18b77ec9, org.springframework.security.web.authentication.logout.LogoutFilter@39d0775c, com.straube.jones.security.jwt.AuthTokenFilter@2cf6dd4d, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@2f59ecf, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@573f95b2, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@36821a1b, org.springframework.security.web.session.SessionManagementFilter@75044df3, org.springframework.security.web.access.ExceptionTranslationFilter@64078e6a, org.springframework.security.web.access.intercept.AuthorizationFilter@4872d04d]
+2026-04-09 13:09:59 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-09 13:09:59 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path ''
+2026-04-09 13:10:00 [main] INFO  com.straube.jones.trader.Updater - Started Updater in 11.558 seconds (process running for 12.597)
+2026-04-09 13:10:00 [RMI TCP Connection(2)-127.0.0.1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-09 13:10:00 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-04-09 13:10:00 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2026-04-09 13:14:30 [main] INFO  c.s.j.t.c.IndicatorCollector - Starting scheduled update of indicators...
+2026-04-09 13:14:30 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PAYC from day 9581 to 9596
+2026-04-09 13:14:30 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GEN from day 9581 to 9596
+2026-04-09 13:14:30 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LDO.MI from day 9581 to 9596
+2026-04-09 13:14:30 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NDSN from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FISV from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CIEN from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MPWR from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CLS.TO from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DT from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PHIA.AS from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TOST from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ARM from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FFIV from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SBAC from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SAP.DE from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NXPI from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FLY from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GEV from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: VOD.L from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CSCO from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: VSAT from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MTX.DE from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CAP.PA from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ALV.DE from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: KER.PA from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HEI from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ADYEN.AS from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TMO from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DOX from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CRM from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SNAP from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ORA.PA from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: QCOM from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CDW from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BAH from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: Z from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SMCI from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ANET from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: STX from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: VZ from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: UCG.MI from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MRVL from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ASM.AS from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PL from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: A from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AM.PA from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LRCX from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LUNR from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TEAM from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: APLD from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TRMB from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ZM from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BKSY from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: WDAY from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: T from day 9581 to 9596
+2026-04-09 13:14:31 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TTD from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AVAV from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ROK from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: RKLB from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: RHM.DE from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BSY from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CDNS from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AKAM from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NTAP from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: JNJ from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: EA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AYV.PA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CRWD from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ^IXIC from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ESLT.TA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PINS from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: UI from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ENTG from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: APP from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: VRSN from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: COHR from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DSY.PA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TWLO from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: OTIS from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GFS from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: IFX.DE from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HON from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GNRC from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PSN from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HEI-A from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SMIN.L from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HYMC from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MSFT from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: JBL from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SNOW from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HOT.DE from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DVA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AMT from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FLEX from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MRNA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SWKS from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CW from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: EQIX from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: RR.L from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AVGO from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: INTU from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LUV from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NOW from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TKMS.DE from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LMT from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GOOGL from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TMUS from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BWXT from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TER from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NVDA from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: WDC from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PSTG from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GSAT from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: WAT from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GILD from day 9581 to 9596
+2026-04-09 13:14:32 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: EPAM from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FRES.L from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DELL from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: USAR from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ON from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MDB from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PLTR from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ADSK from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AMD from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ADP from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FTI from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AIR.PA from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SAF.PA from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ORCL from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CCI from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: IBM from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BT-A.L from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DTE.DE from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ED from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SU.PA from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DRO.AX from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: JKHY from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HWM from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NOVO-B.CO from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LDOS from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AMAT from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: COIN from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ENR.DE from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SNPS from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DOCU from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FTNT from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CTSH from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ASTS from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SMSD.IL from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ESTC from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HO.PA from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: INTC from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TXN from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ROP from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: RBLX from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NET from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: VRT from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TSLA from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MCHP from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CHTR from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DDOG from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MSI from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SGE.L from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NOC from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TDY from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LITE from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: XOM from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GD from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NOVN.SW from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: IRM from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FTAI from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: KTOS from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TDG from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ASML.AS from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: GWRE from day 9581 to 9596
+2026-04-09 13:14:33 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: WCC from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BESI.AS from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: LHX from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HPQ from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ADI from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: IEX from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: IR from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PCOR from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: WWD from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HLMA.L from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FICO from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: WAB from day 9581 to 9596
+2026-04-09 13:14:34 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Saving batch of 509 indicators...
+2026-04-09 13:14:34 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Saving batch of 506 indicators...
+2026-04-09 13:14:34 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Saving batch of 504 indicators...
+2026-04-09 13:14:34 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Saving batch of 509 indicators...
+2026-04-09 13:14:51 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: KPN.AS from day 9581 to 9596
+2026-04-09 13:14:51 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CPAY from day 9581 to 9596
+2026-04-09 13:14:51 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ZS from day 9581 to 9596
+2026-04-09 13:14:51 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: APH from day 9581 to 9596
+2026-04-09 13:14:51 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NTNX from day 9581 to 9596
+2026-04-09 13:14:51 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PTC from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: VEEV from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MTSI from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: RTX from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AXON from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: RVTY from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SSNC from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: MU from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: PANW from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CMCSA from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: XYZ from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: AAPL from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: DE000HAG0005.SG from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: CHKP from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: SNX from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HPE from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: BA.L from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-2] INFO  c.s.j.t.c.IndicatorCollector - Saving final batch of 87 indicators...
+2026-04-09 13:14:52 [pool-5-thread-1] INFO  c.s.j.t.c.IndicatorCollector - Saving final batch of 88 indicators...
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: HII from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: KEYS from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: U from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TTWO from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FJET from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: TYL from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ADBE from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: FNV.TO from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-4] INFO  c.s.j.t.c.IndicatorCollector - Saving final batch of 86 indicators...
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: ETM.AX from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Processing symbol: NEM.DE from day 9581 to 9596
+2026-04-09 13:14:52 [pool-5-thread-3] INFO  c.s.j.t.c.IndicatorCollector - Saving final batch of 86 indicators...
+2026-04-09 13:14:55 [main] INFO  c.s.j.t.c.IndicatorCollector - Finished scheduled update of indicators.
+2026-04-09 13:15:12 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Stopping ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-09 13:15:14 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-04-09 13:15:14 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-04-09 13:15:14 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-04-10 08:03:31 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+2026-04-10 08:03:31 [main] INFO  com.straube.jones.trader.Updater - Starting Updater using Java 17.0.18 with PID 13196 (C:\Users\marks\git\jonesserver\server\target\classes started by marks in C:\Users\marks\git\jonesserver)
+2026-04-10 08:03:31 [main] INFO  com.straube.jones.trader.Updater - No active profile set, falling back to 1 default profile: "default"
+2026-04-10 08:03:35 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-10 08:03:35 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 289 ms. Found 2 JPA repository interfaces.
+2026-04-10 08:03:37 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2026-04-10 08:03:37 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-10 08:03:37 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-10 08:03:37 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-04-10 08:03:37 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-10 08:03:37 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 5312 ms
+2026-04-10 08:03:37 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-04-10 08:03:37 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-04-10 08:03:37 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+2026-04-10 08:03:38 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-10 08:03:38 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-04-10 08:03:38 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.mariadb.jdbc.Connection@306cfb8a
+2026-04-10 08:03:38 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-04-10 08:03:39 [main] WARN  org.hibernate.dialect.Dialect - HHH000511: The 8.0.0 version for [org.hibernate.dialect.MariaDBDialect] is no longer supported, hence certain features may not work properly. The minimum supported version is 10.4.0. Check the community dialects project for available legacy versions.
+2026-04-10 08:03:40 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-10 08:03:40 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-10 08:03:43 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-04-10 08:03:43 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page: class path resource [static/index.html]
+2026-04-10 08:03:43 [main] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint(s) beneath base path '/actuator'
+2026-04-10 08:03:43 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@5f7e2ca8, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@1d07fb2, org.springframework.security.web.context.SecurityContextHolderFilter@75044df3, org.springframework.security.web.header.HeaderWriterFilter@5c5cd332, org.springframework.web.filter.CorsFilter@46f5030f, org.springframework.security.web.authentication.logout.LogoutFilter@29c471f6, com.straube.jones.security.jwt.AuthTokenFilter@8ba7408, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@79c48ad5, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@4fc41cba, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@18b77ec9, org.springframework.security.web.session.SessionManagementFilter@7335aae5, org.springframework.security.web.access.ExceptionTranslationFilter@54a81a18, org.springframework.security.web.access.intercept.AuthorizationFilter@2df019b8]
+2026-04-10 08:03:44 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-10 08:03:44 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path ''
+2026-04-10 08:03:44 [main] INFO  com.straube.jones.trader.Updater - Started Updater in 13.478 seconds (process running for 14.962)
+2026-04-10 08:03:45 [RMI TCP Connection(2)-127.0.0.1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-10 08:03:45 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-04-10 08:03:45 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 3 ms
+2026-04-10 08:04:38 [main] INFO  c.s.j.t.c.IndicatorCollector - Starting scheduled update of indicators...
+2026-04-10 08:04:39 [main] INFO  c.s.j.t.c.IndicatorCollector - Finished scheduled update of indicators.
+2026-04-10 08:04:46 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Stopping ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-04-10 08:04:48 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-04-10 08:04:48 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-04-10 08:04:48 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

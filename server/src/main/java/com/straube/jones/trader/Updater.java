@@ -8,9 +8,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.straube.jones.StocksApplication;
 import com.straube.jones.dataprovider.yahoo.YahooPriceDownloader;
 import com.straube.jones.dataprovider.yahoo.YahooPriceImporter;
 import com.straube.jones.db.DayCounter;
@@ -45,7 +48,16 @@ public class Updater
     }
 
 
-    @Scheduled(cron = "${updater.schedule.cron:0 0 6 * * ?}")
+    public static void main(String[] args)
+    {
+        try (ConfigurableApplicationContext ctx = SpringApplication.run(StocksApplication.class, args))
+        {
+            ctx.getBean(Updater.class).updateAllJob();
+        }
+    }
+
+
+    @Scheduled(cron = "${updater.schedule.cron:0 30 7 * * ?}")
     public void updateAllJob()
     {
         try
@@ -91,7 +103,7 @@ public class Updater
             executor.shutdown();
 
             // 3. updateRatings
-            indicatorService.updateRatings();
+            //indicatorService.updateRatings();
 
             // 4. updateIndicators
             indicatorCollector.updateIndicators();

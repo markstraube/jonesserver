@@ -31,3 +31,6 @@ GET https://api.frankfurter.dev/v1/latest
 
 ###
 GET https://www.tradegatebsx.com/refresh.php?isin=DE000A0B9N37
+
+###
+GET https://query2.finance.yahoo.com/v8/finance/chart/ENR.DE?period1=1775088000&period2=1775174400&interval=1d&events=history

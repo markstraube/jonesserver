@@ -94,7 +94,8 @@ public class MarketDataService
         Map<String, Long> maxDayMap = new HashMap<>();
         for (Map<String, Object> result : results)
         {
-            maxDayMap.put((String)result.get("cSymbol"), (Long)result.get("maxDay"));
+          maxDayMap.put((String)result.get("cSymbol"), (Long)result.get("maxDay"));
+          //maxDayMap.put((String)result.get("cSymbol"), 9580L);
         }
         return maxDayMap;
     }
