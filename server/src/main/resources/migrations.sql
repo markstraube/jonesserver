@@ -58,3 +58,33 @@ CREATE INDEX IF NOT EXISTS tTradegateIntraday_cIsin_cTimestamp_IDX
 -- instead of a full table scan, which is critical given the high insert frequency.
 CREATE INDEX IF NOT EXISTS tTradegateIntraday_cTimestamp_IDX
     ON tTradegateIntraday (cTimestamp);
+
+-- ---------------------------------------------------------------------------
+-- Indexes for tPriceData
+-- ---------------------------------------------------------------------------
+-- Q1: Point/range lookup  → WHERE cSymbol = ? AND cDayCounter = ?  (MarketDataService)
+-- Q2: Range + sort        → WHERE cSymbol = ? AND cDayCounter <= ? ORDER BY cDayCounter DESC
+-- Q3: Aggregation         → SELECT cSymbol, MAX(cDayCounter) FROM tPriceData GROUP BY cSymbol
+-- Q4: Distinct            → SELECT DISTINCT cSymbol FROM tPriceData
+-- All four are covered by the composite (cSymbol, cDayCounter) index.
+CREATE INDEX IF NOT EXISTS tPriceData_cSymbol_cDayCounter_IDX
+    ON tPriceData (cSymbol, cDayCounter);
+
+-- Q5: ISIN lookup         → WHERE cIsin IN (...)  (PricePointLoader)
+CREATE INDEX IF NOT EXISTS tPriceData_cIsin_IDX
+    ON tPriceData (cIsin);
+
+-- ---------------------------------------------------------------------------
+-- Indexes for tRatings
+-- ---------------------------------------------------------------------------
+-- Q1: Symbol+day range    → WHERE cSymbol IN (...) AND cDayCounter BETWEEN ? AND ?  (RatingService)
+-- Q2: Aggregation         → SELECT cSymbol, MAX(cDayCounter) FROM tRatings GROUP BY cSymbol
+-- Both are covered by the composite (cSymbol, cDayCounter) index.
+CREATE INDEX IF NOT EXISTS tRatings_cSymbol_cDayCounter_IDX
+    ON tRatings (cSymbol, cDayCounter);
+
+-- Q3: Global max          → SELECT MAX(cDayCounter) FROM tRatings  (SwingTradeQueryService)
+-- Q4: Day filter          → WHERE cDayCounter = ? AND (cShort='BUY' OR ...)  (SwingTradeQueryService)
+-- The standalone cDayCounter index serves both (composite above can't help when cSymbol is absent).
+CREATE INDEX IF NOT EXISTS tRatings_cDayCounter_IDX
+    ON tRatings (cDayCounter);

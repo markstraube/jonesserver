@@ -80,7 +80,11 @@ public class StocksController
 
     // ---- Intraday response cache (8-second TTL) --------------------------------
     // Key: "<isin>|<localDate>|<reduce>"
-    private static final long INTRADAY_CACHE_TTL_MS = 8_000L;
+    private static final long INTRADAY_CACHE_TTL_MS      = 8_000L;
+    // Historical days (past) are immutable – cache them for 6 hours.
+    // Today's MACD is refreshed with the same 8-second TTL as intraday data.
+    private static final long MACD_CACHE_TTL_HISTORY_MS  = 6L * 60 * 60 * 1000;  // 6 h
+    private static final long MACD_CACHE_TTL_TODAY_MS    = 8_000L;                // 8 s
 
     private static class IntradayCacheEntry
     {
@@ -93,10 +97,18 @@ public class StocksController
             this.expiresAt = System.currentTimeMillis() + INTRADAY_CACHE_TTL_MS;
         }
 
+        IntradayCacheEntry(ResponseEntity<?> response, long ttlMs)
+        {
+            this.response  = response;
+            this.expiresAt = System.currentTimeMillis() + ttlMs;
+        }
+
         boolean isExpired() { return System.currentTimeMillis() > expiresAt; }
     }
 
     private final ConcurrentHashMap<String, IntradayCacheEntry> intradayCache = new ConcurrentHashMap<>();
+    // Key: "<isin>|<localDate>|<reduce>|<shortPeriod>|<longPeriod>|<signalPeriod>"
+    private final ConcurrentHashMap<String, IntradayCacheEntry> macdCache     = new ConcurrentHashMap<>();
 
     @Operation(summary = "Get Service Information", description = "**Use Case:** Health check and service discovery. Returns metadata about the stocks API service including version, status, and available features. **When to use:** To verify service availability, check API version compatibility, or during system monitoring and diagnostics.")
     @ApiResponse(responseCode = "200", description = "Service metadata and health status")
@@ -1059,6 +1071,15 @@ public class StocksController
             date = lastDay;
         }
 
+        // ---- Cache lookup ---------------------------------------------------
+        String macdCacheKey = isin + "|" + date + "|" + (reduce != null ? reduce.trim() : "")
+                            + "|" + shortPeriod + "|" + longPeriod + "|" + signalPeriod;
+        IntradayCacheEntry macdCached = macdCache.get(macdCacheKey);
+        if (macdCached != null && !macdCached.isExpired())
+        {
+            return macdCached.response;
+        }
+
         // ---- 4. Load raw snapshots for 14 days ending at end of requested day
         //
         // 14 Tage Historie stellen sicher, dass genügend Buckets für die EMA-Anlaufphase
@@ -1166,7 +1187,13 @@ public class StocksController
         response.setSignalPeriod(signalPeriod);
         response.setData(responseData);
 
-        return ResponseEntity.ok(response);
+        // Historical days are immutable – cache for 6 h; today uses the short 8-s TTL.
+        ResponseEntity<?> macdResult2 = ResponseEntity.ok(response);
+        long macdTtl = date.isBefore(LocalDate.now(zone))
+                       ? MACD_CACHE_TTL_HISTORY_MS
+                       : MACD_CACHE_TTL_TODAY_MS;
+        macdCache.put(macdCacheKey, new IntradayCacheEntry(macdResult2, macdTtl));
+        return macdResult2;
     }
 
 
