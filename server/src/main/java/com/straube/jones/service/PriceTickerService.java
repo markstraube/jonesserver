@@ -245,8 +245,8 @@ public class PriceTickerService
     public static void cleanupIntraday()
     {
         ZoneId zone = ZoneId.of("Europe/Berlin");
-        // Cutoff = start of local day 14 days ago  →  records before this timestamp are deleted
-        java.time.LocalDate cutoffDate = java.time.LocalDate.now(zone).minusDays(14);
+        // Cutoff = start of local day 28 days ago  →  records before this timestamp are deleted
+        java.time.LocalDate cutoffDate = java.time.LocalDate.now(zone).minusDays(28);
         java.sql.Timestamp cutoff = java.sql.Timestamp.from(
             cutoffDate.atStartOfDay(zone).toInstant());
 
