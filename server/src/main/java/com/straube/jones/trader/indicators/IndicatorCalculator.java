@@ -55,7 +55,7 @@ public class IndicatorCalculator
         BollingerResult[] bollinger = calculateBollingerBands(chronologicalPrices, 15, 2.0);
 
         // RSI (14 Tage)
-        Double[] rsi = calculateRSI(chronologicalPrices, 14);
+        double[] rsi = calculateRSI(chronologicalPrices, 14);
 
         // MACD (12, 26, 9) — result[0] = MACD-Linie, result[1] = Signal-Linie
         double[][] macd = calculateMACD(chronologicalPrices, 12, 26, 9);
@@ -99,7 +99,7 @@ public class IndicatorCalculator
                 dto.setBb15high(bollinger[i].upper);
             }
 
-            dto.setRsi(rsi[i]);
+            dto.setRsi(!Double.isNaN(rsi[i]) ? rsi[i] : null);
 
             if (!Double.isNaN(macd[0][i]) && !Double.isNaN(macd[1][i]))
             {
@@ -212,53 +212,6 @@ public class IndicatorCalculator
         return result;
     }
 
-
-    private Double[] calculateRSI(List<DailyPrice> prices, int period)
-    {
-        Double[] result = new Double[prices.size()];
-        if (prices.size() <= period)
-            return result;
-
-        double avgGain = 0;
-        double avgLoss = 0;
-
-        // Initial Average
-        for (int i = 1; i <= period; i++ )
-        {
-            double change = prices.get(i).getAdjClose() - prices.get(i - 1).getAdjClose();
-            if (change > 0)
-                avgGain += change;
-            else
-                avgLoss += Math.abs(change);
-        }
-        avgGain /= period;
-        avgLoss /= period;
-
-        result[period] = 100.0 - (100.0 / (1.0 + (avgGain / (avgLoss == 0 ? 1 : avgLoss)))); // Avoid div by
-                                                                                             // zero
-
-        // Smoothed
-        for (int i = period + 1; i < prices.size(); i++ )
-        {
-            double change = prices.get(i).getAdjClose() - prices.get(i - 1).getAdjClose();
-            double gain = change > 0 ? change : 0;
-            double loss = change < 0 ? Math.abs(change) : 0;
-
-            avgGain = (avgGain * (period - 1) + gain) / period;
-            avgLoss = (avgLoss * (period - 1) + loss) / period;
-
-            if (avgLoss == 0)
-            {
-                result[i] = 100.0;
-            }
-            else
-            {
-                double rs = avgGain / avgLoss;
-                result[i] = 100.0 - (100.0 / (1.0 + rs));
-            }
-        }
-        return result;
-    }
 
     /**
      * Berechnet den MACD (Moving Average Convergence Divergence) Indikator.
@@ -387,6 +340,62 @@ public class IndicatorCalculator
                 max = Math.max(max, prices.get(i - j).getHigh());
             }
             result[i] = max;
+        }
+        return result;
+    }
+
+
+    /**
+     * Berechnet den RSI (Relative Strength Index) Indikator nach Wilders Smoothing-Methode.
+     *
+     * <p>Die Methode akzeptiert jede Preiszeitreihe, die {@link PricePoint} implementiert,
+     * also sowohl tägliche ({@link DailyPrice}) als auch Intraday-Daten
+     * ({@code IntradayResponse.IntradayDataPoint}).
+     *
+     * @param prices  Preisliste (chronologisch aufsteigend, älteste zuerst),
+     *                implementiert {@link PricePoint}
+     * @param period  Periode des RSI (typisch 14)
+     * @return double[n] — RSI-Werte im Bereich [0, 100];
+     *         Anlaufphase-Werte (erste {@code period} Einträge) sind als {@code Double.NaN} kodiert
+     */
+    public static double[] calculateRSI(List<? extends PricePoint> prices, int period)
+    {
+        int size = prices.size();
+        double[] result = new double[size];
+        for (int i = 0; i < size; i++ )
+            result[i] = Double.NaN;
+
+        if (size <= period)
+            return result;
+
+        double avgGain = 0;
+        double avgLoss = 0;
+
+        // Initiales Average über die ersten 'period' Änderungen
+        for (int i = 1; i <= period; i++ )
+        {
+            double change = prices.get(i).getCloseValue() - prices.get(i - 1).getCloseValue();
+            if (change > 0)
+                avgGain += change;
+            else
+                avgLoss += Math.abs(change);
+        }
+        avgGain /= period;
+        avgLoss /= period;
+
+        result[period] = avgLoss == 0 ? 100.0 : 100.0 - (100.0 / (1.0 + (avgGain / avgLoss)));
+
+        // Wilders Smoothing für die restlichen Punkte
+        for (int i = period + 1; i < size; i++ )
+        {
+            double change = prices.get(i).getCloseValue() - prices.get(i - 1).getCloseValue();
+            double gain   = change > 0 ? change : 0;
+            double loss   = change < 0 ? Math.abs(change) : 0;
+
+            avgGain = (avgGain * (period - 1) + gain) / period;
+            avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+            result[i] = avgLoss == 0 ? 100.0 : 100.0 - (100.0 / (1.0 + (avgGain / avgLoss)));
         }
         return result;
     }

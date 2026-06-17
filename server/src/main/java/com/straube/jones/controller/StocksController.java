@@ -45,6 +45,7 @@ import com.straube.jones.dataprovider.stocks.StocksLoader;
 import com.straube.jones.dataprovider.yahoo.SymbolResolver;
 import com.straube.jones.db.DBConnection;
 import com.straube.jones.dto.IntradayMacdResponse;
+import com.straube.jones.dto.IntradayRsiResponse;
 import com.straube.jones.dto.IntradayResponse;
 import com.straube.jones.dto.LastSharePriceResponse;
 import com.straube.jones.trader.indicators.IndicatorCalculator;
@@ -85,6 +86,8 @@ public class StocksController
     // Today's MACD is refreshed with the same 8-second TTL as intraday data.
     private static final long MACD_CACHE_TTL_HISTORY_MS  = 6L * 60 * 60 * 1000;  // 6 h
     private static final long MACD_CACHE_TTL_TODAY_MS    = 8_000L;                // 8 s
+    private static final long RSI_CACHE_TTL_HISTORY_MS   = 6L * 60 * 60 * 1000;  // 6 h
+    private static final long RSI_CACHE_TTL_TODAY_MS     = 8_000L;                // 8 s
 
     private static class IntradayCacheEntry
     {
@@ -109,6 +112,8 @@ public class StocksController
     private final ConcurrentHashMap<String, IntradayCacheEntry> intradayCache = new ConcurrentHashMap<>();
     // Key: "<isin>|<localDate>|<reduce>|<shortPeriod>|<longPeriod>|<signalPeriod>"
     private final ConcurrentHashMap<String, IntradayCacheEntry> macdCache     = new ConcurrentHashMap<>();
+    // Key: "<isin>|<localDate>|<reduce>|<period>"
+    private final ConcurrentHashMap<String, IntradayCacheEntry> rsiCache      = new ConcurrentHashMap<>();
 
     @Operation(summary = "Get Service Information", description = "**Use Case:** Health check and service discovery. Returns metadata about the stocks API service including version, status, and available features. **When to use:** To verify service availability, check API version compatibility, or during system monitoring and diagnostics.")
     @ApiResponse(responseCode = "200", description = "Service metadata and health status")
@@ -1194,6 +1199,281 @@ public class StocksController
                        : MACD_CACHE_TTL_TODAY_MS;
         macdCache.put(macdCacheKey, new IntradayCacheEntry(macdResult2, macdTtl));
         return macdResult2;
+    }
+
+
+    /**
+     * Berechnet den RSI (Relative Strength Index) für jeden Zeitbucket eines Handelstages.
+     *
+     * <p><b>Historische Basis:</b> Intern werden bis zu 14 Tage Intraday-Daten geladen,
+     * um die Wilders-Anlaufphase ({@code period} Buckets) zu überwinden.
+     * Zurückgegeben werden nur die Werte des angeforderten Tages.
+     *
+     * <p><b>RSI-Formel:</b> Wilder's Smoothed RSI:
+     * {@code avgGain/avgLoss} werden über {@code period} Änderungen initialisiert und
+     * anschließend mit {@code (prev * (period-1) + current) / period} geglättet.
+     * {@code RSI = 100 − 100 / (1 + avgGain/avgLoss)}.
+     *
+     * <p><b>Null-Werte:</b> Für die Anlaufphase (erste {@code period} Buckets des
+     * gesamten Beobachtungszeitraums) ist {@code rsi} null.
+     *
+     * <p><b>Preisbasis:</b> Close-Preis des jeweiligen Buckets (cLast des letzten Snapshots).
+     *
+     * <p><b>Response-Struktur:</b>
+     * <pre>
+     * {
+     *   "isin":   "US0378331005",
+     *   "date":   "2026-03-19",
+     *   "reduce": "5M",
+     *   "period": 14,
+     *   "data": [
+     *     { "timestamp": 1742378400000, "rsi": 58.42 },
+     *     { "timestamp": 1742378700000, "rsi": null  }
+     *   ]
+     * }
+     * </pre>
+     *
+     * @param code      ISIN (z.B. {@code US0378331005}) oder Yahoo-Finance-Symbol (z.B. {@code AAPL}).
+     * @param timestamp Optionaler Unix-Zeitstempel in Millisekunden zur Identifikation des Handelstages.
+     *                  Fehlt der Parameter, wird der jüngste Tag mit vorhandenen Daten verwendet.
+     * @param reduce    Optionale Bucket-Größe für OHLC-Aggregation.
+     *                  Unterstützte Werte: {@code 1M}, {@code 2M}, {@code 3M}, {@code 5M},
+     *                  {@code 10M}, {@code 30M}, {@code 60M}.
+     * @param period    RSI-Periode (Standard: 14).
+     * @return {@code 200 OK} mit {@link IntradayRsiResponse} bei Erfolg;
+     *         {@code 400 Bad Request} bei ungültigen Parametern;
+     *         {@code 404 Not Found} wenn der Code nicht aufgelöst werden kann oder keine Daten vorhanden;
+     *         {@code 500 Internal Server Error} bei Datenbankfehlern.
+     */
+    @GetMapping(path = "/intraday/rsi", produces = "application/json")
+    @Operation(
+        summary = "RSI-Indikator für Intraday-Daten berechnen",
+        description = "Berechnet den RSI (Relative Strength Index) nach Wilders Smoothing-Methode für jeden "
+                    + "Zeitbucket eines Handelstages.\n\n"
+                    + "**Historische Basis:** Intern werden bis zu 14 Tage Intraday-Daten geladen, "
+                    + "um die Wilders-Anlaufphase zu überwinden. Zurückgegeben werden nur die Werte "
+                    + "des angeforderten Tages.\n\n"
+                    + "**RSI-Formel:** avgGain/avgLoss über `period` Änderungen initialisieren, "
+                    + "danach Wilder-Glättung: `(prev * (period-1) + current) / period`; "
+                    + "`RSI = 100 − 100 / (1 + avgGain/avgLoss)`.\n\n"
+                    + "**Null-Werte:** Für die Anlaufphase (erste `period` Buckets des gesamten "
+                    + "Beobachtungszeitraums) ist `rsi` null.\n\n"
+                    + "**Preisbasis:** Close-Preis des jeweiligen Buckets (cLast des letzten Snapshots).\n\n"
+                    + "**Bucket-Aggregation (reduce):** Gleiche Logik wie /intraday — Bucket-Grenzen "
+                    + "sind zur vollen Stunde aligniert (Europe/Berlin). Ohne reduce: rohe Snapshots."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200",
+                     description = "RSI-Daten erfolgreich berechnet",
+                     content = @Content(schema = @Schema(implementation = IntradayRsiResponse.class))),
+        @ApiResponse(responseCode = "400",
+                     description = "Ungültiger Parameter (code oder reduce)",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
+        @ApiResponse(responseCode = "404",
+                     description = "Code kann nicht zu ISIN aufgelöst werden oder keine Intraday-Daten vorhanden",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class))),
+        @ApiResponse(responseCode = "500",
+                     description = "Datenbankfehler oder unerwarteter Fehler",
+                     content = @Content(schema = @Schema(implementation = PriceTickerErrorResponse.class)))
+    })
+    public ResponseEntity<?> getIntradayRsi(
+        @Parameter(description = "ISIN (z.B. US0378331005) oder Yahoo-Finance-Symbol (z.B. AAPL)",
+                   required = true, example = "US0378331005")
+        @RequestParam(required = true) String code,
+
+        @Parameter(description = "Unix-Zeitstempel in Millisekunden zur Identifikation des Handelstages. "
+                               + "Nur der Kalendertag wird ausgewertet. "
+                               + "Fehlt der Parameter, wird der jüngste Tag mit vorhandenen Daten verwendet.",
+                   required = false, schema = @Schema(type = "integer", format = "int64"))
+        @RequestParam(required = false) Long timestamp,
+
+        @Parameter(description = "Optionale Bucket-Größe für OHLC-Aggregation. "
+                               + "Unterstützte Werte: 1M, 2M, 3M, 5M, 10M, 30M, 60M. "
+                               + "Bucket-Grenzen werden zur vollen Stunde aligniert (Europe/Berlin). "
+                               + "Ohne reduce: RSI auf rohen Snapshot-Daten.",
+                   required = false, example = "5M")
+        @RequestParam(required = false) String reduce,
+
+        @Parameter(description = "RSI-Periode nach Wilders Smoothing-Methode (Standard: 14).",
+                   required = false, schema = @Schema(type = "integer", defaultValue = "14"))
+        @RequestParam(required = false, defaultValue = "14") int period)
+    {
+        // ---- 1. Validate & parse 'reduce' ------------------------------------
+        int bucketMinutes = 0;
+        if (reduce != null && !reduce.trim().isEmpty())
+        {
+            bucketMinutes = parseReduceMinutes(reduce.trim());
+            if (bucketMinutes < 0)
+            {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                     .body(PriceTickerErrorResponse.create(
+                                         "INVALID_REDUCE",
+                                         "Invalid reduce parameter",
+                                         "Supported values: 1M, 2M, 3M, 5M, 10M, 30M, 60M"));
+            }
+        }
+
+        // ---- 2. Validate 'code' and resolve to ISIN -------------------------
+        if (code == null || code.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "INVALID_CODE",
+                                     "Missing or empty code parameter",
+                                     "The 'code' query parameter is required"));
+        }
+        String isin;
+        try
+        {
+            isin = SymbolResolver.resolveIsin(code.trim());
+        }
+        catch (IllegalArgumentException e)
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "ISIN_NOT_FOUND",
+                                     "Code cannot be resolved to a known ISIN",
+                                     e.getMessage()));
+        }
+        if (isin == null || isin.trim().isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "ISIN_NOT_FOUND",
+                                     "Code cannot be resolved to a known ISIN",
+                                     "No ISIN found for: " + code));
+        }
+        isin = isin.trim();
+
+        // ---- 3. Determine requested calendar day ----------------------------
+        ZoneId zone = ZoneId.of("Europe/Berlin");
+        final LocalDate date;
+        if (timestamp != null)
+        {
+            date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate();
+        }
+        else
+        {
+            LocalDate lastDay = resolveLastAvailableDay(isin);
+            if (lastDay == null)
+            {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                     .body(PriceTickerErrorResponse.create(
+                                         "NO_DATA",
+                                         "No intraday data available for ISIN",
+                                         "tTradegateIntraday contains no records for: " + isin));
+            }
+            date = lastDay;
+        }
+
+        // ---- Cache lookup ---------------------------------------------------
+        String rsiCacheKey = isin + "|" + date + "|" + (reduce != null ? reduce.trim() : "")
+                           + "|" + period;
+        IntradayCacheEntry rsiCached = rsiCache.get(rsiCacheKey);
+        if (rsiCached != null && !rsiCached.isExpired())
+        {
+            return rsiCached.response;
+        }
+
+        // ---- 4. Load raw snapshots for 14 days ending at end of requested day
+        //
+        // 14 Tage Historie stellen sicher, dass genügend Buckets für die RSI-Anlaufphase
+        // (period Buckets) vorhanden sind, bevor der angefragte Tag beginnt.
+        long historyStartMs = date.minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli();
+        long dayEndMs       = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();
+        long dayStartMs     = date.atStartOfDay(zone).toInstant().toEpochMilli();
+
+        // Nur cLast und cTimestamp werden für die RSI-Berechnung benötigt
+        String sql = "SELECT cLast, cTimestamp "
+                   + "FROM tTradegateIntraday "
+                   + "WHERE cIsin = ? AND cTimestamp >= ? AND cTimestamp < ? "
+                   + "ORDER BY cTimestamp ASC";
+
+        List<IntradayResponse.IntradayDataPoint> rawPoints = new ArrayList<>();
+        try (Connection conn = DBConnection.getStocksConnection();
+             PreparedStatement ps = conn.prepareStatement(sql))
+        {
+            ps.setString(1, isin);
+            ps.setTimestamp(2, new Timestamp(historyStartMs));
+            ps.setTimestamp(3, new Timestamp(dayEndMs));
+
+            try (ResultSet rs = ps.executeQuery())
+            {
+                while (rs.next())
+                {
+                    BigDecimal cLast = rs.getBigDecimal("cLast");
+                    if (cLast == null) continue; // Skip records without a price (pre-market snapshots)
+                    IntradayResponse.IntradayDataPoint dp = new IntradayResponse.IntradayDataPoint();
+                    dp.setTimestamp(rs.getTimestamp("cTimestamp").getTime());
+                    dp.setClose(cLast);
+                    dp.setOpen(cLast);
+                    dp.setHigh(cLast);
+                    dp.setLow(cLast);
+                    rawPoints.add(dp);
+                }
+            }
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "DB_ERROR",
+                                     "Database error while reading intraday data",
+                                     e.getMessage()));
+        }
+
+        if (rawPoints.isEmpty())
+        {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                 .body(PriceTickerErrorResponse.create(
+                                     "NO_DATA",
+                                     "No intraday data available for ISIN",
+                                     "No records found for ISIN " + isin + " in the 14-day window"));
+        }
+
+        // ---- 5. Aggregate into buckets (multi-day aware) --------------------
+        List<IntradayResponse.IntradayDataPoint> allBuckets =
+            (bucketMinutes > 0)
+                ? reduceIntradayPointsMultiDay(rawPoints, bucketMinutes, zone)
+                : rawPoints;
+
+        // ---- 6. Berechne RSI auf der vollständigen Zeitreihe ----------------
+        //
+        // IndicatorCalculator.calculateRSI erwartet aufsteigende chronologische Reihenfolge,
+        // was durch ORDER BY cTimestamp ASC sichergestellt ist.
+        double[] rsiValues = IndicatorCalculator.calculateRSI(allBuckets, period);
+
+        // ---- 7. Filtere auf den angeforderten Tag und baue Response-Liste ---
+        List<IntradayRsiResponse.RsiDataPoint> responseData = new ArrayList<>();
+        for (int i = 0; i < allBuckets.size(); i++)
+        {
+            long ts = allBuckets.get(i).getTimestamp();
+            if (ts < dayStartMs || ts >= dayEndMs)
+                continue;
+
+            IntradayRsiResponse.RsiDataPoint point = new IntradayRsiResponse.RsiDataPoint();
+            point.setTimestamp(ts);
+            // NaN → null: Anlaufphase des RSI noch nicht abgeschlossen
+            point.setRsi(!Double.isNaN(rsiValues[i]) ? rsiValues[i] : null);
+            responseData.add(point);
+        }
+
+        // ---- 8. Antwort zusammenstellen -------------------------------------
+        IntradayRsiResponse rsiResponse = new IntradayRsiResponse();
+        rsiResponse.setIsin(isin);
+        rsiResponse.setDate(date.toString());
+        rsiResponse.setReduce(bucketMinutes > 0 ? reduce.trim() : null);
+        rsiResponse.setPeriod(period);
+        rsiResponse.setData(responseData);
+
+        // Historical days are immutable – cache for 6 h; today uses the short 8-s TTL.
+        ResponseEntity<?> rsiResult = ResponseEntity.ok(rsiResponse);
+        long rsiTtl = date.isBefore(LocalDate.now(zone))
+                      ? RSI_CACHE_TTL_HISTORY_MS
+                      : RSI_CACHE_TTL_TODAY_MS;
+        rsiCache.put(rsiCacheKey, new IntradayCacheEntry(rsiResult, rsiTtl));
+        return rsiResult;
     }
 
 
