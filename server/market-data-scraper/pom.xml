@@ -107,6 +107,7 @@
     </dependencies>
 
     <build>
+        <finalName>market-data-scraper</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
