@@ -37,6 +37,9 @@ public class IbkrWrapper extends DefaultEWrapper {
     // true = only complete once the open-interest tick (27/28) arrives; false = volume alone is enough
     // (used when open interest is already cached and we only need a fresh volume read)
     private final Map<Integer, Boolean>                                    contractActivityWaitsForOI = new ConcurrentHashMap<>();
+    // "C" or "P" — which side this reqId's contract actually is, purely for the diagnostic
+    // logging in tickSize() below (suspected mismatch between field 27/28 and actual contract side)
+    private final Map<Integer, String>                                     contractActivityRight = new ConcurrentHashMap<>();
 
     public void setClient(EClientSocket client) { this.client = client; }
 
@@ -78,9 +81,24 @@ public class IbkrWrapper extends DefaultEWrapper {
             }
         } else if (field == 27 || field == 28) { // 27 = call open interest, 28 = put open interest
             IbkrOptionContractActivity.Builder actBuilder = pendingContractActivity.get(reqId);
-            if (actBuilder != null) {
+            String expectedRight = contractActivityRight.get(reqId);
+            String fieldMeaning = field == 27 ? "CALL_OI" : "PUT_OI";
+            // Confirmed via diagnostic logging (see prior investigation): IBKR sends BOTH field
+            // 27 and field 28 for every option contract request, regardless of that contract's
+            // actual right — field 27 arrives first, consistently, even for put contracts, with
+            // a value of 0 (irrelevant/not-applicable placeholder). The field that actually
+            // matches the contract's right is field 27 for calls, field 28 for puts; the other
+            // is not applicable to this specific contract and must be ignored, not just "first
+            // one wins" — otherwise puts always complete on the spurious field-27 zero before
+            // the real field-28 value arrives.
+            boolean fieldMatchesContract = ("C".equals(expectedRight) && field == 27)
+                    || ("P".equals(expectedRight) && field == 28);
+            if (actBuilder != null && fieldMatchesContract) {
                 actBuilder.openInterest(size.longValue());
                 completeContractActivity(reqId);
+            } else if (actBuilder != null) {
+                log.debug("IBKR OI tick: reqId={} field={} ({}) value={} contractRight={} — ignored, doesn't match contract's right",
+                        reqId, field, fieldMeaning, size.longValue(), expectedRight);
             }
         }
     }
@@ -89,6 +107,10 @@ public class IbkrWrapper extends DefaultEWrapper {
         IbkrOptionContractActivity.Builder b = pendingContractActivity.remove(reqId);
         CompletableFuture<IbkrOptionContractActivity> f = pendingContractActivityFutures.remove(reqId);
         contractActivityWaitsForOI.remove(reqId);
+        // contractActivityRight is deliberately NOT cleared here — kept around briefly so a
+        // late-arriving tick (received after this future already completed) still logs with
+        // the correct expected-right context instead of "contractRight=null". Cleaned up in
+        // discardContractActivityRequest() once the caller is done with this reqId entirely.
         if (b != null && f != null && !f.isDone()) {
             f.complete(b.build());
         }
@@ -222,11 +244,12 @@ public class IbkrWrapper extends DefaultEWrapper {
         pendingContractDetails.remove(reqId);
     }
 
-    public CompletableFuture<IbkrOptionContractActivity> registerContractActivityRequest(int reqId, boolean waitForOpenInterest) {
+    public CompletableFuture<IbkrOptionContractActivity> registerContractActivityRequest(int reqId, boolean waitForOpenInterest, String right) {
         CompletableFuture<IbkrOptionContractActivity> f = new CompletableFuture<>();
         pendingContractActivityFutures.put(reqId, f);
         pendingContractActivity.put(reqId, IbkrOptionContractActivity.builder());
         contractActivityWaitsForOI.put(reqId, waitForOpenInterest);
+        contractActivityRight.put(reqId, right);
         return f;
     }
 
@@ -234,6 +257,14 @@ public class IbkrWrapper extends DefaultEWrapper {
         pendingContractActivityFutures.remove(reqId);
         pendingContractActivity.remove(reqId);
         contractActivityWaitsForOI.remove(reqId);
+        contractActivityRight.remove(reqId);
+    }
+
+    /** Call after a successful fetch too — contractActivityRight isn't cleared on normal
+     *  completion (kept around briefly for late-tick diagnostic logging), so it needs an
+     *  explicit cleanup call on the success path as well to avoid leaking one entry per reqId. */
+    public void clearContractActivityRight(int reqId) {
+        contractActivityRight.remove(reqId);
     }
 
     // =========================================================================

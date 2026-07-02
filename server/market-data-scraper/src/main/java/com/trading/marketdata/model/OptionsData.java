@@ -12,6 +12,7 @@ public record OptionsData(
         Double ivRank,
         Double ivPercentile,
         List<UnusualActivity> unusualActivity,
+        List<OiLevel> oiProfile,
         Double maxPain,
         String source,
         String sourceError,
@@ -30,8 +31,23 @@ public record OptionsData(
             String sentiment
     ) {}
 
+    /**
+     * Open interest for calls and puts at one strike/expiry, regardless of whether today's
+     * volume flagged it as "unusual" — the raw material for eyeballing where dealer hedging
+     * flow is likely to create resistance/support as price approaches a strike. Covers the
+     * same strikes/expiry scanned for unusualActivity, sorted by strike ascending so it reads
+     * top-to-bottom as a resistance ladder around the current price.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record OiLevel(
+            String expiry,
+            Double strike,
+            Long callOpenInterest,
+            Long putOpenInterest
+    ) {}
+
     public static OptionsData empty(String ticker, String errorMsg) {
-        return new OptionsData(ticker, null, null, null, null, null,
+        return new OptionsData(ticker, null, null, null, null, null, null,
                 null, errorMsg, false, Instant.now());
     }
 }

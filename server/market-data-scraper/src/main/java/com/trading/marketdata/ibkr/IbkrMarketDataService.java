@@ -233,7 +233,7 @@ public class IbkrMarketDataService {
 
         int reqId = connectionManager.nextReqId();
         CompletableFuture<IbkrOptionContractActivity> future =
-                wrapper.registerContractActivityRequest(reqId, needOpenInterest);
+                wrapper.registerContractActivityRequest(reqId, needOpenInterest, right);
 
         Contract contract = optionContract(ticker, expiry, strike, right);
         String genericTicks = needOpenInterest ? "101" : "";
@@ -250,6 +250,21 @@ public class IbkrMarketDataService {
                     ticker, expiry, strike, right, reqId);
             wrapper.discardContractActivityRequest(reqId);
             return null;
+        } catch (java.util.concurrent.ExecutionException e) {
+            wrapper.discardContractActivityRequest(reqId);
+            if (e.getCause() instanceof IbkrException ie && ie.getErrorCode() == 200) {
+                // "Es wurde keine Wertpapierdefinition zu der Anfrage gefunden" — this exact
+                // strike/expiry/right combination is not a listed contract. Confirmed live: the
+                // aggregate strike list from reqSecDefOptParams includes strikes that only exist
+                // for OTHER expirations, not this one. No point retrying.
+                log.debug("IBKR contract activity: {} {} {} {} does not exist for this expiry (error 200)",
+                        ticker, expiry, strike, right);
+                throw new IbkrContractNotFoundException(
+                        ticker + " " + expiry + " " + strike + " " + right + " has no security definition");
+            }
+            log.warn("IBKR contract activity failed for {} {} {} {}: {}",
+                    ticker, expiry, strike, right, e.getMessage());
+            return null;
         } catch (Exception e) {
             log.warn("IBKR contract activity failed for {} {} {} {}: {}",
                     ticker, expiry, strike, right, e.getMessage());
@@ -257,6 +272,7 @@ public class IbkrMarketDataService {
             return null;
         } finally {
             connectionManager.getClient().cancelMktData(reqId);
+            wrapper.clearContractActivityRight(reqId);
         }
     }
 

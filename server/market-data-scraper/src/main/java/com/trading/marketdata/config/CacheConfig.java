@@ -43,6 +43,13 @@ public class CacheConfig {
     @Value("${cache.option-oi.ttl-seconds:14400}")
     private long optionOpenInterestTtl;
 
+    // How long to remember "IBKR confirmed this strike/expiry/right doesn't exist" (error 200)
+    // before asking again. Moderate TTL: long enough to stop repeatedly wasting a round trip on
+    // an invalid combo within a polling session, short enough to notice if the exchange lists a
+    // new strike later in the day (common for near-term expiries after a large price move).
+    @Value("${cache.invalid-contract.ttl-seconds:3600}")
+    private long invalidContractTtl;
+
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager manager = new CaffeineCacheManager();
@@ -60,6 +67,8 @@ public class CacheConfig {
                 Caffeine.newBuilder().expireAfterWrite(optionChainTtl, TimeUnit.SECONDS).maximumSize(500).build());
         manager.registerCustomCache("optionOpenInterest",
                 Caffeine.newBuilder().expireAfterWrite(optionOpenInterestTtl, TimeUnit.SECONDS).maximumSize(5000).build());
+        manager.registerCustomCache("invalidOptionContract",
+                Caffeine.newBuilder().expireAfterWrite(invalidContractTtl, TimeUnit.SECONDS).maximumSize(5000).build());
         return manager;
     }
 }

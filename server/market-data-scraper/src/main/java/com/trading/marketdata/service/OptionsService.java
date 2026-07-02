@@ -40,6 +40,7 @@ public class OptionsService {
         Double ivPercentile  = null;
         Double maxPain       = null;
         List<OptionsData.UnusualActivity> unusualActivity = List.of();
+        List<OptionsData.OiLevel> oiProfile = List.of();
         String source        = "ibkr";
 
         // --- Primary: IBKR Generic Ticks (put/call ratio, IV, HV on the underlying) ---
@@ -62,13 +63,16 @@ public class OptionsService {
             log.warn("IBKR options metrics failed for {}: {}", upper, e.getMessage());
         }
 
-        // --- Primary: IBKR-computed unusual activity (chain discovery + per-contract vol/OI) ---
+        // --- Primary: IBKR-computed unusual activity + OI profile (chain discovery + per-contract vol/OI) ---
         // Replaces the old Barchart scrape entirely as the first choice — see OptionActivityService.
         try {
-            unusualActivity = optionActivityService.computeUnusualActivity(upper);
-            log.info("IBKR unusual activity for {}: {} contracts flagged", upper, unusualActivity.size());
+            OptionActivityService.OptionActivityResult activity = optionActivityService.computeActivity(upper);
+            unusualActivity = activity.unusualActivity();
+            oiProfile = activity.oiProfile();
+            log.info("IBKR options activity for {}: {} contracts flagged, {} strikes in OI profile",
+                    upper, unusualActivity.size(), oiProfile.size());
         } catch (Exception e) {
-            log.warn("IBKR unusual activity computation failed for {}: {}", upper, e.getMessage());
+            log.warn("IBKR options activity computation failed for {}: {}", upper, e.getMessage());
         }
 
         // --- Fallback: Barchart, only for whatever IBKR couldn't provide ---
@@ -107,6 +111,7 @@ public class OptionsService {
                 ivRank,
                 ivPercentile,
                 unusualActivity,
+                oiProfile,
                 maxPain,
                 source,
                 null,
