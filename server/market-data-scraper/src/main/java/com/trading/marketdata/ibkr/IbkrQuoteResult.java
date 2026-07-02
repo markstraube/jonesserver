@@ -43,4 +43,9 @@ public record IbkrQuoteResult(
             return new IbkrQuoteResult(reqId, bid, ask, last, open, high, low, close, volume);
         }
     }
+
+    /** Drops an orphaned builder for a reqId that timed out client-side and will never be built(). */
+    public static void discard(int reqId) {
+        builders.remove(reqId);
+    }
 }

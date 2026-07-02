@@ -23,7 +23,7 @@ public class BarchartScraper {
 
     private static final Logger log = LoggerFactory.getLogger(BarchartScraper.class);
     private static final String OPTIONS_URL = "https://www.barchart.com/stocks/quotes/%s/options";
-    private static final String UNUSUAL_URL = "https://www.barchart.com/options/unusual-activity/stocks?symbol=%s";
+    private static final String UNUSUAL_URL = "https://www.barchart.com/stocks/quotes/%s/unusual-activity";
 
     private static final java.util.List<String> USER_AGENTS = java.util.List.of(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",

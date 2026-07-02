@@ -8,6 +8,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,12 +43,16 @@ public class IbkrConnectionManager {
     @Value("${ibkr.connect-timeout-ms:5000}")
     private int connectTimeoutMs;
 
+    @Value("${ibkr.reconnect-interval-ms:30000}")
+    private int reconnectIntervalMs;
+
     private final IbkrWrapper wrapper;
-    private final EJavaSignal signal = new EJavaSignal();
-    private EClientSocket client;
-    private EReader reader;
+    private volatile EJavaSignal signal;
+    private volatile EClientSocket client;
+    private volatile EReader reader;
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
+    private final AtomicBoolean reconnecting = new AtomicBoolean(false);
     private final AtomicInteger reqIdSeq = new AtomicInteger(1000);
 
     public IbkrConnectionManager(IbkrWrapper wrapper) {
@@ -56,41 +61,92 @@ public class IbkrConnectionManager {
 
     @PostConstruct
     public void connect() {
-        client = new EClientSocket(wrapper, signal);
-        wrapper.setClient(client);
+        doConnect();
+    }
+
+    /**
+     * Watchdog for reconnection. Nothing else in this class (or in IbkrWrapper's
+     * connectionClosed() callback) ever re-establishes the socket after a drop —
+     * previously, once IB Gateway closed the connection (nightly restart, network
+     * blip, error 502 "Couldn't connect to TWS", etc.) isConnected() stayed false
+     * forever and every downstream call silently fell back to Yahoo/Barchart until
+     * the process was restarted by hand.
+     *
+     * Runs on a fixed delay; skips instantly if already connected, and the
+     * reconnecting flag prevents overlapping attempts if a connect attempt is
+     * still blocking past one tick of the schedule.
+     */
+    @Scheduled(fixedDelayString = "${ibkr.reconnect-interval-ms:30000}")
+    public void reconnectWatchdog() {
+        if (isConnected()) return;
+        if (!reconnecting.compareAndSet(false, true)) return;
+        try {
+            log.warn("IB Gateway not connected — attempting reconnect...");
+            doConnect();
+        } finally {
+            reconnecting.set(false);
+        }
+    }
+
+    private void doConnect() {
+        // If a previous socket is still marked connected (e.g. the reader thread hasn't
+        // noticed the drop yet), force it closed first so we never end up with two live
+        // EReader threads.
+        EClientSocket stale = client;
+        if (stale != null && stale.isConnected()) {
+            try { stale.eDisconnect(); } catch (Exception ignored) { }
+        }
+
+        // Fresh signal per connection attempt — EJavaSignal/EReader are tied together,
+        // reusing one across reconnects risks one reader's wakeup being consumed by
+        // the other reader's thread.
+        EJavaSignal newSignal = new EJavaSignal();
+        EClientSocket newClient = new EClientSocket(wrapper, newSignal);
+        wrapper.setClient(newClient);
 
         log.info("Connecting to IB Gateway at {}:{} (clientId={})", host, port, clientId);
-        client.eConnect(host, port, clientId);
+        newClient.eConnect(host, port, clientId);
 
         // Give the socket a moment to establish
         long deadline = System.currentTimeMillis() + connectTimeoutMs;
-        while (!client.isConnected() && System.currentTimeMillis() < deadline) {
+        while (!newClient.isConnected() && System.currentTimeMillis() < deadline) {
             try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
         }
 
-        if (!client.isConnected()) {
-            log.error("IB Gateway connection failed — scraper will run without IBKR data. " +
+        if (!newClient.isConnected()) {
+            log.error("IB Gateway connection failed — will retry in the background. " +
                       "Check that IB Gateway is running on {}:{} with API enabled.", host, port);
             return;
         }
 
         // Start the reader thread — this is mandatory in the IBKR Java API
-        reader = new EReader(client, signal);
-        reader.setDaemon(true);
-        reader.start();
+        EReader newReader = new EReader(newClient, newSignal);
+        newReader.setDaemon(true);
+        newReader.start();
 
-        // Message dispatch loop in a virtual thread
+        client = newClient;
+        reader = newReader;
+        signal = newSignal;
+
+        // Message dispatch loop in a virtual thread. Deliberately closes over the local
+        // newClient/newReader/newSignal (not the mutable fields) so this loop stays bound
+        // to the connection it was started for, even if a later reconnect reassigns the
+        // instance fields out from under it.
         Thread.ofVirtual().name("ibkr-reader-loop").start(() -> {
-            while (client.isConnected()) {
-                signal.waitForSignal();
+            while (newClient.isConnected()) {
+                newSignal.waitForSignal();
                 try {
-                    reader.processMsgs();
+                    newReader.processMsgs();
                 } catch (Exception e) {
                     log.warn("IBKR reader error: {}", e.getMessage());
                 }
             }
-            connected.set(false);
-            log.warn("IB Gateway disconnected.");
+            // Only clear the shared connected flag if we're still the active connection —
+            // otherwise an old dying thread could clobber a newer, already-successful reconnect.
+            if (client == newClient) {
+                connected.set(false);
+            }
+            log.warn("IB Gateway disconnected. Reconnect watchdog will retry within {} ms.", reconnectIntervalMs);
         });
 
         connected.set(true);

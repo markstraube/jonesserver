@@ -4,6 +4,7 @@ import com.ib.client.Contract;
 import com.trading.marketdata.model.QuoteData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -28,7 +29,21 @@ public class IbkrMarketDataService {
 
     private static final Logger log = LoggerFactory.getLogger(IbkrMarketDataService.class);
 
-    private static final int TIMEOUT_SECONDS = 5;
+    // IBKR's own docs (md_request.html) guarantee tickSnapshotEnd for a snapshot=true
+    // request is sent ~11 seconds after the request, not on-demand as data arrives.
+    // The old value of 5 here meant every fetchQuote() call timed out client-side
+    // before IBKR could ever finish the snapshot — regardless of connection health,
+    // subscription, or market hours. 15s gives a safety margin above that 11s floor.
+    private static final int TIMEOUT_SECONDS = 15;
+
+    // Deliberately shorter and separate from TIMEOUT_SECONDS: fetchContractActivity() scans
+    // many contracts per call (nearest-strikes x expiries x 2), and unlike the snapshot-based
+    // quote fetch, there's no documented lower bound on when (or whether) a streaming open
+    // interest tick arrives — a contract with genuinely zero open interest may never send one
+    // at all ("nothing to report"), which would otherwise cost the full TIMEOUT_SECONDS on
+    // every such contract. This keeps a full scan bounded even when several strikes have no OI.
+    @Value("${ibkr.contract-activity-timeout-seconds:5}")
+    private int activityTimeoutSeconds = 5;
 
     private final IbkrConnectionManager connectionManager;
     private final IbkrWrapper wrapper;
@@ -65,9 +80,11 @@ public class IbkrMarketDataService {
             return toQuoteData(ticker, result);
         } catch (TimeoutException e) {
             log.warn("IBKR quote timeout for {} (reqId={})", ticker, reqId);
+            wrapper.discardQuoteRequest(reqId);
             return null;
         } catch (Exception e) {
             log.warn("IBKR quote failed for {}: {}", ticker, e.getMessage());
+            wrapper.discardQuoteRequest(reqId);
             return null;
         }
     }
@@ -105,9 +122,11 @@ public class IbkrMarketDataService {
             return result;
         } catch (TimeoutException e) {
             log.warn("IBKR options metrics timeout for {} (reqId={})", ticker, reqId);
+            wrapper.discardOptionsMetricsRequest(reqId);
             return null;
         } catch (Exception e) {
             log.warn("IBKR options metrics failed for {}: {}", ticker, e.getMessage());
+            wrapper.discardOptionsMetricsRequest(reqId);
             return null;
         } finally {
             // Always cancel the streaming subscription
@@ -128,7 +147,7 @@ public class IbkrMarketDataService {
         connectionManager.getClient().reqMarketDataType(1);
 
         int reqId = connectionManager.nextReqId();
-        CompletableFuture<IbkrOptionsChainResult> future = wrapper.registerChainRequest(reqId);
+        CompletableFuture<IbkrOptionsChainResult> future = wrapper.registerChainRequest(reqId, ticker);
 
         // reqSecDefOptParams: returns all available expirations and strikes
         connectionManager.getClient().reqSecDefOptParams(reqId, ticker, "", "STK", underlyingConId);
@@ -137,10 +156,107 @@ public class IbkrMarketDataService {
             return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.warn("IBKR options chain timeout for {} (reqId={})", ticker, reqId);
+            wrapper.discardChainRequest(reqId);
             return null;
         } catch (Exception e) {
             log.warn("IBKR options chain failed for {}: {}", ticker, e.getMessage());
+            wrapper.discardChainRequest(reqId);
             return null;
+        }
+    }
+
+    /**
+     * Resolves a US stock symbol's IBKR contract ID (conId).
+     *
+     * reqSecDefOptParams technically accepts underlyingConId, but every real-world example
+     * (IBKR's own C++/Java samples included) resolves this via reqContractDetails first rather
+     * than passing 0 — passing 0 is not documented as reliably resolving every symbol, so we
+     * don't rely on it. Result is effectively static per ticker (a stock's conId never changes),
+     * so callers should cache this aggressively — see OptionActivityService.
+     */
+    public Integer fetchConId(String ticker) {
+        if (!connectionManager.isConnected()) {
+            log.debug("IBKR not connected — skipping conId lookup for {}", ticker);
+            return null;
+        }
+
+        int reqId = connectionManager.nextReqId();
+        CompletableFuture<Integer> future = wrapper.registerContractDetailsRequest(reqId);
+
+        connectionManager.getClient().reqContractDetails(reqId, usStockContract(ticker));
+
+        try {
+            return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("IBKR conId lookup timeout for {} (reqId={})", ticker, reqId);
+            wrapper.discardContractDetailsRequest(reqId);
+            return null;
+        } catch (Exception e) {
+            log.warn("IBKR conId lookup failed for {}: {}", ticker, e.getMessage());
+            wrapper.discardContractDetailsRequest(reqId);
+            return null;
+        }
+    }
+
+    /**
+     * Fetches volume (and, on demand, open interest) for one specific option contract.
+     *
+     * Open interest is an end-of-day figure — the exchanges publish it once, before market
+     * open, and it does not change intraday. Volume changes continuously throughout the
+     * session. So the two need different freshness, which is why this method takes
+     * needOpenInterest as an explicit flag rather than always fetching both:
+     *
+     *   needOpenInterest=true  → streaming request with genericTickList "101" (Option Open
+     *                            Interest per IBKR's generic tick reference). Volume (tick 8)
+     *                            arrives as part of the same default-tick burst. Completes on
+     *                            receiving the OI tick (27=call OI, 28=put OI depending on
+     *                            the contract's right).
+     *   needOpenInterest=false → streaming request with an empty genericTickList — cheaper,
+     *                            only the default volume tick is requested. Completes as soon
+     *                            as that arrives. Use this when open interest for this contract
+     *                            is already cached and still fresh.
+     *
+     * Both modes use snapshot=false (streaming) and cancel the subscription in a finally block:
+     * snapshot=true requests cannot carry a genericTickList at all per IBKR's docs ("Snapshot
+     * requests can only be made for the default tick types; no generic ticks can be specified"),
+     * so open interest specifically is unreachable via snapshot regardless of mode.
+     */
+    public IbkrOptionContractActivity fetchContractActivity(String ticker, String expiry, double strike,
+                                                              String right, boolean needOpenInterest) {
+        if (!connectionManager.isConnected()) {
+            log.debug("IBKR not connected — skipping contract activity for {} {} {} {}",
+                    ticker, expiry, strike, right);
+            return null;
+        }
+
+        connectionManager.getClient().reqMarketDataType(1);
+
+        int reqId = connectionManager.nextReqId();
+        CompletableFuture<IbkrOptionContractActivity> future =
+                wrapper.registerContractActivityRequest(reqId, needOpenInterest);
+
+        Contract contract = optionContract(ticker, expiry, strike, right);
+        String genericTicks = needOpenInterest ? "101" : "";
+
+        connectionManager.getClient().reqMktData(reqId, contract, genericTicks, false, false, null);
+
+        try {
+            IbkrOptionContractActivity result = future.get(activityTimeoutSeconds, TimeUnit.SECONDS);
+            log.info("IBKR contract activity for {} {} {} {}: volume={}, openInterest={}",
+                    ticker, expiry, strike, right, result.volume(), result.openInterest());
+            return result;
+        } catch (TimeoutException e) {
+            log.warn("IBKR contract activity timeout for {} {} {} {} (reqId={})",
+                    ticker, expiry, strike, right, reqId);
+            wrapper.discardContractActivityRequest(reqId);
+            return null;
+        } catch (Exception e) {
+            log.warn("IBKR contract activity failed for {} {} {} {}: {}",
+                    ticker, expiry, strike, right, e.getMessage());
+            wrapper.discardContractActivityRequest(reqId);
+            return null;
+        } finally {
+            connectionManager.getClient().cancelMktData(reqId);
         }
     }
 
@@ -154,6 +270,20 @@ public class IbkrMarketDataService {
         c.secType("STK");
         c.currency("USD");
         c.exchange("SMART");   // SMART routing picks the best exchange automatically
+        return c;
+    }
+
+    /** expiry in IBKR's YYYYMMDD format (as returned by reqSecDefOptParams), right is "C" or "P". */
+    private Contract optionContract(String ticker, String expiry, double strike, String right) {
+        Contract c = new Contract();
+        c.symbol(ticker);
+        c.secType("OPT");
+        c.currency("USD");
+        c.exchange("SMART");
+        c.lastTradeDateOrContractMonth(expiry);
+        c.strike(strike);
+        c.right(right);
+        c.multiplier("100");
         return c;
     }
 

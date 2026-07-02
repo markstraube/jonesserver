@@ -19,11 +19,14 @@ public class OptionsService {
     private static final Logger log = LoggerFactory.getLogger(OptionsService.class);
 
     private final IbkrMarketDataService ibkrService;
+    private final OptionActivityService optionActivityService;
     private final BarchartScraper barchartScraper;
 
     public OptionsService(IbkrMarketDataService ibkrService,
+                          OptionActivityService optionActivityService,
                           BarchartScraper barchartScraper) {
         this.ibkrService = ibkrService;
+        this.optionActivityService = optionActivityService;
         this.barchartScraper = barchartScraper;
     }
 
@@ -36,9 +39,10 @@ public class OptionsService {
         Double ivRank        = null;
         Double ivPercentile  = null;
         Double maxPain       = null;
+        List<OptionsData.UnusualActivity> unusualActivity = List.of();
         String source        = "ibkr";
 
-        // --- Primary: IBKR Generic Ticks ---
+        // --- Primary: IBKR Generic Ticks (put/call ratio, IV, HV on the underlying) ---
         try {
             IbkrOptionsResult ibkr = ibkrService.fetchOptionsMetrics(upper);
             if (ibkr != null) {
@@ -58,31 +62,51 @@ public class OptionsService {
             log.warn("IBKR options metrics failed for {}: {}", upper, e.getMessage());
         }
 
-        // --- Fallback: Barchart for maxPain and any missing fields ---
-        if (maxPain == null || putCallRatio == null) {
+        // --- Primary: IBKR-computed unusual activity (chain discovery + per-contract vol/OI) ---
+        // Replaces the old Barchart scrape entirely as the first choice — see OptionActivityService.
+        try {
+            unusualActivity = optionActivityService.computeUnusualActivity(upper);
+            log.info("IBKR unusual activity for {}: {} contracts flagged", upper, unusualActivity.size());
+        } catch (Exception e) {
+            log.warn("IBKR unusual activity computation failed for {}: {}", upper, e.getMessage());
+        }
+
+        // --- Fallback: Barchart, only for whatever IBKR couldn't provide ---
+        // maxPain has no IBKR equivalent at all (would need OI across the *entire* chain, not just
+        // near-the-money strikes) so this branch still runs whenever maxPain is missing. unusualActivity
+        // only falls back to Barchart if the IBKR-based computation above came back empty (e.g. not
+        // connected) — Barchart is last-resort now, not first choice.
+        if (maxPain == null || putCallRatio == null || unusualActivity.isEmpty()) {
             try {
                 OptionsData barchart = barchartScraper.fetchOptionsData(upper);
-                log.info("Barchart for {}: putCallRatio={}, ivRank={}, maxPain={}",
-                        upper, barchart.putCallRatio(), barchart.ivRank(), barchart.maxPain());
+                log.info("Barchart for {}: putCallRatio={}, ivRank={}, maxPain={}, unusualActivity={}",
+                        upper, barchart.putCallRatio(), barchart.ivRank(), barchart.maxPain(),
+                        barchart.unusualActivity() != null ? barchart.unusualActivity().size() : 0);
                 if (putCallRatio == null) putCallRatio = barchart.putCallRatio();
                 if (ivRank == null)       ivRank       = barchart.ivRank();
                 if (ivPercentile == null) ivPercentile = barchart.ivPercentile();
                 if (maxPain == null)      maxPain      = barchart.maxPain();
-                if (putCallRatio != null || maxPain != null) source = "ibkr+barchart";
+                if (unusualActivity.isEmpty() && barchart.unusualActivity() != null
+                        && !barchart.unusualActivity().isEmpty()) {
+                    unusualActivity = barchart.unusualActivity();
+                }
+                if (putCallRatio != null || maxPain != null) {
+                    source = "ibkr+barchart";
+                }
             } catch (Exception e) {
                 log.warn("Barchart fallback failed for {}: {}", upper, e.getMessage());
             }
         }
 
-        log.info("Final options for {}: putCallRatio={}, ivRank={}, ivPercentile={}, maxPain={}",
-                upper, putCallRatio, ivRank, ivPercentile, maxPain);
+        log.info("Final options for {}: putCallRatio={}, ivRank={}, ivPercentile={}, maxPain={}, unusualActivity={}",
+                upper, putCallRatio, ivRank, ivPercentile, maxPain, unusualActivity.size());
 
         return new OptionsData(
                 upper,
                 putCallRatio,
                 ivRank,
                 ivPercentile,
-                List.of(),   // unusualActivity — can be added later
+                unusualActivity,
                 maxPain,
                 source,
                 null,
