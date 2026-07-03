@@ -351,9 +351,7 @@ public class YahooFinanceScraper {
                 if (link.isBlank()) link = item.select("link").attr("href");
                 String pubDateStr = item.select("pubDate").text();
                 Instant publishedAt = parsePubDate(pubDateStr);
-                String sentiment = guessSentiment(headline);
-                List<String> tags = buildTags(headline);
-                items.add(new NewsItem(headline, "Yahoo Finance RSS", link, publishedAt, sentiment, tags));
+                items.add(new NewsItem(headline, "Yahoo Finance RSS", link, publishedAt));
             });
         } catch (Exception e) {
             log.warn("Failed to fetch Yahoo news for {}: {}", ticker, e.getMessage());
@@ -398,26 +396,6 @@ public class YahooFinanceScraper {
         } catch (Exception e) {
             return Instant.now();
         }
-    }
-
-    private String guessSentiment(String headline) {
-        if (headline == null) return "NEUTRAL";
-        String lower = headline.toLowerCase();
-        if (lower.contains("raise") || lower.contains("upgrade") || lower.contains("beat") || lower.contains("bullish")) return "BULLISH";
-        if (lower.contains("cut") || lower.contains("downgrade") || lower.contains("miss") || lower.contains("bearish")) return "BEARISH";
-        return "NEUTRAL";
-    }
-
-    private List<String> buildTags(String headline) {
-        List<String> tags = new ArrayList<>();
-        if (headline == null) return tags;
-        String lower = headline.toLowerCase();
-        if (lower.contains("analyst") || lower.contains("target") || lower.contains("price target")) tags.add("ANALYST");
-        if (lower.contains("upgrade")) tags.add("ANALYST_UPGRADE");
-        if (lower.contains("downgrade")) tags.add("ANALYST_DOWNGRADE");
-        if (lower.contains("earnings") || lower.contains("eps") || lower.contains("revenue")) tags.add("EARNINGS");
-        if (lower.contains("sector") || lower.contains("industry")) tags.add("SECTOR");
-        return tags;
     }
 
     private void randomDelay() {

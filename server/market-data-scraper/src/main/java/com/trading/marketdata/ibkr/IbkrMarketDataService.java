@@ -111,9 +111,11 @@ public class IbkrMarketDataService {
 
         Contract contract = usStockContract(ticker);
 
-        // Generic ticks require snapshot=false (streaming), not snapshot=true
-        // We cancel the subscription manually after receiving the ticks
-        connectionManager.getClient().reqMktData(reqId, contract, "104,105,106", false, false, null);
+        // Generic ticks require snapshot=false (streaming), not snapshot=true.
+        // 100 = option volume (delivered as tick types 29/30 → put/call ratio is computed
+        // from these, IBKR has no direct PCR tick), 104 = HV (arrives as 23), 106 = IV
+        // (arrives as 24). We cancel the subscription manually after receiving the ticks.
+        connectionManager.getClient().reqMktData(reqId, contract, "100,104,106", false, false, null);
 
         try {
             IbkrOptionsResult result = future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);

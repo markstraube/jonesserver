@@ -42,7 +42,7 @@ public class OptionActivityService {
 
     private static final Logger log = LoggerFactory.getLogger(OptionActivityService.class);
 
-    @Value("${unusual-activity.nearest-strikes:8}")
+    @Value("${unusual-activity.nearest-strikes:16}")
     private int nearestStrikes;
 
     @Value("${unusual-activity.strike-oversample-factor:3}")
@@ -53,6 +53,9 @@ public class OptionActivityService {
 
     @Value("${unusual-activity.min-volume-oi-ratio:1.0}")
     private double minVolumeOiRatio;
+
+    @Value("${unusual-activity.min-notional:50000000}")
+    private double minNotional;
 
     @Value("${unusual-activity.max-results:10}")
     private int maxResults;
@@ -131,11 +134,25 @@ public class OptionActivityService {
                     if ("C".equals(right)) callOI = result.openInterest; else putOI = result.openInterest;
 
                     if (result.ratio != null && result.ratio >= minVolumeOiRatio) {
-                        String type = "C".equals(right) ? "CALL" : "PUT";
-                        String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
-                        unusual.add(new OptionsData.UnusualActivity(
-                                expiry, strike, type, result.volume, result.openInterest,
-                                result.ratio, null, sentiment));
+                        // Notional floor: ratio alone over-flags illiquid contracts (tiny OI in the
+                        // denominator makes a handful of lots look "unusual"). Strike-referenced
+                        // notional (volume * strike * 100) makes the size threshold comparable
+                        // across underlyings at very different price levels — a 19-lot trade on a
+                        // $2,000 stock and a 9,000-lot trade on a $1,000 stock land on the same scale.
+                        double notional = result.volume * strike * 100;
+                        if (notional < minNotional) {
+                            log.debug("Options activity for {} {} {} {}: ratio {} passed but notional {} below floor {}",
+                                    upper, expiry, strike, right,
+                                    String.format("%.2f", result.ratio),
+                                    String.format("%.0f", notional),
+                                    String.format("%.0f", minNotional));
+                        } else {
+                            String type = "C".equals(right) ? "CALL" : "PUT";
+                            String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
+                            unusual.add(new OptionsData.UnusualActivity(
+                                    expiry, strike, type, result.volume, result.openInterest,
+                                    result.ratio, null, sentiment));
+                        }
                     }
                 }
 
@@ -202,6 +219,35 @@ public class OptionActivityService {
                     ticker, expiry, strike, right, volume);
             return null;
         }
+
+        // Volume back-fill: a "successful" fetch can still come back without a volume tick when
+        // the Gateway's internal option-model computation stalls delivery ("Model is not valid"
+        // / PACED in the Gateway log) — the request completes with partial data. Confirmed live
+        // 2026-07-02: ~half of all contracts on a heavy expiry day returned volume=null and
+        // silently fell out of unusual-activity detection, systematically undercounting it.
+        // One targeted volume-only re-read against the now-warm market data line closes the gap
+        // at a bounded cost of a single extra request (deliberately no retry — worst case is one
+        // timeout, not two).
+        if (volume == null) {
+            try {
+                IbkrOptionContractActivity refetch =
+                        ibkrService.fetchContractActivity(ticker, expiry, strike, right, false);
+                if (refetch != null && refetch.volume() != null) {
+                    volume = refetch.volume();
+                    log.info("Options activity volume re-fetch {} {} {} {}: recovered volume={}",
+                            ticker, expiry, strike, right, volume);
+                } else {
+                    log.info("Options activity volume re-fetch {} {} {} {}: still no volume, keeping OI-only",
+                            ticker, expiry, strike, right);
+                }
+            } catch (com.trading.marketdata.ibkr.IbkrContractNotFoundException e) {
+                // Contract just delivered OI, so error 200 here would be transient noise — do
+                // NOT negative-cache it, just keep the OI-only result.
+                log.warn("Options activity volume re-fetch {} {} {} {}: unexpected contract-not-found, keeping OI-only",
+                        ticker, expiry, strike, right);
+            }
+        }
+
         if (volume == null || openInterest <= 0) {
             log.info("Options activity check {} {} {} {}: volume={}, openInterest={} (no ratio, OI-only)",
                     ticker, expiry, strike, right, volume, openInterest);

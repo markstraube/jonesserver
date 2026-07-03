@@ -67,6 +67,25 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void tickSize(int reqId, int field, Decimal size) {
+        // Option volume ticks for the METRICS request on the underlying (generic tick 100):
+        // 29 = call option volume, 30 = put option volume. IBKR uses Integer.MAX_VALUE as
+        // an "undefined" sentinel — such values must be ignored, not treated as volume.
+        if (field == 29 || field == 30) {
+            IbkrOptionsResult.Builder metricsBuilder = pendingOptionsMetrics.get(reqId);
+            if (metricsBuilder != null) {
+                long v = size.longValue();
+                if (v >= 0 && v < Integer.MAX_VALUE) {
+                    if (field == 29) metricsBuilder.callVolume(v); else metricsBuilder.putVolume(v);
+                    if (metricsBuilder.hasBothVolumes()) {
+                        CompletableFuture<IbkrOptionsResult> f = pendingOptionsMetricsFutures.remove(reqId);
+                        pendingOptionsMetrics.remove(reqId);
+                        if (f != null && !f.isDone()) f.complete(metricsBuilder.build());
+                    }
+                }
+            }
+            return;
+        }
+
         if (field == 8 || field == 74) { // 74 = delayed volume
             if (pendingQuotes.containsKey(reqId)) {
                 IbkrQuoteResult.builderFor(reqId).volume(size.longValue());
@@ -268,9 +287,13 @@ public class IbkrWrapper extends DefaultEWrapper {
     }
 
     // =========================================================================
-    // Options metrics callbacks (Generic Tick Types)
-    // tickGeneric receives: 106=Put/Call Ratio, 104=IV, 105=HV
-    // Complete future after receiving Put/Call Ratio (most important tick)
+    // Options metrics callbacks
+    // Generic-tick REQUEST numbers and delivered TICK TYPE ids differ (classic TWS API trap):
+    //   requested 104 (HV)            → arrives as tickGeneric type 23
+    //   requested 106 (IV)            → arrives as tickGeneric type 24
+    //   requested 100 (option volume) → arrives as tickSize types 29 (call) / 30 (put)
+    // There is NO put/call-ratio tick — it is computed from 29/30 in the Builder.
+    // Completion happens in tickSize() once both volume ticks are in.
     // =========================================================================
 
     @Override
@@ -278,15 +301,8 @@ public class IbkrWrapper extends DefaultEWrapper {
         IbkrOptionsResult.Builder b = pendingOptionsMetrics.get(reqId);
         if (b == null) return;
         switch (tickType) {
-            case 106 -> {
-                b.putCallRatio(value);
-                // Put/Call ratio is the key metric — complete after receiving it
-                CompletableFuture<IbkrOptionsResult> f = pendingOptionsMetricsFutures.remove(reqId);
-                pendingOptionsMetrics.remove(reqId);
-                if (f != null && !f.isDone()) f.complete(b.build());
-            }
-            case 104 -> b.impliedVolatility(value);
-            case 105 -> b.historicalVolatility(value);
+            case 24 -> b.impliedVolatility(value);   // OPTION_IMPLIED_VOL (requested as 106)
+            case 23 -> b.historicalVolatility(value); // OPTION_HISTORICAL_VOL (requested as 104)
             default  -> {}
         }
     }
