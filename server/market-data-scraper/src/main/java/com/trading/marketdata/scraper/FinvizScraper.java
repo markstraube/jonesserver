@@ -57,6 +57,7 @@ public class FinvizScraper
             Double instOwn = findMetric(doc, "Inst Own");
             Double insiderOwn = findMetric(doc, "Insider Own");
             Long shortShares = findLongMetric(doc, "Short Interest");
+            Long avgVolume = findLongMetric(doc, "Avg Volume");
 
             // Compute days-to-cover = shortShares / avgVolume (approx via shortRatio if available)
             Double daysToCover = shortRatio; // Finviz Short Ratio IS days-to-cover
@@ -68,6 +69,7 @@ public class FinvizScraper
                                  shortRatio,
                                  instOwn,
                                  insiderOwn,
+                                 avgVolume,
                                  "finviz",
                                  null,
                                  true,

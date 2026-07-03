@@ -63,12 +63,14 @@ public class OptionActivityService {
     private final IbkrMarketDataService ibkrService;
     private final QuoteService quoteService;
     private final CacheManager cacheManager;
+    private final MarketStateService marketStateService;
 
     public OptionActivityService(IbkrMarketDataService ibkrService, QuoteService quoteService,
-                                  CacheManager cacheManager) {
+                                  CacheManager cacheManager, MarketStateService marketStateService) {
         this.ibkrService = ibkrService;
         this.quoteService = quoteService;
         this.cacheManager = cacheManager;
+        this.marketStateService = marketStateService;
     }
 
     /** Result of one scan: today's flagged unusual contracts, plus the full OI ladder scanned. */
@@ -82,6 +84,16 @@ public class OptionActivityService {
     }
 
     public OptionActivityResult computeActivity(String ticker) {
+        // Market-closed short circuit: without a live session there are no volume ticks, so
+        // every volume attempt is a guaranteed timeout cascade (observed 2026-07-03: 86s scan
+        // of pure timeouts). When CLOSED we serve OI from cache without any fetch, fetch OI
+        // once for uncached contracts, and skip all volume re-fetches. UNKNOWN deliberately
+        // does NOT short-circuit (fail-open, same rule as persistence).
+        boolean marketClosed = marketStateService.getMarketState() == MarketStateService.MarketState.CLOSED;
+        if (marketClosed) {
+            log.info("Options activity scan for {}: market CLOSED, OI-only mode (no volume fetches)", ticker);
+        }
+
         String upper = ticker.toUpperCase();
 
         Integer conId = getOrFetch("ibkrConId", upper, Integer.class, () -> ibkrService.fetchConId(upper));
@@ -128,7 +140,7 @@ public class OptionActivityService {
                 Long callOI = null, putOI = null;
                 boolean anyValid = false;
                 for (String right : new String[]{"C", "P"}) {
-                    ContractResult result = evaluateContract(upper, expiry, strike, right);
+                    ContractResult result = evaluateContract(upper, expiry, strike, right, marketClosed);
                     if (result == null) continue; // invalid for this expiry, or fetch failed
                     anyValid = true;
                     if ("C".equals(right)) callOI = result.openInterest; else putOI = result.openInterest;
@@ -180,7 +192,8 @@ public class OptionActivityService {
 
     private record ContractResult(Long volume, Long openInterest, Double ratio) {}
 
-    private ContractResult evaluateContract(String ticker, String expiry, double strike, String right) {
+    private ContractResult evaluateContract(String ticker, String expiry, double strike, String right,
+                                             boolean marketClosed) {
         String contractKey = ticker + ":" + expiry + ":" + strike + ":" + right;
 
         Cache invalidCache = cacheManager.getCache("invalidOptionContract");
@@ -195,7 +208,10 @@ public class OptionActivityService {
         Long openInterest;
 
         try {
-            if (cachedOI != null) {
+            if (cachedOI != null && marketClosed) {
+                // Closed market: cached OI is the complete answer, a volume fetch can only time out.
+                return new ContractResult(null, cachedOI, null);
+            } else if (cachedOI != null) {
                 // OI doesn't move intraday — reuse it, only ask IBKR for a fresh volume read.
                 openInterest = cachedOI;
                 IbkrOptionContractActivity act = fetchWithRetry(ticker, expiry, strike, right, false);
@@ -228,7 +244,7 @@ public class OptionActivityService {
         // One targeted volume-only re-read against the now-warm market data line closes the gap
         // at a bounded cost of a single extra request (deliberately no retry — worst case is one
         // timeout, not two).
-        if (volume == null) {
+        if (volume == null && !marketClosed) {
             try {
                 IbkrOptionContractActivity refetch =
                         ibkrService.fetchContractActivity(ticker, expiry, strike, right, false);

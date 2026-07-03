@@ -3,6 +3,7 @@ package com.trading.marketdata.service;
 import com.trading.marketdata.model.DerivedMetrics;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
+import com.trading.marketdata.model.ShortData;
 import com.trading.marketdata.persistence.SnapshotEntity;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +18,8 @@ import java.util.List;
 @Service
 public class DerivedMetricsService {
 
-    public DerivedMetrics compute(QuoteData quote, OptionsData options, SnapshotEntity previous) {
+    public DerivedMetrics compute(QuoteData quote, OptionsData options, ShortData shortData,
+                                  SnapshotEntity previous) {
         // --- Intraday position ---
         Double prevClose = null, pctFromOpen = null, pctFromHigh = null, pctFromLow = null, rangePct = null;
         if (quote != null && quote.price() != null) {
@@ -37,6 +39,13 @@ public class DerivedMetricsService {
             if (quote.high() != null && quote.low() != null && prevClose != null && prevClose != 0) {
                 rangePct = round4((quote.high() - quote.low()) / prevClose * 100);
             }
+        }
+
+        // --- Relative volume (RVOL): today's tape vs. the Finviz average day ---
+        Double relativeVolume = null;
+        if (quote != null && quote.volume() != null && quote.volume() > 0
+                && shortData != null && shortData.avgVolume() != null && shortData.avgVolume() > 0) {
+            relativeVolume = round4((double) quote.volume() / shortData.avgVolume());
         }
 
         // --- OI window aggregates ---
@@ -95,7 +104,7 @@ public class DerivedMetricsService {
         }
 
         return new DerivedMetrics(
-                prevClose, pctFromOpen, pctFromHigh, pctFromLow, rangePct,
+                prevClose, pctFromOpen, pctFromHigh, pctFromLow, rangePct, relativeVolume,
                 oiCallTotal, oiPutTotal, oiPcr,
                 uaCallVol, uaPutVol, uaCallNotional, uaPutNotional,
                 priceDeltaPct, volumeDelta, oiPcrDelta, minutesSince, previousAt);

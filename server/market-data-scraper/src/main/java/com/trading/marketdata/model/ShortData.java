@@ -13,13 +13,14 @@ public record ShortData(
         Double shortRatio,
         Double instOwn,
         Double insiderOwn,
+        Long avgVolume,
         String source,
         String sourceError,
         boolean dataAvailable,
         Instant fetchedAt
 ) {
     public static ShortData empty(String ticker, String errorMsg) {
-        return new ShortData(ticker, null, null, null, null, null, null,
+        return new ShortData(ticker, null, null, null, null, null, null, null,
                 null, errorMsg, false, Instant.now());
     }
 }

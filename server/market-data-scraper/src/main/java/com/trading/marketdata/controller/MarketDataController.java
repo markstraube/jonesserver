@@ -138,11 +138,12 @@ public class MarketDataController {
 
         QuoteData quote = quoteFuture.join();
         OptionsData options = optionsFuture.join();
+        ShortData shortData = shortFuture.join();
 
         // Derived features: previous persisted snapshot (if any) supplies the delta reference.
         // findPrevious() is intentionally called BEFORE persisting this snapshot.
         DerivedMetrics derived = derivedMetricsService.compute(
-                quote, options, persistenceService.findPrevious(ticker).orElse(null));
+                quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null));
 
         MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
@@ -150,7 +151,7 @@ public class MarketDataController {
                 marketStateService.getMarketState().name(),
                 quote,
                 options,
-                shortFuture.join(),
+                shortData,
                 newsFuture.join(),
                 derived
         );

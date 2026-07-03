@@ -4,6 +4,7 @@ import com.trading.marketdata.model.QuoteData;
 import com.trading.marketdata.service.QuoteService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -23,7 +24,8 @@ public class MarketDataApplication {
     }
 
     @Bean
-    CommandLineRunner startupValidation(QuoteService quoteService) {
+    CommandLineRunner startupValidation(QuoteService quoteService,
+                                        @Value("${server.port:8080}") String serverPort) {
         return args -> {
             log.info("=== Market Data Scraper startup validation ===");
             log.info("Performing test scrape for AAPL...");
@@ -38,7 +40,7 @@ public class MarketDataApplication {
             } catch (Exception e) {
                 log.warn("Startup validation failed (non-fatal): {}", e.getMessage());
             }
-            log.info("=== Swagger UI: http://localhost:8080/swagger-ui.html ===");
+            log.info("=== Swagger UI: http://localhost:{}/swagger-ui.html ===", serverPort);
         };
     }
 }

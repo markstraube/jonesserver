@@ -21,6 +21,7 @@ public record DerivedMetrics(
         Double pctFromHigh,        // distance below session high, in % (<= 0)
         Double pctFromLow,         // distance above session low, in % (>= 0)
         Double rangePct,           // (high - low) / prevClose, in %: the day's realized span
+        Double relativeVolume,     // today's volume / Finviz average daily volume (RVOL)
 
         // --- Options window aggregates (from oiProfile) ---
         Long oiCallTotal,          // sum of call OI across the visible strike window
