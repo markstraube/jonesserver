@@ -11,6 +11,8 @@ public record OptionsData(
         Double putCallRatio,
         Double ivRank,
         Double ivPercentile,
+        Double iv,
+        Double hv,
         List<UnusualActivity> unusualActivity,
         List<OiLevel> oiProfile,
         Double maxPain,
@@ -47,7 +49,7 @@ public record OptionsData(
     ) {}
 
     public static OptionsData empty(String ticker, String errorMsg) {
-        return new OptionsData(ticker, null, null, null, null, null, null,
+        return new OptionsData(ticker, null, null, null, null, null, null, null, null,
                 null, errorMsg, false, Instant.now());
     }
 }

@@ -57,7 +57,7 @@ public class BarchartScraper {
             List<OptionsData.UnusualActivity> unusual = fetchUnusualActivity(ticker);
 
             return new OptionsData(
-                    ticker, putCallRatio, ivRank, null,
+                    ticker, putCallRatio, ivRank, null, null, null,
                     unusual, null, maxPain, "barchart", null, true, Instant.now()
             );
         } catch (ScraperException se) {

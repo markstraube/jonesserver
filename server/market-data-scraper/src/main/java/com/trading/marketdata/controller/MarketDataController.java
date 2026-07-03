@@ -1,10 +1,14 @@
 package com.trading.marketdata.controller;
 
+import com.trading.marketdata.model.DerivedMetrics;
 import com.trading.marketdata.model.MarketSnapshot;
 import com.trading.marketdata.model.NewsItem;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
 import com.trading.marketdata.model.ShortData;
+import com.trading.marketdata.persistence.SnapshotPersistenceService;
+import com.trading.marketdata.service.DerivedMetricsService;
+import com.trading.marketdata.service.MarketStateService;
 import com.trading.marketdata.service.NewsService;
 import com.trading.marketdata.service.OptionsService;
 import com.trading.marketdata.service.QuoteService;
@@ -38,6 +42,9 @@ public class MarketDataController {
     private final OptionsService optionsService;
     private final ShortInterestService shortInterestService;
     private final NewsService newsService;
+    private final DerivedMetricsService derivedMetricsService;
+    private final SnapshotPersistenceService persistenceService;
+    private final MarketStateService marketStateService;
 
     // Virtual thread executor for parallel scraping
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -45,11 +52,17 @@ public class MarketDataController {
     public MarketDataController(QuoteService quoteService,
                                 OptionsService optionsService,
                                 ShortInterestService shortInterestService,
-                                NewsService newsService) {
+                                NewsService newsService,
+                                DerivedMetricsService derivedMetricsService,
+                                SnapshotPersistenceService persistenceService,
+                                MarketStateService marketStateService) {
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
         this.newsService = newsService;
+        this.derivedMetricsService = derivedMetricsService;
+        this.persistenceService = persistenceService;
+        this.marketStateService = marketStateService;
     }
 
     @GetMapping("/quote/{ticker}")
@@ -123,13 +136,26 @@ public class MarketDataController {
 
         CompletableFuture.allOf(quoteFuture, optionsFuture, shortFuture, newsFuture).join();
 
-        return new MarketSnapshot(
+        QuoteData quote = quoteFuture.join();
+        OptionsData options = optionsFuture.join();
+
+        // Derived features: previous persisted snapshot (if any) supplies the delta reference.
+        // findPrevious() is intentionally called BEFORE persisting this snapshot.
+        DerivedMetrics derived = derivedMetricsService.compute(
+                quote, options, persistenceService.findPrevious(ticker).orElse(null));
+
+        MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
                 Instant.now(),
-                quoteFuture.join(),
-                optionsFuture.join(),
+                marketStateService.getMarketState().name(),
+                quote,
+                options,
                 shortFuture.join(),
-                newsFuture.join()
+                newsFuture.join(),
+                derived
         );
+
+        persistenceService.persist(snapshot); // @Async, never blocks or fails the response
+        return snapshot;
     }
 }

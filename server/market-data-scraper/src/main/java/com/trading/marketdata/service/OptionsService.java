@@ -38,6 +38,8 @@ public class OptionsService {
         Double putCallRatio  = null;
         Double ivRank        = null;
         Double ivPercentile  = null;
+        Double iv            = null;
+        Double hv            = null;
         Double maxPain       = null;
         List<OptionsData.UnusualActivity> unusualActivity = List.of();
         List<OptionsData.OiLevel> oiProfile = List.of();
@@ -48,6 +50,8 @@ public class OptionsService {
             IbkrOptionsResult ibkr = ibkrService.fetchOptionsMetrics(upper);
             if (ibkr != null) {
                 putCallRatio = ibkr.putCallRatio();
+                iv = ibkr.impliedVolatility();
+                hv = ibkr.historicalVolatility();
                 // IV Rank is not directly available from IBKR; log IV for reference
                 if (ibkr.impliedVolatility() != null) {
                     log.debug("IBKR IV for {}: {}%", upper,
@@ -110,6 +114,8 @@ public class OptionsService {
                 putCallRatio,
                 ivRank,
                 ivPercentile,
+                iv,
+                hv,
                 unusualActivity,
                 oiProfile,
                 maxPain,

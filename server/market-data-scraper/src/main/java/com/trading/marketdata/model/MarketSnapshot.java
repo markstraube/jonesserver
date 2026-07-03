@@ -9,8 +9,10 @@ import java.util.List;
 public record MarketSnapshot(
         String ticker,
         Instant timestamp,
+        String marketState,
         QuoteData quote,
         OptionsData options,
         ShortData shortData,
-        List<NewsItem> news
+        List<NewsItem> news,
+        DerivedMetrics derived
 ) {}

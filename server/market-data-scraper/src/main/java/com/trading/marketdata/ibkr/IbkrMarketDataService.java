@@ -42,7 +42,7 @@ public class IbkrMarketDataService {
     // interest tick arrives — a contract with genuinely zero open interest may never send one
     // at all ("nothing to report"), which would otherwise cost the full TIMEOUT_SECONDS on
     // every such contract. This keeps a full scan bounded even when several strikes have no OI.
-    @Value("${ibkr.contract-activity-timeout-seconds:5}")
+    @Value("${ibkr.contract-activity-timeout-seconds:2}")
     private int activityTimeoutSeconds = 5;
 
     private final IbkrConnectionManager connectionManager;
