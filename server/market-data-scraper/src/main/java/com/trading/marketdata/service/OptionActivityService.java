@@ -54,6 +54,9 @@ public class OptionActivityService {
     @Value("${unusual-activity.min-volume-oi-ratio:1.0}")
     private double minVolumeOiRatio;
 
+    @Value("${cache.invalid-contract.ttl-seconds:3600}")
+    private long invalidContractTtlSeconds;
+
     @Value("${unusual-activity.min-notional:50000000}")
     private double minNotional;
 
@@ -172,8 +175,12 @@ public class OptionActivityService {
                     oiProfile.add(new OptionsData.OiLevel(expiry, strike, callOI, putOI));
                     resolvedStrikes++;
                 } else {
-                    log.debug("Options activity for {}: strike {} not listed for expiry {}, trying next candidate",
-                            upper, strike, expiry);
+                    // INFO deliberately (was DEBUG): silent error-200 rejections hid the missing
+                    // monthly 1000 strike on 2026-07-03. A rejected candidate is a data-coverage
+                    // decision and must be visible — especially since a spurious Gateway 200
+                    // poisons the negative cache for its full TTL without any trace otherwise.
+                    log.info("Options activity for {}: strike {} not listed for expiry {} (error 200, negative-cached {}s), trying next candidate",
+                            upper, strike, expiry, invalidContractTtlSeconds);
                 }
             }
         }
