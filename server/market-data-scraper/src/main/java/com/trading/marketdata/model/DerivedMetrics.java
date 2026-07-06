@@ -27,6 +27,10 @@ public record DerivedMetrics(
         Long oiCallTotal,          // sum of call OI across the visible strike window
         Long oiPutTotal,           // sum of put OI across the visible strike window
         Double oiPutCallRatio,     // put/call OI within the window (stock: positioning)
+        java.util.List<ExpiryOi> oiByExpiry, // same sums split per expiry board — the aggregate
+                                   // above mixes boards with different meaning (front weekly =
+                                   // short-dated "panic" positioning, monthly = structure) into
+                                   // one number that is neither; per-board it stays readable
 
         // --- Unusual activity aggregates (strike-referenced notional, USD) ---
         Long uaCallVolume,
@@ -40,4 +44,16 @@ public record DerivedMetrics(
         Double oiPutCallRatioDelta,
         Long minutesSincePrevious,
         Instant previousSnapshotAt
-) {}
+) {
+    /**
+     * OI window sums for one expiry board. putCallRatio is null when the board has zero call
+     * OI in the window (freshly listed boards) — a null here is more honest than infinity.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ExpiryOi(
+            String expiry,
+            Long callTotal,
+            Long putTotal,
+            Double putCallRatio
+    ) {}
+}

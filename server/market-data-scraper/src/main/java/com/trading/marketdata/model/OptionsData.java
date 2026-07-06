@@ -39,8 +39,14 @@ public record OptionsData(
      * flow is likely to create resistance/support as price approaches a strike. Covers the
      * same strikes/expiry scanned for unusualActivity, sorted by strike ascending so it reads
      * top-to-bottom as a resistance ladder around the current price.
+     *
+     * Serialization is deliberately ALWAYS (not NON_NULL): "OI is 0" and "the OI tick never
+     * arrived" are different facts, and NON_NULL erased the difference on the wire (live
+     * 2026-07-06: SNDK 20260710/1810 delivered call OI but no put tick — the field silently
+     * vanished from the JSON and downstream consumers could not tell a gap from a zero).
+     * An explicit null means: contract exists, tick missing.
      */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     public record OiLevel(
             String expiry,
             Double strike,

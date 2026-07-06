@@ -12,9 +12,19 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +60,15 @@ public class OptionActivityService {
 
     @Value("${unusual-activity.expiries:1}")
     private int expiryCount;
+
+    // "weekly-monthly" (default) or "chronological" (the pre-2026-07-06 behavior, kept for A/B)
+    @Value("${unusual-activity.expiry-selection:weekly-monthly}")
+    private String expirySelection;
+
+    // Day-memory strikes outside the nearest-strikes window to keep re-scanning, per expiry.
+    // 0 disables the sticky pass entirely.
+    @Value("${unusual-activity.sticky-extra-strikes:8}")
+    private int stickyExtraStrikes;
 
     @Value("${unusual-activity.min-volume-oi-ratio:1.0}")
     private double minVolumeOiRatio;
@@ -119,10 +138,7 @@ public class OptionActivityService {
         }
         double price = quote.price();
 
-        List<String> expiries = chain.expirations().stream()
-                .sorted()
-                .limit(expiryCount)
-                .collect(Collectors.toList());
+        List<String> expiries = selectExpiries(chain.expirations());
 
         List<Double> candidateStrikes = chain.strikes().stream()
                 .sorted(Comparator.comparingDouble(s -> Math.abs(s - price)))
@@ -136,43 +152,14 @@ public class OptionActivityService {
         List<OptionsData.OiLevel> oiProfile = new ArrayList<>();
 
         for (String expiry : expiries) {
+            // --- Main pass: nearest-strikes window around the current price ---
+            Set<Double> covered = new HashSet<>();
             int resolvedStrikes = 0;
             for (double strike : candidateStrikes) {
                 if (resolvedStrikes >= nearestStrikes) break;
 
-                Long callOI = null, putOI = null;
-                boolean anyValid = false;
-                for (String right : new String[]{"C", "P"}) {
-                    ContractResult result = evaluateContract(upper, expiry, strike, right, marketClosed);
-                    if (result == null) continue; // invalid for this expiry, or fetch failed
-                    anyValid = true;
-                    if ("C".equals(right)) callOI = result.openInterest; else putOI = result.openInterest;
-
-                    if (result.ratio != null && result.ratio >= minVolumeOiRatio) {
-                        // Notional floor: ratio alone over-flags illiquid contracts (tiny OI in the
-                        // denominator makes a handful of lots look "unusual"). Strike-referenced
-                        // notional (volume * strike * 100) makes the size threshold comparable
-                        // across underlyings at very different price levels — a 19-lot trade on a
-                        // $2,000 stock and a 9,000-lot trade on a $1,000 stock land on the same scale.
-                        double notional = result.volume * strike * 100;
-                        if (notional < minNotional) {
-                            log.debug("Options activity for {} {} {} {}: ratio {} passed but notional {} below floor {}",
-                                    upper, expiry, strike, right,
-                                    String.format("%.2f", result.ratio),
-                                    String.format("%.0f", notional),
-                                    String.format("%.0f", minNotional));
-                        } else {
-                            String type = "C".equals(right) ? "CALL" : "PUT";
-                            String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
-                            unusual.add(new OptionsData.UnusualActivity(
-                                    expiry, strike, type, result.volume, result.openInterest,
-                                    result.ratio, null, sentiment));
-                        }
-                    }
-                }
-
-                if (anyValid) {
-                    oiProfile.add(new OptionsData.OiLevel(expiry, strike, callOI, putOI));
+                if (scanStrike(upper, expiry, strike, marketClosed, unusual, oiProfile)) {
+                    covered.add(strike);
                     resolvedStrikes++;
                 } else {
                     // INFO deliberately (was DEBUG): silent error-200 rejections hid the missing
@@ -183,6 +170,44 @@ public class OptionActivityService {
                             upper, strike, expiry, invalidContractTtlSeconds);
                 }
             }
+
+            // --- Sticky pass: day-memory strikes that drifted out of the window ---
+            // The nearest-strikes window follows the price, so a level scanned in the morning
+            // can silently leave the profile after a large move (2026-07-06: MU gapped +3% and
+            // the 950 put wall — 5,190 puts, defended to 28 cents two sessions earlier — fell
+            // out of the visible window). Once a strike has been seen today it stays observable:
+            // extras are chosen from today's memory by last-seen total OI (heaviest first, so
+            // walls win over micro strikes), capped at stickyExtraStrikes. Marginal cost per
+            // extra strike is two volume requests — OI is served from the option-oi cache.
+            // NOTE the honest limitation: this cannot see a wall that was never inside any
+            // window today. It stops the scan from *forgetting* walls, not from missing them.
+            Set<Double> deadExtras = new HashSet<>();
+            Map<Double, Long> memory = readDayMemory(upper, expiry);
+            if (stickyExtraStrikes > 0 && !memory.isEmpty()) {
+                List<Double> extras = memory.entrySet().stream()
+                        .filter(en -> !covered.contains(en.getKey()))
+                        .sorted(Map.Entry.<Double, Long>comparingByValue().reversed())
+                        .limit(stickyExtraStrikes)
+                        .map(Map.Entry::getKey)
+                        .collect(Collectors.toList());
+                if (!extras.isEmpty()) {
+                    log.info("Options activity for {} {}: sticky day-memory strikes outside window: {}",
+                            upper, expiry, extras);
+                    for (double strike : extras) {
+                        if (scanStrike(upper, expiry, strike, marketClosed, unusual, oiProfile)) {
+                            covered.add(strike);
+                        } else {
+                            // Contract no longer resolvable (delisted / negative-cached): drop it
+                            // from memory so it stops occupying one of the capped extra slots.
+                            deadExtras.add(strike);
+                            log.info("Options activity for {} {}: sticky strike {} no longer resolvable, evicting from day memory",
+                                    upper, expiry, strike);
+                        }
+                    }
+                }
+            }
+
+            updateDayMemory(upper, expiry, oiProfile, deadExtras);
         }
 
         List<OptionsData.UnusualActivity> topUnusual = unusual.stream()
@@ -195,6 +220,183 @@ public class OptionActivityService {
                 .collect(Collectors.toList());
 
         return new OptionActivityResult(topUnusual, sortedOiProfile);
+    }
+
+    /**
+     * Scan one strike (both rights) for one expiry. Contributes flagged contracts to
+     * {@code unusual} and — when at least one right resolves — one row to {@code oiProfile}.
+     *
+     * @return true when the strike is listed for this expiry (at least one right resolved)
+     */
+    private boolean scanStrike(String ticker, String expiry, double strike, boolean marketClosed,
+                               List<OptionsData.UnusualActivity> unusual,
+                               List<OptionsData.OiLevel> oiProfile) {
+        Long callOI = null, putOI = null;
+        boolean anyValid = false;
+        for (String right : new String[]{"C", "P"}) {
+            ContractResult result = evaluateContract(ticker, expiry, strike, right, marketClosed);
+            if (result == null) continue; // invalid for this expiry, or fetch failed
+            anyValid = true;
+            if ("C".equals(right)) callOI = result.openInterest; else putOI = result.openInterest;
+
+            if (result.ratio != null && result.ratio >= minVolumeOiRatio) {
+                // Notional floor: ratio alone over-flags illiquid contracts (tiny OI in the
+                // denominator makes a handful of lots look "unusual"). Strike-referenced
+                // notional (volume * strike * 100) makes the size threshold comparable
+                // across underlyings at very different price levels — a 19-lot trade on a
+                // $2,000 stock and a 9,000-lot trade on a $1,000 stock land on the same scale.
+                double notional = result.volume * strike * 100;
+                if (notional < minNotional) {
+                    log.debug("Options activity for {} {} {} {}: ratio {} passed but notional {} below floor {}",
+                            ticker, expiry, strike, right,
+                            String.format("%.2f", result.ratio),
+                            String.format("%.0f", notional),
+                            String.format("%.0f", minNotional));
+                } else {
+                    String type = "C".equals(right) ? "CALL" : "PUT";
+                    String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
+                    unusual.add(new OptionsData.UnusualActivity(
+                            expiry, strike, type, result.volume, result.openInterest,
+                            result.ratio, null, sentiment));
+                }
+            }
+        }
+
+        if (anyValid) {
+            oiProfile.add(new OptionsData.OiLevel(expiry, strike, callOI, putOI));
+        }
+        return anyValid;
+    }
+
+    // -------------------------------------------------------------------------
+    // Expiry selection
+    // -------------------------------------------------------------------------
+
+    private static final DateTimeFormatter EXPIRY_FMT = DateTimeFormatter.BASIC_ISO_DATE; // yyyyMMdd
+    private static final ZoneId US_MARKET_TZ = ZoneId.of("America/New_York");
+
+    /**
+     * Which expiry boards to scan.
+     *
+     * Mode "chronological" is the pre-2026-07-06 behavior: the first {@code expiryCount}
+     * boards by date. Live batch on 2026-07-06 showed why that fails as a default — with
+     * Mon/Wed weeklies listed, "first two" meant Fri+Mon for MU/AMD/INTC (Monday board all
+     * zero OI, the monthly with the structural put positioning invisible) and literally
+     * 0DTE+Wednesday for AVGO. The per-ticker numbers measured different regimes and were
+     * not comparable across the batch.
+     *
+     * Mode "weekly-monthly" (default) makes the two slots semantic instead of positional:
+     *   slot 1 — the nearest FRIDAY expiry: the front weekly board ("panic" positioning).
+     *            Falls back to the nearest expiry of any weekday if the chain lists no
+     *            Friday at all (holiday-shifted weeklies land here too, via the fallback).
+     *   slot 2 — the nearest standard monthly (third Friday). If the front Friday IS the
+     *            monthly (expiration week), the slot moves to the following monthly so the
+     *            "structure" view never disappears.
+     *   slots 3+ (expiries > 2) — chronological fill with whatever isn't picked yet.
+     */
+    private List<String> selectExpiries(Set<String> expirations) {
+        List<String> chronological = expirations.stream()
+                .sorted()
+                .limit(Math.max(expiryCount, 0))
+                .collect(Collectors.toList());
+        if (expiryCount <= 0 || !"weekly-monthly".equalsIgnoreCase(expirySelection)) {
+            return chronological;
+        }
+
+        LocalDate today = LocalDate.now(US_MARKET_TZ);
+        List<LocalDate> future = new ArrayList<>();
+        for (String raw : new TreeSet<>(expirations)) {
+            try {
+                LocalDate d = LocalDate.parse(raw, EXPIRY_FMT);
+                if (!d.isBefore(today)) {
+                    future.add(d);
+                }
+            } catch (java.time.format.DateTimeParseException e) {
+                log.warn("Options activity: unparseable expiry '{}' in chain, ignoring", raw);
+            }
+        }
+        if (future.isEmpty()) {
+            log.warn("Options activity: no parseable future expiries in chain, falling back to chronological {}",
+                    chronological);
+            return chronological;
+        }
+
+        LinkedHashSet<LocalDate> picked = new LinkedHashSet<>();
+        LocalDate anchor = future.stream()
+                .filter(d -> d.getDayOfWeek() == DayOfWeek.FRIDAY)
+                .findFirst()
+                .orElse(future.get(0));
+        picked.add(anchor);
+
+        if (picked.size() < expiryCount) {
+            future.stream()
+                    .filter(OptionActivityService::isStandardMonthly)
+                    .filter(d -> !picked.contains(d))
+                    .findFirst()
+                    .ifPresent(picked::add);
+        }
+        for (LocalDate d : future) {
+            if (picked.size() >= expiryCount) break;
+            picked.add(d);
+        }
+
+        List<String> selected = picked.stream()
+                .sorted()
+                .map(EXPIRY_FMT::format)
+                .collect(Collectors.toList());
+        log.info("Options activity expiry selection (weekly-monthly): anchor={}, selected={}, chain front={}",
+                EXPIRY_FMT.format(anchor), selected,
+                future.stream().limit(4).map(EXPIRY_FMT::format).collect(Collectors.toList()));
+        return selected;
+    }
+
+    /** Standard monthly expiration: the third Friday of a month (day-of-month 15..21). */
+    private static boolean isStandardMonthly(LocalDate d) {
+        return d.getDayOfWeek() == DayOfWeek.FRIDAY && d.getDayOfMonth() >= 15 && d.getDayOfMonth() <= 21;
+    }
+
+    // -------------------------------------------------------------------------
+    // Day memory ("Tagesgedächtnis") of scanned strikes
+    // -------------------------------------------------------------------------
+
+    /**
+     * Cache key includes the NY trading date, so each session starts with a clean memory —
+     * the cache TTL only has to comfortably outlive one session, it is not the day boundary.
+     * (expireAfterWrite alone would never fire while polling continuously rewrites the key.)
+     */
+    private String dayMemoryKey(String ticker, String expiry) {
+        return ticker + ":" + expiry + ":" + EXPIRY_FMT.format(LocalDate.now(US_MARKET_TZ));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Double, Long> readDayMemory(String ticker, String expiry) {
+        Cache cache = cacheManager.getCache("oiDayMemory");
+        if (cache == null) return Map.of();
+        Map<Double, Long> stored = cache.get(dayMemoryKey(ticker, expiry), Map.class);
+        return stored != null ? stored : Map.of();
+    }
+
+    /**
+     * Merge this scan's resolved strikes (with their last-seen total OI, used for sticky-slot
+     * prioritization) into today's memory. Merge, not overwrite: strikes beyond the sticky cap
+     * must survive rounds in which they weren't re-scanned, otherwise the memory would shrink
+     * to window+cap and defeat its purpose.
+     */
+    private void updateDayMemory(String ticker, String expiry,
+                                 List<OptionsData.OiLevel> oiProfile, Set<Double> deadStrikes) {
+        Cache cache = cacheManager.getCache("oiDayMemory");
+        if (cache == null) return;
+        Map<Double, Long> merged = new HashMap<>(readDayMemory(ticker, expiry));
+        merged.keySet().removeAll(deadStrikes);
+        for (OptionsData.OiLevel level : oiProfile) {
+            if (!expiry.equals(level.expiry()) || level.strike() == null) continue;
+            long total = (level.callOpenInterest() != null ? level.callOpenInterest() : 0L)
+                       + (level.putOpenInterest() != null ? level.putOpenInterest() : 0L);
+            merged.put(level.strike(), total);
+        }
+        if (!merged.isEmpty()) {
+            cache.put(dayMemoryKey(ticker, expiry), merged);
+        }
     }
 
     private record ContractResult(Long volume, Long openInterest, Double ratio) {}

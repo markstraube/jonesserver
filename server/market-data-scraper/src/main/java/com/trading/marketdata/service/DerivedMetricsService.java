@@ -49,19 +49,38 @@ public class DerivedMetricsService {
         }
 
         // --- OI window aggregates ---
+        // The chain-wide sums stay for backward compatibility (persisted as scalar columns),
+        // but note they mix expiry boards with different meaning — the per-board breakdown
+        // below is the number to actually read.
         Long oiCallTotal = null, oiPutTotal = null;
         Double oiPcr = null;
+        List<DerivedMetrics.ExpiryOi> oiByExpiry = null;
         if (options != null && options.oiProfile() != null && !options.oiProfile().isEmpty()) {
             long calls = 0, puts = 0;
+            java.util.Map<String, long[]> byExpiry = new java.util.TreeMap<>(); // sorted: near board first
             for (OptionsData.OiLevel level : options.oiProfile()) {
-                if (level.callOpenInterest() != null) calls += level.callOpenInterest();
-                if (level.putOpenInterest() != null) puts += level.putOpenInterest();
+                long c = level.callOpenInterest() != null ? level.callOpenInterest() : 0;
+                long p = level.putOpenInterest() != null ? level.putOpenInterest() : 0;
+                calls += c;
+                puts += p;
+                if (level.expiry() != null) {
+                    long[] sums = byExpiry.computeIfAbsent(level.expiry(), k -> new long[2]);
+                    sums[0] += c;
+                    sums[1] += p;
+                }
             }
             oiCallTotal = calls;
             oiPutTotal = puts;
             if (calls > 0) {
                 oiPcr = round4((double) puts / calls);
             }
+            oiByExpiry = byExpiry.entrySet().stream()
+                    .map(en -> new DerivedMetrics.ExpiryOi(
+                            en.getKey(),
+                            en.getValue()[0],
+                            en.getValue()[1],
+                            en.getValue()[0] > 0 ? round4((double) en.getValue()[1] / en.getValue()[0]) : null))
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         // --- Unusual activity aggregates ---
@@ -105,7 +124,7 @@ public class DerivedMetricsService {
 
         return new DerivedMetrics(
                 prevClose, pctFromOpen, pctFromHigh, pctFromLow, rangePct, relativeVolume,
-                oiCallTotal, oiPutTotal, oiPcr,
+                oiCallTotal, oiPutTotal, oiPcr, oiByExpiry,
                 uaCallVol, uaPutVol, uaCallNotional, uaPutNotional,
                 priceDeltaPct, volumeDelta, oiPcrDelta, minutesSince, previousAt);
     }

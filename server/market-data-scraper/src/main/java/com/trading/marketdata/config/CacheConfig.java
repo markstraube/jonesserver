@@ -50,6 +50,15 @@ public class CacheConfig {
     @Value("${cache.invalid-contract.ttl-seconds:3600}")
     private long invalidContractTtl;
 
+    // Day memory of strikes already scanned per ticker+expiry ("Tagesgedächtnis"). Keeps
+    // OI-heavy levels observable after the nearest-strikes window has drifted away with the
+    // price (2026-07-06: MU gapped +3% and the 950 put wall — defended to 28 cents two
+    // sessions earlier — silently left the scan window). Keys embed the NY trading date, so
+    // the TTL is not the day boundary — it just needs to comfortably outlive one session
+    // including pre/after hours. 18h default.
+    @Value("${cache.oi-day-memory.ttl-seconds:64800}")
+    private long oiDayMemoryTtl;
+
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager manager = new CaffeineCacheManager();
@@ -69,6 +78,8 @@ public class CacheConfig {
                 Caffeine.newBuilder().expireAfterWrite(optionOpenInterestTtl, TimeUnit.SECONDS).maximumSize(5000).build());
         manager.registerCustomCache("invalidOptionContract",
                 Caffeine.newBuilder().expireAfterWrite(invalidContractTtl, TimeUnit.SECONDS).maximumSize(5000).build());
+        manager.registerCustomCache("oiDayMemory",
+                Caffeine.newBuilder().expireAfterWrite(oiDayMemoryTtl, TimeUnit.SECONDS).maximumSize(2000).build());
         return manager;
     }
 }
