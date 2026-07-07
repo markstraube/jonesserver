@@ -53,10 +53,21 @@ public class YahooPriceDownloader
             ResultSet rs = psSelect.executeQuery();
             while (rs.next())
             {
-                String symbol = rs.getString("cSymbol");
-                String isin = rs.getString("cIsin");
+                try
+                {
+                    String symbol = rs.getString("cSymbol");
+                    String isin = rs.getString("cIsin");
 
-                fetchPrices(daysBack, symbol, isin);
+                    fetchPrices(daysBack, symbol, isin);
+                }
+                catch (Exception e)
+                {
+                    LOGGER.log(Level.SEVERE,
+                               "Error fetching prices for symbol: " + rs.getString("cSymbol")
+                                               + ", ISIN: "
+                                               + rs.getString("cIsin"),
+                               e);
+                }
             }
         }
     }
@@ -147,7 +158,7 @@ public class YahooPriceDownloader
     public static void main(String[] args)
         throws Exception
     {
-        int daysBack = 2;
+        int daysBack = 7;
 
         if (args.length > 0)
         {

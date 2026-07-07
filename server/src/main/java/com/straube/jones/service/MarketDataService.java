@@ -15,7 +15,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 
 import com.straube.jones.db.DayCounter;
-import com.straube.jones.trader.dto.ADXResult;
 import com.straube.jones.trader.dto.DailyPrice;
 
 @Service
@@ -94,8 +93,8 @@ public class MarketDataService
         Map<String, Long> maxDayMap = new HashMap<>();
         for (Map<String, Object> result : results)
         {
-          maxDayMap.put((String)result.get("cSymbol"), (Long)result.get("maxDay"));
-          //maxDayMap.put((String)result.get("cSymbol"), 9580L);
+            maxDayMap.put((String)result.get("cSymbol"), ((Long)result.get("maxDay")) - 5L);
+            // maxDayMap.put((String)result.get("cSymbol"), 9580L);
         }
         return maxDayMap;
     }
@@ -114,7 +113,7 @@ public class MarketDataService
         Map<String, Long> maxDayMap = new HashMap<>();
         for (Map<String, Object> result : results)
         {
-            maxDayMap.put((String)result.get("cSymbol"), (Long)result.get("maxDay")-5);
+            maxDayMap.put((String)result.get("cSymbol"), (Long)result.get("maxDay") - 5L);
         }
         return maxDayMap;
     }
