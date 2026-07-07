@@ -79,6 +79,14 @@ public class OptionActivityService {
     @Value("${unusual-activity.min-notional:50000000}")
     private double minNotional;
 
+    // Optional second gate on PREMIUM notional (volume x option price x 100, USD): actual
+    // money spent instead of strike-referenced size. 0 disables (default) — calibrate with
+    // live premium data first, then decide the threshold. Fail-open: a contract whose price
+    // ticks didn't arrive is NOT suppressed by this gate (a missing tick must never eat a
+    // signal), it's flagged with premiumNotionalUsd=null and logged.
+    @Value("${unusual-activity.min-premium-notional:0}")
+    private double minPremiumNotional;
+
     @Value("${unusual-activity.max-results:10}")
     private int maxResults;
 
@@ -253,11 +261,31 @@ public class OptionActivityService {
                             String.format("%.0f", notional),
                             String.format("%.0f", minNotional));
                 } else {
-                    String type = "C".equals(right) ? "CALL" : "PUT";
-                    String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
-                    unusual.add(new OptionsData.UnusualActivity(
-                            expiry, strike, type, result.volume, result.openInterest,
-                            result.ratio, null, sentiment));
+                    // Premium notional: what was actually paid, not what the strike references.
+                    // Basis: last (today's or — untraded contract — previous session's print),
+                    // fallback bid/ask mid, else null. Strike notional overstates cheap OTM
+                    // contracts by up to ~100x; this is the corrective measure.
+                    Double premium = premiumPrice(result);
+                    Double premiumNotional = premium != null ? result.volume * premium * 100 : null;
+
+                    if (minPremiumNotional > 0 && premiumNotional != null && premiumNotional < minPremiumNotional) {
+                        log.info("Options activity for {} {} {} {}: strike-notional {} passed but premium-notional {} below floor {} — suppressed",
+                                ticker, expiry, strike, right,
+                                String.format("%.0f", notional),
+                                String.format("%.0f", premiumNotional),
+                                String.format("%.0f", minPremiumNotional));
+                    } else {
+                        if (minPremiumNotional > 0 && premiumNotional == null) {
+                            log.info("Options activity for {} {} {} {}: no price ticks for premium gate — flagged anyway (fail-open)",
+                                    ticker, expiry, strike, right);
+                        }
+                        String type = "C".equals(right) ? "CALL" : "PUT";
+                        String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
+                        unusual.add(new OptionsData.UnusualActivity(
+                                expiry, strike, type, result.volume, result.openInterest,
+                                result.ratio, result.bid, result.ask, result.last,
+                                premiumNotional, null, sentiment));
+                    }
                 }
             }
         }
@@ -399,7 +427,19 @@ public class OptionActivityService {
         }
     }
 
-    private record ContractResult(Long volume, Long openInterest, Double ratio) {}
+    private record ContractResult(Long volume, Long openInterest, Double ratio,
+                                  Double bid, Double ask, Double last) {}
+
+    /**
+     * Premium basis for notional: last print first (a traded contract's own price), bid/ask
+     * mid as fallback (untraded but quoted), null when neither is available. The wrapper
+     * already filtered out IBKR's -1/0 "no quote" placeholders, so any stored value is real.
+     */
+    private static Double premiumPrice(ContractResult r) {
+        if (r.last != null) return r.last;
+        if (r.bid != null && r.ask != null) return (r.bid + r.ask) / 2.0;
+        return null;
+    }
 
     private ContractResult evaluateContract(String ticker, String expiry, double strike, String right,
                                              boolean marketClosed) {
@@ -415,21 +455,27 @@ public class OptionActivityService {
 
         Long volume;
         Long openInterest;
+        Double bid = null, ask = null, last = null;
 
         try {
             if (cachedOI != null && marketClosed) {
                 // Closed market: cached OI is the complete answer, a volume fetch can only time out.
-                return new ContractResult(null, cachedOI, null);
+                return new ContractResult(null, cachedOI, null, null, null, null);
             } else if (cachedOI != null) {
                 // OI doesn't move intraday — reuse it, only ask IBKR for a fresh volume read.
+                // Price ticks (bid/ask/last) ride on the same request as default ticks.
                 openInterest = cachedOI;
                 IbkrOptionContractActivity act = fetchWithRetry(ticker, expiry, strike, right, false);
                 volume = act != null ? act.volume() : null;
+                if (act != null) {
+                    bid = act.bid(); ask = act.ask(); last = act.last();
+                }
             } else {
                 IbkrOptionContractActivity act = fetchWithRetry(ticker, expiry, strike, right, true);
                 if (act == null) return null;
                 volume = act.volume();
                 openInterest = act.openInterest();
+                bid = act.bid(); ask = act.ask(); last = act.last();
                 if (openInterest != null && oiCache != null) {
                     oiCache.put(contractKey, openInterest);
                 }
@@ -465,6 +511,13 @@ public class OptionActivityService {
                     log.info("Options activity volume re-fetch {} {} {} {}: still no volume, keeping OI-only",
                             ticker, expiry, strike, right);
                 }
+                // The re-fetch carries the same default price ticks — backfill whatever the
+                // first attempt was missing (never overwrite an already-captured price).
+                if (refetch != null) {
+                    if (bid == null) bid = refetch.bid();
+                    if (ask == null) ask = refetch.ask();
+                    if (last == null) last = refetch.last();
+                }
             } catch (com.trading.marketdata.ibkr.IbkrContractNotFoundException e) {
                 // Contract just delivered OI, so error 200 here would be transient noise — do
                 // NOT negative-cache it, just keep the OI-only result.
@@ -476,13 +529,13 @@ public class OptionActivityService {
         if (volume == null || openInterest <= 0) {
             log.info("Options activity check {} {} {} {}: volume={}, openInterest={} (no ratio, OI-only)",
                     ticker, expiry, strike, right, volume, openInterest);
-            return new ContractResult(volume, openInterest, null);
+            return new ContractResult(volume, openInterest, null, bid, ask, last);
         }
 
         double ratio = (double) volume / openInterest;
         log.info("Options activity check {} {} {} {}: volume={}, openInterest={}, ratio={}",
                 ticker, expiry, strike, right, volume, openInterest, String.format("%.2f", ratio));
-        return new ContractResult(volume, openInterest, ratio);
+        return new ContractResult(volume, openInterest, ratio, bid, ask, last);
     }
 
     /**

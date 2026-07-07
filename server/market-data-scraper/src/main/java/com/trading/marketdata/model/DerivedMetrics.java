@@ -37,6 +37,9 @@ public record DerivedMetrics(
         Long uaPutVolume,
         Double uaCallNotionalUsd,  // volume * strike * 100 summed over flagged calls
         Double uaPutNotionalUsd,
+        Double uaCallPremiumUsd,   // volume * option price * 100: actual money spent; sums
+        Double uaPutPremiumUsd,    // only contracts whose price ticks arrived (lower bound),
+                                   // null when no flagged contract carried a premium
 
         // --- Deltas vs. previous persisted snapshot (same ticker) ---
         Double priceDeltaPct,      // price change since previous snapshot, in %

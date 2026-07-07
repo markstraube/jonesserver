@@ -244,8 +244,9 @@ public class IbkrMarketDataService {
 
         try {
             IbkrOptionContractActivity result = future.get(activityTimeoutSeconds, TimeUnit.SECONDS);
-            log.info("IBKR contract activity for {} {} {} {}: volume={}, openInterest={}",
-                    ticker, expiry, strike, right, result.volume(), result.openInterest());
+            log.info("IBKR contract activity for {} {} {} {}: volume={}, openInterest={}, bid={}, ask={}, last={}",
+                    ticker, expiry, strike, right, result.volume(), result.openInterest(),
+                    result.bid(), result.ask(), result.last());
             return result;
         } catch (TimeoutException e) {
             log.warn("IBKR contract activity timeout for {} {} {} {} (reqId={})",

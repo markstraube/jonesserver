@@ -21,6 +21,15 @@ public record OptionsData(
         boolean dataAvailable,
         Instant fetchedAt
 ) {
+    /**
+     * bid/ask/last are the flagged contract's own prices at scan time — default ticks on
+     * the same IBKR subscription as volume, zero extra request cost. premiumNotionalUsd is
+     * volume x premium x 100 with premium = last (falls back to bid/ask mid); this measures
+     * actual money spent, where strike-referenced notional overstates cheap OTM lottery
+     * tickets by up to ~100x. Null when neither a last nor a two-sided quote arrived —
+     * never fabricated. Caveat: for a contract that hasn't traded today, IBKR's "last" is
+     * the previous session's print — order-of-magnitude correct, not tradeable pricing.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record UnusualActivity(
             String expiry,
@@ -29,6 +38,10 @@ public record OptionsData(
             Long volume,
             Long openInterest,
             Double volumeOiRatio,
+            Double bid,
+            Double ask,
+            Double last,
+            Double premiumNotionalUsd,
             Double iv,
             String sentiment
     ) {}

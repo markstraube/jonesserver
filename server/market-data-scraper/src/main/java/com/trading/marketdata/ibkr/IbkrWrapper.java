@@ -49,6 +49,23 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void tickPrice(int reqId, int field, double price, TickAttrib attrib) {
+        // Option contract activity requests receive the same default price ticks (bid/ask/
+        // last) on their existing subscription — capture them at zero additional request
+        // cost. IBKR sends -1 (or 0) on a side with no quote; such placeholders must be
+        // dropped, not stored. Deliberately NO completion here: completion stays volume/OI-
+        // driven (see tickSize). On a live line the price ticks arrive first and are in the
+        // builder by completion time; when they aren't, the fields stay null and the caller
+        // falls back (last -> mid -> none) instead of getting fabricated prices.
+        IbkrOptionContractActivity.Builder actBuilder = pendingContractActivity.get(reqId);
+        if (actBuilder != null && price > 0) {
+            switch (field) {
+                case 1, 66 -> actBuilder.bid(price);   // 66 = delayed bid
+                case 2, 67 -> actBuilder.ask(price);   // 67 = delayed ask
+                case 4, 68 -> actBuilder.last(price);  // 68 = delayed last
+                default -> {}
+            }
+        }
+
         CompletableFuture<IbkrQuoteResult> future = pendingQuotes.get(reqId);
         if (future == null) return;
         IbkrQuoteResult.Builder b = IbkrQuoteResult.builderFor(reqId);

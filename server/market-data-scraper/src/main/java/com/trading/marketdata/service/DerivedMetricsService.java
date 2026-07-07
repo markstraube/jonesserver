@@ -86,19 +86,32 @@ public class DerivedMetricsService {
         // --- Unusual activity aggregates ---
         Long uaCallVol = null, uaPutVol = null;
         Double uaCallNotional = null, uaPutNotional = null;
+        Double uaCallPremium = null, uaPutPremium = null;
         if (options != null && options.unusualActivity() != null && !options.unusualActivity().isEmpty()) {
             long cv = 0, pv = 0;
             double cn = 0, pn = 0;
+            double cp = 0, pp = 0;
+            boolean anyCallPremium = false, anyPutPremium = false;
             for (OptionsData.UnusualActivity ua : options.unusualActivity()) {
                 long vol = ua.volume() != null ? ua.volume() : 0;
                 double notional = ua.strike() != null ? vol * ua.strike() * 100 : 0;
-                if ("CALL".equals(ua.type())) { cv += vol; cn += notional; }
-                else if ("PUT".equals(ua.type())) { pv += vol; pn += notional; }
+                if ("CALL".equals(ua.type())) {
+                    cv += vol; cn += notional;
+                    if (ua.premiumNotionalUsd() != null) { cp += ua.premiumNotionalUsd(); anyCallPremium = true; }
+                } else if ("PUT".equals(ua.type())) {
+                    pv += vol; pn += notional;
+                    if (ua.premiumNotionalUsd() != null) { pp += ua.premiumNotionalUsd(); anyPutPremium = true; }
+                }
             }
             uaCallVol = cv;
             uaPutVol = pv;
             uaCallNotional = round2(cn);
             uaPutNotional = round2(pn);
+            // Deliberately null (not 0) when no flagged contract carried price ticks: "no
+            // premium data" and "premium of zero dollars" must stay distinguishable. When some
+            // contracts carried prices and others didn't, this is a lower bound.
+            uaCallPremium = anyCallPremium ? round2(cp) : null;
+            uaPutPremium = anyPutPremium ? round2(pp) : null;
         }
 
         // --- Deltas vs. previous persisted snapshot ---
@@ -125,7 +138,7 @@ public class DerivedMetricsService {
         return new DerivedMetrics(
                 prevClose, pctFromOpen, pctFromHigh, pctFromLow, rangePct, relativeVolume,
                 oiCallTotal, oiPutTotal, oiPcr, oiByExpiry,
-                uaCallVol, uaPutVol, uaCallNotional, uaPutNotional,
+                uaCallVol, uaPutVol, uaCallNotional, uaPutNotional, uaCallPremium, uaPutPremium,
                 priceDeltaPct, volumeDelta, oiPcrDelta, minutesSince, previousAt);
     }
 
