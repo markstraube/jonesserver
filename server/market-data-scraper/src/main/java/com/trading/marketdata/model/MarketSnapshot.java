@@ -14,5 +14,6 @@ public record MarketSnapshot(
         OptionsData options,
         ShortData shortData,
         List<NewsItem> news,
-        DerivedMetrics derived
+        DerivedMetrics derived,
+        AuctionData auction
 ) {}

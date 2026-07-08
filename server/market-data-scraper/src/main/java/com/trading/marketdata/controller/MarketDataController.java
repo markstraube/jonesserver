@@ -1,5 +1,6 @@
 package com.trading.marketdata.controller;
 
+import com.trading.marketdata.model.AuctionData;
 import com.trading.marketdata.model.DerivedMetrics;
 import com.trading.marketdata.model.MarketSnapshot;
 import com.trading.marketdata.model.NewsItem;
@@ -7,6 +8,7 @@ import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
 import com.trading.marketdata.model.ShortData;
 import com.trading.marketdata.persistence.SnapshotPersistenceService;
+import com.trading.marketdata.service.AuctionService;
 import com.trading.marketdata.service.DerivedMetricsService;
 import com.trading.marketdata.service.MarketStateService;
 import com.trading.marketdata.service.NewsService;
@@ -45,6 +47,7 @@ public class MarketDataController {
     private final DerivedMetricsService derivedMetricsService;
     private final SnapshotPersistenceService persistenceService;
     private final MarketStateService marketStateService;
+    private final AuctionService auctionService;
 
     // Virtual thread executor for parallel scraping
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -55,7 +58,8 @@ public class MarketDataController {
                                 NewsService newsService,
                                 DerivedMetricsService derivedMetricsService,
                                 SnapshotPersistenceService persistenceService,
-                                MarketStateService marketStateService) {
+                                MarketStateService marketStateService,
+                                AuctionService auctionService) {
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
@@ -63,6 +67,7 @@ public class MarketDataController {
         this.derivedMetricsService = derivedMetricsService;
         this.persistenceService = persistenceService;
         this.marketStateService = marketStateService;
+        this.auctionService = auctionService;
     }
 
     @GetMapping("/quote/{ticker}")
@@ -124,6 +129,20 @@ public class MarketDataController {
                 .toList();
     }
 
+    @GetMapping("/auction/{ticker}")
+    @Operation(summary = "Get Nasdaq auction/NOII data",
+            description = "Opening/closing cross imbalance via IBKR Generic Tick 225. Only "
+                    + "delivers data during Nasdaq NOII dissemination windows (~09:28-09:30 and "
+                    + "~15:50-16:00 ET); outside them the request is skipped unless force=true. "
+                    + "Lightweight by design: poll this at 15-30s during auction windows instead "
+                    + "of the full snapshot.")
+    public AuctionData getAuction(
+            @Parameter(description = "Ticker symbol, e.g. MU") @PathVariable String ticker,
+            @Parameter(description = "Bypass the auction-window gate (for live tick-mapping verification)")
+            @RequestParam(defaultValue = "false") boolean force) {
+        return auctionService.getAuctionData(ticker.toUpperCase(), force);
+    }
+
     private MarketSnapshot buildSnapshot(String ticker) {
         CompletableFuture<QuoteData> quoteFuture =
                 CompletableFuture.supplyAsync(() -> quoteService.getQuote(ticker), executor);
@@ -133,8 +152,13 @@ public class MarketDataController {
                 CompletableFuture.supplyAsync(() -> shortInterestService.getShortData(ticker), executor);
         CompletableFuture<List<NewsItem>> newsFuture =
                 CompletableFuture.supplyAsync(() -> newsService.getNews(ticker, 10), executor);
+        // Self-gating: outside the two NOII windows this returns null immediately without
+        // any IBKR request, so the snapshot path only pays the collection window when
+        // auction data can actually exist.
+        CompletableFuture<AuctionData> auctionFuture =
+                CompletableFuture.supplyAsync(() -> auctionService.getAuctionData(ticker, false), executor);
 
-        CompletableFuture.allOf(quoteFuture, optionsFuture, shortFuture, newsFuture).join();
+        CompletableFuture.allOf(quoteFuture, optionsFuture, shortFuture, newsFuture, auctionFuture).join();
 
         QuoteData quote = quoteFuture.join();
         OptionsData options = optionsFuture.join();
@@ -153,7 +177,8 @@ public class MarketDataController {
                 options,
                 shortData,
                 newsFuture.join(),
-                derived
+                derived,
+                auctionFuture.join()
         );
 
         persistenceService.persist(snapshot); // @Async, never blocks or fails the response

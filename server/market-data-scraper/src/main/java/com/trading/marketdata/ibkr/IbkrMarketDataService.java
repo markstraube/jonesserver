@@ -279,6 +279,62 @@ public class IbkrMarketDataService {
         }
     }
 
+    /**
+     * Collects Nasdaq auction/NOII data (Generic Tick 225) for a US stock.
+     *
+     * Inverted timeout semantics compared to every other fetch in this class: there is no
+     * completing tick and no end-of-data signal — outside Nasdaq's NOII dissemination windows
+     * (~09:28–09:30 and ~15:50–16:00 ET) the subscription simply stays silent. The request
+     * therefore streams for a FIXED collection window and then harvests whatever arrived.
+     * TimeoutException on the future is the NORMAL path; the future only completes (always
+     * exceptionally) on a hard error such as an unknown contract or a dropped connection.
+     *
+     * Same snapshot=false constraint as all other generic-tick requests: 225 cannot be
+     * combined with the snapshot=true quote request.
+     *
+     * Returns a result with all-null fields when the feed was silent (dataAvailable is
+     * decided by the caller via isEmpty()), or null on hard errors / no connection.
+     */
+    public IbkrAuctionResult fetchAuctionData(String ticker, long collectWindowMs) {
+        if (!connectionManager.isConnected()) {
+            log.debug("IBKR not connected — skipping auction data for {}", ticker);
+            return null;
+        }
+
+        connectionManager.getClient().reqMarketDataType(1);
+
+        int reqId = connectionManager.nextReqId();
+        CompletableFuture<Void> errorSignal = wrapper.registerAuctionRequest(reqId);
+
+        Contract contract = usStockContract(ticker);
+
+        // 225 = RT Auction Values → delivered as tick types 34/35/36/61 (see IbkrAuctionResult)
+        connectionManager.getClient().reqMktData(reqId, contract, "225", false, false, null);
+
+        try {
+            errorSignal.get(collectWindowMs, TimeUnit.MILLISECONDS);
+            // Unreachable by design: the future never completes normally.
+            log.warn("IBKR auction request for {} completed normally — unexpected (reqId={})", ticker, reqId);
+            return wrapper.harvestAuctionRequest(reqId);
+        } catch (TimeoutException e) {
+            // Normal path: collection window elapsed, harvest whatever ticks arrived.
+            IbkrAuctionResult result = wrapper.harvestAuctionRequest(reqId);
+            if (result != null && !result.isEmpty()) {
+                log.info("IBKR auction data for {}: price={}, volume={}, imbalance={}, regImbalance={}",
+                        ticker, result.auctionPrice(), result.auctionVolume(),
+                        result.imbalance(), result.regulatoryImbalance());
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("IBKR auction data failed for {}: {}", ticker, e.getMessage());
+            wrapper.discardAuctionRequest(reqId);
+            return null;
+        } finally {
+            // Always cancel the streaming subscription
+            connectionManager.getClient().cancelMktData(reqId);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

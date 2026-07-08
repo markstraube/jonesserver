@@ -40,6 +40,12 @@ public class IbkrWrapper extends DefaultEWrapper {
     // "C" or "P" — which side this reqId's contract actually is, purely for the diagnostic
     // logging in tickSize() below (suspected mismatch between field 27/28 and actual contract side)
     private final Map<Integer, String>                                     contractActivityRight = new ConcurrentHashMap<>();
+    // Auction/NOII (generic tick 225): builder is harvested by the caller after a fixed
+    // collection window — there is no completing tick (see IbkrAuctionResult). The future
+    // exists ONLY to propagate hard errors (error() / connectionClosed()); it is never
+    // completed normally, so the caller's timeout on it is the expected path.
+    private final Map<Integer, IbkrAuctionResult.Builder>                  pendingAuction = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<Void>>                    pendingAuctionFutures = new ConcurrentHashMap<>();
 
     public void setClient(EClientSocket client) { this.client = client; }
 
@@ -64,6 +70,19 @@ public class IbkrWrapper extends DefaultEWrapper {
                 case 4, 68 -> actBuilder.last(price);  // 68 = delayed last
                 default -> {}
             }
+        }
+
+        // Auction (NOII) subscription: tick 35 = AUCTION_PRICE — the indicative cross price.
+        // Every auction tick is logged at INFO deliberately: the tick-35/34/36/61 semantics
+        // (especially the sign convention of the imbalance, see tickSize) are wire-log-verified
+        // the same way the 27/28 and 29/30 mappings were, and these logs ARE that verification.
+        IbkrAuctionResult.Builder auctionBuilder = pendingAuction.get(reqId);
+        if (auctionBuilder != null && field == 35) {
+            if (price > 0) {
+                auctionBuilder.auctionPrice(price);
+            }
+            log.info("IBKR auction tick: reqId={} type=35 AUCTION_PRICE raw={}", reqId, price);
+            return;
         }
 
         CompletableFuture<IbkrQuoteResult> future = pendingQuotes.get(reqId);
@@ -104,6 +123,33 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void tickSize(int reqId, int field, Decimal size) {
+        // Auction (NOII) subscription, generic tick 225 → delivered as:
+        //   34 = AUCTION_VOLUME (paired shares), 36 = AUCTION_IMBALANCE, 61 = REGULATORY_IMBALANCE.
+        // Values are stored EXACTLY as delivered (after the usual MAX_VALUE sentinel filter).
+        // In particular the imbalance is NOT abs()'d and NOT sign-filtered: whether IBKR encodes
+        // the imbalance side as a sign on tick 36 (native Nasdaq NOII carries quantity and side
+        // in two separate fields) is unverified until observed live — the INFO logs below are
+        // the verification instrument. Until then, treat the sign in downstream analysis as
+        // provisional.
+        IbkrAuctionResult.Builder auctionBuilder = pendingAuction.get(reqId);
+        if (auctionBuilder != null && (field == 34 || field == 36 || field == 61)) {
+            long v = size.longValue();
+            String meaning = switch (field) {
+                case 34 -> "AUCTION_VOLUME";
+                case 36 -> "AUCTION_IMBALANCE";
+                default -> "REGULATORY_IMBALANCE";
+            };
+            log.info("IBKR auction tick: reqId={} type={} {} raw={}", reqId, field, meaning, v);
+            if (Math.abs(v) < Integer.MAX_VALUE) {
+                switch (field) {
+                    case 34 -> auctionBuilder.auctionVolume(v);
+                    case 36 -> auctionBuilder.imbalance(v);
+                    default -> auctionBuilder.regulatoryImbalance(v);
+                }
+            }
+            return;
+        }
+
         // Option volume ticks for the METRICS request on the underlying (generic tick 100):
         // 29 = call option volume, 30 = put option volume. IBKR uses Integer.MAX_VALUE as
         // an "undefined" sentinel — such values must be ignored, not treated as volume.
@@ -290,6 +336,32 @@ public class IbkrWrapper extends DefaultEWrapper {
         pendingOptionsMetrics.remove(reqId);
     }
 
+    /**
+     * Registers an auction (NOII) collection request. The returned future NEVER completes
+     * normally — it exists solely so error() / connectionClosed() can abort the caller's
+     * collection window early with a real exception. The expected flow is: caller blocks on
+     * the future for the collection window, gets a TimeoutException (normal!), then calls
+     * {@link #harvestAuctionRequest(int)} to collect whatever ticks arrived.
+     */
+    public CompletableFuture<Void> registerAuctionRequest(int reqId) {
+        CompletableFuture<Void> f = new CompletableFuture<>();
+        pendingAuctionFutures.put(reqId, f);
+        pendingAuction.put(reqId, IbkrAuctionResult.builder());
+        return f;
+    }
+
+    /** Removes and builds the auction builder for this reqId. Null if already discarded. */
+    public IbkrAuctionResult harvestAuctionRequest(int reqId) {
+        pendingAuctionFutures.remove(reqId);
+        IbkrAuctionResult.Builder b = pendingAuction.remove(reqId);
+        return b != null ? b.build() : null;
+    }
+
+    public void discardAuctionRequest(int reqId) {
+        pendingAuctionFutures.remove(reqId);
+        pendingAuction.remove(reqId);
+    }
+
     public CompletableFuture<Integer> registerContractDetailsRequest(int reqId) {
         CompletableFuture<Integer> f = new CompletableFuture<>();
         pendingContractDetails.put(reqId, f);
@@ -380,6 +452,11 @@ public class IbkrWrapper extends DefaultEWrapper {
             contractActivityWaitsForOI.remove(id);
             af.completeExceptionally(new IbkrException(errorCode, errorMsg));
         }
+        CompletableFuture<Void> auf = pendingAuctionFutures.remove(id);
+        if (auf != null) {
+            pendingAuction.remove(id);
+            auf.completeExceptionally(new IbkrException(errorCode, errorMsg));
+        }
     }
 
     @Override public void error(String str) { log.warn("IBKR: {}", str); }
@@ -403,6 +480,9 @@ public class IbkrWrapper extends DefaultEWrapper {
         pendingContractActivityFutures.clear();
         pendingContractActivity.clear();
         contractActivityWaitsForOI.clear();
+        pendingAuctionFutures.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
+        pendingAuctionFutures.clear();
+        pendingAuction.clear();
     }
 
     @Override public void nextValidId(int o) { log.info("IBKR next valid order ID: {}", o); }

@@ -67,6 +67,12 @@ public class SnapshotEntity {
     private Double daysToCover;
     private Double instOwn;
 
+    // --- Auction (NOII, generic tick 225) scalars ---
+    // Populated only in Nasdaq NOII dissemination windows; null the rest of the session.
+    // Imbalance is stored raw as delivered — sign semantics unverified, see AuctionData.
+    private Double auctionPrice;
+    private Long auctionImbalance;
+
     // --- Full-fidelity JSON payloads ---
     @Column(columnDefinition = "json")
     private String oiProfileJson;
@@ -76,6 +82,9 @@ public class SnapshotEntity {
 
     @Column(columnDefinition = "json")
     private String newsJson;
+
+    @Column(columnDefinition = "json")
+    private String auctionJson;
 
     // --- Getters/Setters (JPA) ---
 
@@ -137,4 +146,10 @@ public class SnapshotEntity {
     public void setUnusualActivityJson(String unusualActivityJson) { this.unusualActivityJson = unusualActivityJson; }
     public String getNewsJson() { return newsJson; }
     public void setNewsJson(String newsJson) { this.newsJson = newsJson; }
+    public Double getAuctionPrice() { return auctionPrice; }
+    public void setAuctionPrice(Double auctionPrice) { this.auctionPrice = auctionPrice; }
+    public Long getAuctionImbalance() { return auctionImbalance; }
+    public void setAuctionImbalance(Long auctionImbalance) { this.auctionImbalance = auctionImbalance; }
+    public String getAuctionJson() { return auctionJson; }
+    public void setAuctionJson(String auctionJson) { this.auctionJson = auctionJson; }
 }

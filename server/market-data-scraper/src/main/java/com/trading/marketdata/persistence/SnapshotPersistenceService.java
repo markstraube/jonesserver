@@ -126,6 +126,11 @@ public class SnapshotPersistenceService {
             e.setInstOwn(s.shortData().instOwn());
         }
         e.setNewsJson(toJson(s.news()));
+        if (s.auction() != null && s.auction().dataAvailable()) {
+            e.setAuctionPrice(s.auction().auctionPrice());
+            e.setAuctionImbalance(s.auction().imbalance());
+            e.setAuctionJson(toJson(s.auction()));
+        }
         return e;
     }
 

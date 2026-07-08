@@ -41,10 +41,16 @@ CREATE TABLE IF NOT EXISTS market_snapshot (
     days_to_cover           DOUBLE NULL,
     inst_own                DOUBLE NULL,
 
+    -- auction / NOII scalars (IBKR generic tick 225; null outside Nasdaq NOII windows,
+    -- imbalance stored raw as delivered — sign semantics wire-log-verified, see AuctionData)
+    auction_price           DOUBLE NULL,
+    auction_imbalance       BIGINT NULL,
+
     -- full-fidelity payloads
     oi_profile_json         JSON NULL,
     unusual_activity_json   JSON NULL,
     news_json               JSON NULL,
+    auction_json            JSON NULL,
 
     PRIMARY KEY (id),
     KEY idx_ticker_ts (ticker, snapshot_ts)
