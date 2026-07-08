@@ -53,9 +53,30 @@ public class IbkrMarketDataService {
         this.wrapper = wrapper;
     }
 
+    // Race-condition fix: grace window between the volume-freshness signal and the harvest.
+    // The first ticks of a subscription are the Gateway's cache image; LAST updates straight
+    // from the farm land within tens of milliseconds after it in an active market. 300ms is
+    // deliberately generous — quote latency is dominated by it now, not by the old 11s
+    // snapshot floor, so the fetch is still an order of magnitude faster than before.
+    @Value("${ibkr.quote-grace-ms:300}")
+    private long quoteGraceMs = 300;
+
     /**
-     * Fetches a realtime snapshot quote for a US stock via IBKR.
-     * Returns null if gateway is not connected or request times out.
+     * Fetches a realtime quote for a US stock via IBKR.
+     *
+     * RACE-CONDITION FIX (2026-07-08): this is now a short-lived STREAMING request, not a
+     * snapshot. A snapshot=true request is answered from the Gateway's local cache and closed
+     * by tickSnapshotEnd at exactly that cache state — in a fast market the delivered LAST is
+     * "true but old" (observed live: LAST stuck at the 902.40 opening print while the market
+     * traded ~940). The streaming subscription keeps receiving past the cache image, so the
+     * flow is: subscribe → wait for the VOLUME tick (freshness sentinel: monotonic, updates
+     * on every trade) → sleep a short grace window so in-flight LAST ticks land → harvest the
+     * LATEST value of every field → cancel. The subscription lives ~grace+image time, so the
+     * market-data-line budget is unaffected.
+     *
+     * Returns null if the gateway is not connected or nothing usable arrived in time. If the
+     * volume sentinel never fires (halted/illiquid), falls back to whatever partial state
+     * arrived, flagged in the log as possibly stale.
      */
     public QuoteData fetchQuote(String ticker) {
         if (!connectionManager.isConnected()) {
@@ -68,24 +89,41 @@ public class IbkrMarketDataService {
         connectionManager.getClient().reqMarketDataType(1);
 
         int reqId = connectionManager.nextReqId();
-        CompletableFuture<IbkrQuoteResult> future = wrapper.registerQuoteRequest(reqId);
+        wrapper.registerQuoteRequest(reqId); // routing marker + error channel for tickPrice/tickSize
+        CompletableFuture<Void> volumeSignal = wrapper.registerQuoteVolumeSignal(reqId);
 
         Contract contract = usStockContract(ticker);
 
-        // genericTickList "" = standard ticks only; snapshot = true = one-time request (no subscription)
-        connectionManager.getClient().reqMktData(reqId, contract, "", true, false, null);
+        // snapshot=false: streaming — see method javadoc for why snapshot=true is wrong here
+        connectionManager.getClient().reqMktData(reqId, contract, "", false, false, null);
 
         try {
-            IbkrQuoteResult result = future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            return toQuoteData(ticker, result);
+            volumeSignal.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Thread.sleep(quoteGraceMs);
+            return toQuoteData(ticker, wrapper.harvestQuoteRequest(reqId));
         } catch (TimeoutException e) {
+            // Volume sentinel never fired (halted / no trades / dead subscription). Harvest
+            // whatever partial state arrived rather than discarding it — but say so loudly,
+            // because without the sentinel the values may be pure Gateway cache.
+            IbkrQuoteResult partial = wrapper.harvestQuoteRequest(reqId);
+            if (partial != null && (partial.last() != null || (partial.bid() != null && partial.ask() != null))) {
+                log.warn("IBKR quote for {}: no volume tick within {}s — returning possibly-stale partial (reqId={})",
+                        ticker, TIMEOUT_SECONDS, reqId);
+                return toQuoteData(ticker, partial);
+            }
             log.warn("IBKR quote timeout for {} (reqId={})", ticker, reqId);
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             wrapper.discardQuoteRequest(reqId);
             return null;
         } catch (Exception e) {
             log.warn("IBKR quote failed for {}: {}", ticker, e.getMessage());
             wrapper.discardQuoteRequest(reqId);
             return null;
+        } finally {
+            // Always cancel: this is a streaming subscription now, not a self-closing snapshot
+            connectionManager.getClient().cancelMktData(reqId);
         }
     }
 

@@ -26,6 +26,12 @@ public class IbkrWrapper extends DefaultEWrapper {
     private EClientSocket client;
 
     private final Map<Integer, CompletableFuture<IbkrQuoteResult>>        pendingQuotes       = new ConcurrentHashMap<>();
+    // Race-condition fix (streaming quote fetch): completes when the first VOLUME tick (8/74)
+    // arrives for a quote reqId. Volume is the freshness sentinel — it is monotonically
+    // increasing and updates on every trade, so its arrival marks the point after which the
+    // grace window opens and the harvested LAST reflects the market, not the Gateway cache.
+    // Completed exceptionally by error()/connectionClosed(), like all other signals.
+    private final Map<Integer, CompletableFuture<Void>>                   pendingQuoteVolumeSignals = new ConcurrentHashMap<>();
     private final Map<Integer, IbkrOptionsChainResult.Builder>             pendingChains       = new ConcurrentHashMap<>();
     private final Map<Integer, CompletableFuture<IbkrOptionsChainResult>>  pendingChainFutures = new ConcurrentHashMap<>();
     private final Map<Integer, String>                                     chainRequestTicker  = new ConcurrentHashMap<>();
@@ -98,7 +104,8 @@ public class IbkrWrapper extends DefaultEWrapper {
             case 14, 76 -> b.open(price);  // 76 = delayed open
             default -> {}
         }
-        // Do NOT complete here — wait for tickSnapshotEnd to get all fields
+        // Do NOT complete here — the builder only accumulates; the service harvests the
+        // latest state after the volume sentinel + grace window (race-condition fix).
     }
 
     @Override
@@ -172,6 +179,10 @@ public class IbkrWrapper extends DefaultEWrapper {
         if (field == 8 || field == 74) { // 74 = delayed volume
             if (pendingQuotes.containsKey(reqId)) {
                 IbkrQuoteResult.builderFor(reqId).volume(size.longValue());
+                CompletableFuture<Void> volumeSignal = pendingQuoteVolumeSignals.get(reqId);
+                if (volumeSignal != null && !volumeSignal.isDone()) {
+                    volumeSignal.complete(null);
+                }
             }
 
             IbkrOptionContractActivity.Builder actBuilder = pendingContractActivity.get(reqId);
@@ -220,7 +231,10 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void tickSnapshotEnd(int reqId) {
-        // Complete quote future if pending
+        // LEGACY for quotes: the quote path is a streaming request since the 2026-07-08
+        // race-condition fix, so this never fires for it anymore (snapshot=false sends no
+        // tickSnapshotEnd). Kept because it is harmless (remove() returns null) and still
+        // correct should any future caller issue a snapshot=true quote request.
         CompletableFuture<IbkrQuoteResult> quoteFuture = pendingQuotes.remove(reqId);
         if (quoteFuture != null && !quoteFuture.isDone()) {
             quoteFuture.complete(IbkrQuoteResult.builderFor(reqId).build(reqId));
@@ -299,6 +313,31 @@ public class IbkrWrapper extends DefaultEWrapper {
         return f;
     }
 
+    /**
+     * Registers the volume-freshness signal for a streaming quote request. Completes on the
+     * first VOLUME tick (see tickSize), exceptionally on error()/connectionClosed(). The
+     * caller waits on this, then sleeps the grace window, then harvests — the quote future
+     * from registerQuoteRequest is no longer completed normally on this path (it remains as
+     * the routing marker for tickPrice/tickSize and legacy tickSnapshotEnd handling).
+     */
+    public CompletableFuture<Void> registerQuoteVolumeSignal(int reqId) {
+        CompletableFuture<Void> f = new CompletableFuture<>();
+        pendingQuoteVolumeSignals.put(reqId, f);
+        return f;
+    }
+
+    /**
+     * Removes and builds the accumulated quote state for this reqId — the latest value of
+     * every field that arrived up to this moment. Monotonic overwrite in the builder is the
+     * core of the race fix: a stale cache LAST delivered first is replaced by any fresher
+     * LAST that lands during the grace window.
+     */
+    public IbkrQuoteResult harvestQuoteRequest(int reqId) {
+        pendingQuotes.remove(reqId);
+        pendingQuoteVolumeSignals.remove(reqId);
+        return IbkrQuoteResult.builderFor(reqId).build(reqId);
+    }
+
     public CompletableFuture<IbkrOptionsChainResult> registerChainRequest(int reqId, String ticker) {
         CompletableFuture<IbkrOptionsChainResult> f = new CompletableFuture<>();
         pendingChainFutures.put(reqId, f);
@@ -327,6 +366,7 @@ public class IbkrWrapper extends DefaultEWrapper {
      */
     public void discardQuoteRequest(int reqId) {
         pendingQuotes.remove(reqId);
+        pendingQuoteVolumeSignals.remove(reqId);
         IbkrQuoteResult.discard(reqId);
     }
 
@@ -437,6 +477,8 @@ public class IbkrWrapper extends DefaultEWrapper {
         log.warn("IBKR error id={} code={}: {}", id, errorCode, errorMsg);
         CompletableFuture<IbkrQuoteResult> qf = pendingQuotes.remove(id);
         if (qf != null) qf.completeExceptionally(new IbkrException(errorCode, errorMsg));
+        CompletableFuture<Void> qvs = pendingQuoteVolumeSignals.remove(id);
+        if (qvs != null) qvs.completeExceptionally(new IbkrException(errorCode, errorMsg));
         CompletableFuture<IbkrOptionsChainResult> cf = pendingChainFutures.remove(id);
         if (cf != null) cf.completeExceptionally(new IbkrException(errorCode, errorMsg));
         CompletableFuture<IbkrOptionsResult> of = pendingOptionsMetricsFutures.remove(id);
@@ -467,6 +509,8 @@ public class IbkrWrapper extends DefaultEWrapper {
         log.warn("IBKR connection closed.");
         pendingQuotes.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
         pendingQuotes.clear();
+        pendingQuoteVolumeSignals.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
+        pendingQuoteVolumeSignals.clear();
         pendingChainFutures.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
         pendingChainFutures.clear();
         pendingChains.clear();
