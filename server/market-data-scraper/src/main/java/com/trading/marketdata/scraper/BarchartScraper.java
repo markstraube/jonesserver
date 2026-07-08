@@ -146,13 +146,13 @@ public class BarchartScraper {
                         ? (double) volume / oi
                         : null;
 
-                String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
-
                 // Barchart delivers no per-contract bid/ask/last and therefore no premium
-                // notional — those fields exist only on the IBKR path (OptionActivityService).
+                // notional and no aggressor classification — those fields exist only on the
+                // IBKR path (OptionActivityService). UNKNOWN is the honest label here: no
+                // quote to locate the last print against, so no direction is claimed.
                 result.add(new OptionsData.UnusualActivity(
                         expiry, strike, type, volume, oi, volOiRatio,
-                        null, null, null, null, iv, sentiment
+                        null, null, null, null, iv, null, "UNKNOWN", null
                 ));
                 if (result.size() >= 10) break;
             }

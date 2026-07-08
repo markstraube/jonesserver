@@ -29,6 +29,32 @@ public record OptionsData(
      * tickets by up to ~100x. Null when neither a last nor a two-sided quote arrived —
      * never fabricated. Caveat: for a contract that hasn't traded today, IBKR's "last" is
      * the previous session's print — order-of-magnitude correct, not tradeable pricing.
+     *
+     * lastLocation/aggressor/lastAgeSeconds replace the former "sentiment" label
+     * (2026-07-07). "PUT => BEARISH" classified the existence of an instrument, not the
+     * direction of aggression: a put SOLD at the bid is a premium seller volunteering to
+     * carry downside — neutral-to-bullish, the opposite of what the label claimed. Same
+     * reasoning that removed the news sentiment classifier: a confidently wrong label is
+     * worse than an honest raw feature. Interpretation (put bought at ask in a falling
+     * tape = crash protection demand, put hit at bid = someone monetizing hedges or
+     * writing premium) belongs in the analysis layer, with context this record can't see.
+     *
+     * lastLocation: (last - bid) / (ask - bid) against the quote pair FROZEN when the last
+     *         tick arrived (falls back to the end-of-window pair when no freeze happened),
+     *         clamped to [0,1]. 0 = printed at bid (seller-initiated), 1 = at ask
+     *         (buyer-initiated) — the quote rule of Lee/Ready trade classification.
+     * aggressor: AT_ASK (>= 0.75) / AT_BID (<= 0.25) / MID — or STALE when the last trade
+     *         is older than the configured threshold (the quote has moved on; a location
+     *         against today's quote would be fiction), or UNKNOWN when there is no last,
+     *         no two-sided quote, or a crossed quote (ask <= bid).
+     * lastAgeSeconds: now minus the last trade's own timestamp (IBKR tick 45/88), when
+     *         delivered. The staleness measurement behind STALE — also lets the analysis
+     *         layer weigh a 3-second-old print differently from a 3-hour-old one.
+     *
+     * Caveat that stays true no matter how clean the classification: one last print does
+     * not classify the day's cumulative volume behind a UA signal, and spread legs execute
+     * at negotiated prices where aggressor logic has no meaning. This is an honest feature
+     * about the most recent trade, not a verdict about the flow.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record UnusualActivity(
@@ -43,7 +69,9 @@ public record OptionsData(
             Double last,
             Double premiumNotionalUsd,
             Double iv,
-            String sentiment
+            Double lastLocation,
+            String aggressor,
+            Long lastAgeSeconds
     ) {}
 
     /**

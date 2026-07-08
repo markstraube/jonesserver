@@ -90,6 +90,11 @@ public class OptionActivityService {
     @Value("${unusual-activity.max-results:10}")
     private int maxResults;
 
+    // A last print older than this (vs. its own IBKR trade timestamp, tick 45/88) is
+    // classified STALE instead of being located inside a quote it never traded against.
+    @Value("${unusual-activity.aggressor-stale-seconds:300}")
+    private long aggressorStaleSeconds;
+
     private final IbkrMarketDataService ibkrService;
     private final QuoteService quoteService;
     private final CacheManager cacheManager;
@@ -280,11 +285,14 @@ public class OptionActivityService {
                                     ticker, expiry, strike, right);
                         }
                         String type = "C".equals(right) ? "CALL" : "PUT";
-                        String sentiment = "CALL".equals(type) ? "BULLISH" : "BEARISH";
+                        AggressorFeatures agg = classifyAggressor(result);
+                        log.info("Options activity for {} {} {} {}: flagged, aggressor={} lastLocation={} lastAge={}s",
+                                ticker, expiry, strike, right, agg.aggressor(), agg.lastLocation(), agg.lastAgeSeconds());
                         unusual.add(new OptionsData.UnusualActivity(
                                 expiry, strike, type, result.volume, result.openInterest,
                                 result.ratio, result.bid, result.ask, result.last,
-                                premiumNotional, null, sentiment));
+                                premiumNotional, null,
+                                agg.lastLocation(), agg.aggressor(), agg.lastAgeSeconds()));
                     }
                 }
             }
@@ -428,7 +436,8 @@ public class OptionActivityService {
     }
 
     private record ContractResult(Long volume, Long openInterest, Double ratio,
-                                  Double bid, Double ask, Double last) {}
+                                  Double bid, Double ask, Double last,
+                                  Double bidAtLast, Double askAtLast, Long lastTimestampEpoch) {}
 
     /**
      * Premium basis for notional: last print first (a traded contract's own price), bid/ask
@@ -439,6 +448,62 @@ public class OptionActivityService {
         if (r.last != null) return r.last;
         if (r.bid != null && r.ask != null) return (r.bid + r.ask) / 2.0;
         return null;
+    }
+
+    /** Raw aggressor features for one contract — see UnusualActivity javadoc for semantics. */
+    private record AggressorFeatures(Double lastLocation, String aggressor, Long lastAgeSeconds) {}
+
+    /**
+     * Quote-rule trade classification (Lee/Ready): where inside the bid-ask spread did the
+     * last trade print? Near the ask = buyer lifted the offer (aggressive buying), near the
+     * bid = seller hit the bid (aggressive selling). Two integrity rules:
+     *
+     * 1. The comparison quote is the pair FROZEN at the moment the last tick arrived
+     *    (IbkrOptionContractActivity.Builder#last). Fallback to the end-of-window pair only
+     *    when no freeze happened — never one frozen side mixed with one end-of-window side,
+     *    that compares prices from two different moments.
+     * 2. A last print older than {@code aggressorStaleSeconds} is classified STALE, not
+     *    located: the quote has moved on since that trade, and a location computed against
+     *    today's quote would be fiction. lastLocation is still emitted for STALE (the
+     *    analysis layer may weigh it), but the label refuses to pretend it's current.
+     *
+     * UNKNOWN when there is no last, no two-sided quote, or a crossed quote (ask <= bid) —
+     * same quality-gate philosophy as persistence: refuse to classify rather than guess.
+     */
+    private AggressorFeatures classifyAggressor(ContractResult r) {
+        Long age = null;
+        if (r.lastTimestampEpoch != null && r.lastTimestampEpoch > 0) {
+            age = Math.max(0L, java.time.Instant.now().getEpochSecond() - r.lastTimestampEpoch);
+        }
+
+        Double bid, ask;
+        if (r.bidAtLast != null && r.askAtLast != null) {
+            bid = r.bidAtLast;
+            ask = r.askAtLast;
+        } else {
+            bid = r.bid;
+            ask = r.ask;
+        }
+
+        if (r.last == null || bid == null || ask == null || ask <= bid) {
+            return new AggressorFeatures(null, "UNKNOWN", age);
+        }
+
+        double location = (r.last - bid) / (ask - bid);
+        location = Math.max(0.0, Math.min(1.0, location));
+        double rounded = Math.round(location * 10000.0) / 10000.0;
+
+        String aggressor;
+        if (age != null && age > aggressorStaleSeconds) {
+            aggressor = "STALE";
+        } else if (location >= 0.75) {
+            aggressor = "AT_ASK";
+        } else if (location <= 0.25) {
+            aggressor = "AT_BID";
+        } else {
+            aggressor = "MID";
+        }
+        return new AggressorFeatures(rounded, aggressor, age);
     }
 
     private ContractResult evaluateContract(String ticker, String expiry, double strike, String right,
@@ -456,11 +521,13 @@ public class OptionActivityService {
         Long volume;
         Long openInterest;
         Double bid = null, ask = null, last = null;
+        Double bidAtLast = null, askAtLast = null;
+        Long lastTs = null;
 
         try {
             if (cachedOI != null && marketClosed) {
                 // Closed market: cached OI is the complete answer, a volume fetch can only time out.
-                return new ContractResult(null, cachedOI, null, null, null, null);
+                return new ContractResult(null, cachedOI, null, null, null, null, null, null, null);
             } else if (cachedOI != null) {
                 // OI doesn't move intraday — reuse it, only ask IBKR for a fresh volume read.
                 // Price ticks (bid/ask/last) ride on the same request as default ticks.
@@ -469,6 +536,7 @@ public class OptionActivityService {
                 volume = act != null ? act.volume() : null;
                 if (act != null) {
                     bid = act.bid(); ask = act.ask(); last = act.last();
+                    bidAtLast = act.bidAtLast(); askAtLast = act.askAtLast(); lastTs = act.lastTimestampEpoch();
                 }
             } else {
                 IbkrOptionContractActivity act = fetchWithRetry(ticker, expiry, strike, right, true);
@@ -476,6 +544,7 @@ public class OptionActivityService {
                 volume = act.volume();
                 openInterest = act.openInterest();
                 bid = act.bid(); ask = act.ask(); last = act.last();
+                bidAtLast = act.bidAtLast(); askAtLast = act.askAtLast(); lastTs = act.lastTimestampEpoch();
                 if (openInterest != null && oiCache != null) {
                     oiCache.put(contractKey, openInterest);
                 }
@@ -513,10 +582,19 @@ public class OptionActivityService {
                 }
                 // The re-fetch carries the same default price ticks — backfill whatever the
                 // first attempt was missing (never overwrite an already-captured price).
+                // The frozen pair and trade timestamp belong to a specific last print, so
+                // they travel WITH the last they were frozen against — backfilling a lone
+                // bidAtLast next to the first attempt's last would pair a quote with a
+                // trade it never met.
                 if (refetch != null) {
                     if (bid == null) bid = refetch.bid();
                     if (ask == null) ask = refetch.ask();
-                    if (last == null) last = refetch.last();
+                    if (last == null && refetch.last() != null) {
+                        last = refetch.last();
+                        bidAtLast = refetch.bidAtLast();
+                        askAtLast = refetch.askAtLast();
+                        lastTs = refetch.lastTimestampEpoch();
+                    }
                 }
             } catch (com.trading.marketdata.ibkr.IbkrContractNotFoundException e) {
                 // Contract just delivered OI, so error 200 here would be transient noise — do
@@ -529,13 +607,13 @@ public class OptionActivityService {
         if (volume == null || openInterest <= 0) {
             log.info("Options activity check {} {} {} {}: volume={}, openInterest={} (no ratio, OI-only)",
                     ticker, expiry, strike, right, volume, openInterest);
-            return new ContractResult(volume, openInterest, null, bid, ask, last);
+            return new ContractResult(volume, openInterest, null, bid, ask, last, bidAtLast, askAtLast, lastTs);
         }
 
         double ratio = (double) volume / openInterest;
         log.info("Options activity check {} {} {} {}: volume={}, openInterest={}, ratio={}",
                 ticker, expiry, strike, right, volume, openInterest, String.format("%.2f", ratio));
-        return new ContractResult(volume, openInterest, ratio, bid, ask, last);
+        return new ContractResult(volume, openInterest, ratio, bid, ask, last, bidAtLast, askAtLast, lastTs);
     }
 
     /**

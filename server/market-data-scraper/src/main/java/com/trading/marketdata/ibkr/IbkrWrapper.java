@@ -83,6 +83,26 @@ public class IbkrWrapper extends DefaultEWrapper {
     }
 
     @Override
+    public void tickString(int reqId, int tickType, String value) {
+        // Option contract activity: field 45 = LAST_TIMESTAMP (delayed: 88) — unix epoch
+        // seconds of the last trade, a default tick on the same subscription. This is the
+        // staleness measurement for aggressor classification: without it, a last print from
+        // hours ago is indistinguishable from one that just hit the current quote. Same
+        // no-completion rule as tickPrice: this tick only enriches the builder.
+        if (tickType == 45 || tickType == 88) {
+            IbkrOptionContractActivity.Builder actBuilder = pendingContractActivity.get(reqId);
+            if (actBuilder != null && value != null && !value.isBlank()) {
+                try {
+                    long epoch = Long.parseLong(value.trim());
+                    if (epoch > 0) actBuilder.lastTimestamp(epoch);
+                } catch (NumberFormatException e) {
+                    log.debug("IBKR tickString reqId={} field={} unparseable last-timestamp '{}'", reqId, tickType, value);
+                }
+            }
+        }
+    }
+
+    @Override
     public void tickSize(int reqId, int field, Decimal size) {
         // Option volume ticks for the METRICS request on the underlying (generic tick 100):
         // 29 = call option volume, 30 = put option volume. IBKR uses Integer.MAX_VALUE as
