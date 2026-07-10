@@ -94,9 +94,11 @@ public class IbkrWrapper extends DefaultEWrapper {
     private record PendingArticle(String symbol, String articleId) {}
     private final Map<Integer, PendingArticle> pendingNewsArticles = new ConcurrentHashMap<>();
 
-    /** articleId → body. The same story ticks on several symbols (sector news) and again on
-     *  reconnect; one fetch per article is enough. Bounded crudely: past the cap the whole
-     *  cache is dropped — correctness never depends on a hit, a miss just refetches. */
+    /** storyKey → body (NOT full articleId: feed variants of one story — DJ-RTG$x, DJ-N$x —
+     *  share the body, keying by full id fetched the same article once per variant). The same
+     *  story ticks on several symbols (sector news) and again on reconnect; one fetch per
+     *  story is enough. Bounded crudely: past the cap the whole cache is dropped —
+     *  correctness never depends on a hit, a miss just refetches. */
     private final Map<String, String> articleTextCache = new ConcurrentHashMap<>();
 
     /** Leading IBKR headline metadata like "{K:n/a,C:0.6}Actual headline". */
@@ -144,8 +146,13 @@ public class IbkrWrapper extends DefaultEWrapper {
                 : Instant.ofEpochMilli(timeStamp < 100_000_000_000L ? timeStamp * 1000 : timeStamp);
 
         NewsItem item = new NewsItem(cleanHeadline, "ibkr:" + providerCode, null, published,
-                providerCode, articleId, articleTextCache.get(articleId));
-        tb.appendNews(item, newsMaxItemsPerTicker, now);
+                providerCode, articleId, articleTextCache.get(NewsItem.storyKey(articleId)));
+        if (!tb.appendNews(item, newsMaxItemsPerTicker, now)) {
+            // Same story from another feed variant (or a reconnect replay) — already in the
+            // Book, and its body fetch (if any) is either done or in flight. No second fetch.
+            log.debug("IBKR_NEWS symbol={} articleId={} duplicate story — dropped", symbol, articleId);
+            return;
+        }
         log.info("IBKR_NEWS symbol={} provider={} articleId={} headline=\"{}\"",
                 symbol, providerCode, articleId, cleanHeadline);
 
@@ -158,26 +165,41 @@ public class IbkrWrapper extends DefaultEWrapper {
         }
     }
 
-    /** Article body response. articleType: 0 = plain text, 1 = HTML (Briefing delivers
-     *  HTML) — HTML is flattened to text with jsoup, which the project already ships for
-     *  the scrapers. */
+    /** Article body response. articleType semantics per the TWS API docs: 0 = plain text
+     *  OR HTML (Dow Jones delivers HTML as type 0 — observed live, raw &lt;p&gt; tags in the
+     *  Book), 1 = binary data / PDF (base64). So type 0 is ALWAYS flattened with jsoup
+     *  (harmless on real plain text, decodes entities as a bonus) and type 1 is dropped:
+     *  a base64 PDF is not text and jsoup cannot make it one. */
     @Override
     public void newsArticle(int requestId, int articleType, String articleText) {
         PendingArticle pending = pendingNewsArticles.remove(requestId);
         if (pending == null) return;
-        String text = articleText == null ? "" : articleText;
         if (articleType == 1) {
-            text = org.jsoup.Jsoup.parse(text).text();
+            log.warn("IBKR_NEWS_ARTICLE symbol={} articleId={} is binary/PDF (articleType=1) — dropped, headline stays without body",
+                    pending.symbol(), pending.articleId());
+            return;
         }
+        String text = flattenArticleText(articleText);
         if (articleTextCache.size() >= articleCacheMax) {
             articleTextCache.clear(); // crude bound, see field comment
         }
-        articleTextCache.put(pending.articleId(), text);
+        articleTextCache.put(NewsItem.storyKey(pending.articleId()), text);
         TickerBook tb = book.find(pending.symbol());
         boolean attached = tb != null
                 && tb.attachArticleText(pending.articleId(), text, Instant.now());
         log.debug("IBKR_NEWS_ARTICLE symbol={} articleId={} chars={} attached={}",
                 pending.symbol(), pending.articleId(), text.length(), attached);
+    }
+
+    /** HTML → readable text: wholeText() keeps the source's line structure (paragraphs stay
+     *  paragraphs, unlike text(), which collapses everything to one line); the regexes trim
+     *  trailing whitespace and cap blank runs. Plain text passes through unharmed. */
+    static String flattenArticleText(String articleText) {
+        if (articleText == null || articleText.isBlank()) return "";
+        return org.jsoup.Jsoup.parse(articleText).wholeText()
+                .replaceAll("[ \\t\\x0B\\f\\r]+\\n", "\n")
+                .replaceAll("\\n{3,}", "\n\n")
+                .strip();
     }
 
     static String stripHeadlineMeta(String headline) {

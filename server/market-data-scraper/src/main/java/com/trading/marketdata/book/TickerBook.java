@@ -101,38 +101,55 @@ public final class TickerBook {
     public TimestampedField<List<NewsItem>> news() { return news; }
 
     /**
-     * Records one arriving headline (tickNews). Newest first, deduped by articleId (IBKR
-     * re-ticks the same story, e.g. after reconnect), capped at {@code maxItems}. EReader
-     * thread only — see the field comment.
+     * Records one arriving headline (tickNews). Newest first, deduped by story key — NOT by
+     * exact articleId: the same wire story arrives once per subscribed feed variant with
+     * only the provider prefix differing (see NewsItem.storyKey), and again on reconnect
+     * replays. A duplicate is dropped, keeping the FIRST arrival: it may already carry the
+     * asynchronously attached body, which a replacement would silently lose. The duplicate
+     * tick still refreshes lastSeenAt — it is a real tick on the news line. Capped at
+     * {@code maxItems}. EReader thread only — see the field comment.
+     *
+     * @return true when the item was appended, false when it was a duplicate story
      */
-    public void appendNews(NewsItem item, int maxItems, Instant now) {
+    public boolean appendNews(NewsItem item, int maxItems, Instant now) {
         List<NewsItem> cur = news.value();
+        String key = item.storyKey();
+        if (cur != null && key != null) {
+            for (NewsItem n : cur) {
+                if (key.equals(n.storyKey())) {
+                    news.update(cur, now); // same list value: only lastSeenAt moves
+                    return false;
+                }
+            }
+        }
         java.util.ArrayList<NewsItem> next = new java.util.ArrayList<>(maxItems + 1);
         next.add(item);
         if (cur != null) {
             for (NewsItem n : cur) {
                 if (next.size() >= maxItems) break;
-                if (item.articleId() != null && item.articleId().equals(n.articleId())) continue;
                 next.add(n);
             }
         }
         news.update(List.copyOf(next), now);
+        return true;
     }
 
     /**
      * Attaches the asynchronously fetched article body (newsArticle callback) to the item it
-     * belongs to. A miss is normal, not an error: the item may have been rotated out of the
-     * bounded window between request and response. EReader thread only.
+     * belongs to, matched by story key (feed variants share the body — see NewsItem.storyKey).
+     * A miss is normal, not an error: the item may have been rotated out of the bounded
+     * window between request and response. EReader thread only.
      *
      * @return true when the item was found and updated
      */
     public boolean attachArticleText(String articleId, String fullText, Instant now) {
         List<NewsItem> cur = news.value();
-        if (cur == null || articleId == null) return false;
+        String key = NewsItem.storyKey(articleId);
+        if (cur == null || key == null) return false;
         boolean hit = false;
         java.util.ArrayList<NewsItem> next = new java.util.ArrayList<>(cur.size());
         for (NewsItem n : cur) {
-            if (articleId.equals(n.articleId()) && n.fullText() == null) {
+            if (key.equals(n.storyKey()) && n.fullText() == null) {
                 next.add(n.withFullText(fullText));
                 hit = true;
             } else {

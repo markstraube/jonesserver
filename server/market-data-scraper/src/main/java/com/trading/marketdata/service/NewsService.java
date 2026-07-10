@@ -60,8 +60,12 @@ public class NewsService {
         if (ibkr != null) {
             for (NewsItem item : ibkr) {
                 if (merged.size() >= safeLimit) break;
-                merged.add(item);
-                seenHeadlines.add(normalize(item.headline()));
+                // The headline dedupe also applies WITHIN the IBKR items: the Book already
+                // dedupes feed variants by story key, but distinct providers (DJ vs Briefing)
+                // can carry the same story under different articleIds — same title, though.
+                if (seenHeadlines.add(normalize(item.headline()))) {
+                    merged.add(item);
+                }
             }
         }
 

@@ -36,4 +36,21 @@ public record NewsItem(
     public NewsItem withFullText(String text) {
         return new NewsItem(headline, source, url, publishedAt, providerCode, articleId, text);
     }
+
+    /**
+     * Provider-independent story identity. IBKR articleIds are "<providerCode>$<storyHash>"
+     * and the SAME wire story arrives once per subscribed feed variant (observed live:
+     * DJ-RTG$1ede2dbc, DJ-RTE$1ede2dbc, DJ-RTA$…, DJ-RT$…, DJ-N$… — five copies of one
+     * Barron's article). The hash after '$' identifies the story, the prefix only the feed,
+     * so dedupe must key on the hash. Falls back to the full id when the format is absent.
+     */
+    public static String storyKey(String articleId) {
+        if (articleId == null) return null;
+        int i = articleId.indexOf('$');
+        return i >= 0 ? articleId.substring(i + 1) : articleId;
+    }
+
+    public String storyKey() {
+        return storyKey(articleId);
+    }
 }
