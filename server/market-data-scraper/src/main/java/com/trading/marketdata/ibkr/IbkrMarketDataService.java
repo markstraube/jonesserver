@@ -1,11 +1,21 @@
 package com.trading.marketdata.ibkr;
 
 import com.ib.client.Contract;
+import com.ib.client.Decimal;
+import com.ib.client.HistoricalTickBidAsk;
+import com.ib.client.HistoricalTickLast;
+import com.trading.marketdata.analysis.AggressorClassifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -190,6 +200,165 @@ public class IbkrMarketDataService {
             connectionManager.getClient().cancelMktData(reqId);
             wrapper.clearContractActivityRight(reqId);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Historical day ticks (UA stage 2)
+    // -------------------------------------------------------------------------
+
+    private static final ZoneId US_EASTERN = ZoneId.of("US/Eastern");
+    private static final DateTimeFormatter HIST_TICK_START_FMT = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
+    private static final int MAX_TICKS_PER_REQUEST = 1000; // hard IBKR cap on reqHistoricalTicks
+
+    // Deliberately NOT ibkr.contract-activity-timeout-seconds: that 2s is calibrated for
+    // streaming-tick completion on a warm line. Historical tick requests go to the
+    // historical-data farm and legitimately take several seconds — a 2s timeout would
+    // mislabel most fetches PARTIAL. 15s matches the service's general TIMEOUT_SECONDS.
+    @Value("${ua.aggressor.request-timeout-seconds:15}")
+    int aggressorRequestTimeoutSeconds = 15;
+
+    /**
+     * Fetches one option contract's trade prints and NBBO updates from the session start
+     * forward (UA stage 2 raw material), paginated per §"verified API facts":
+     * exactly ONE of start/end is set (start here, end empty = ticks FORWARD from start),
+     * max 1000 ticks per request, next page starts PAST the last received tick's time.
+     * At one-second resolution "past" means +1s — when a full 1000-tick page cuts inside a
+     * single second, the remainder of that second is unreachable and the fetch is honest
+     * about it via tickCoverage rather than risking an infinite same-start loop.
+     *
+     * Pacing: TRADES pages cost 1 request-equivalent, BID_ASK pages cost 2 (IBKR counts
+     * BID_ASK double against the shared historical-data budget). The budget is checked
+     * BEFORE every page; exhaustion mid-fetch returns what arrived, flagged partial.
+     * Timeouts likewise: partial result, never an exception to the caller.
+     */
+    public IbkrDayTicks fetchDayTicks(String ticker, String expiry, double strike, String right,
+                                      ZonedDateTime sessionStartEt, HistoricalRequestBudget budget) {
+        if (!connectionManager.isConnected()) {
+            log.debug("IBKR not connected — skipping day ticks for {} {} {} {}", ticker, expiry, strike, right);
+            return null;
+        }
+        Contract contract = optionContract(ticker, expiry, strike, right);
+        String label = ticker + " " + expiry + " " + strike + " " + right;
+
+        Page<HistoricalTickLast> trades = fetchTickPages(contract, label, "TRADES", 1, sessionStartEt, budget,
+                new Channel<>() {
+                    public CompletableFuture<List<HistoricalTickLast>> register(int reqId) { return wrapper.registerHistoricalTradesRequest(reqId); }
+                    public void discard(int reqId) { wrapper.discardHistoricalTradesRequest(reqId); }
+                    public long timeOf(HistoricalTickLast t) { return t.time(); }
+                });
+        Page<HistoricalTickBidAsk> quotes = fetchTickPages(contract, label, "BID_ASK", 2, sessionStartEt, budget,
+                new Channel<>() {
+                    public CompletableFuture<List<HistoricalTickBidAsk>> register(int reqId) { return wrapper.registerHistoricalBidAskRequest(reqId); }
+                    public void discard(int reqId) { wrapper.discardHistoricalBidAskRequest(reqId); }
+                    public long timeOf(HistoricalTickBidAsk t) { return t.time(); }
+                });
+
+        IbkrDayTicks result = new IbkrDayTicks(toTrades(trades.ticks), toQuotes(quotes.ticks),
+                trades.partial || quotes.partial, trades.used + quotes.used);
+        log.info("IBKR day ticks {}: trades={} quotes={} requestEquivalents={} partial={}",
+                label, result.trades().size(), result.quotes().size(),
+                result.requestEquivalentsUsed(), result.partial());
+        return result;
+    }
+
+    private interface Channel<T> {
+        CompletableFuture<List<T>> register(int reqId);
+        void discard(int reqId);
+        long timeOf(T tick);
+    }
+
+    private record Page<T>(List<T> ticks, boolean partial, int used) {}
+
+    private <T> Page<T> fetchTickPages(Contract contract, String label, String whatToShow, int costPerRequest,
+                                       ZonedDateTime startEt, HistoricalRequestBudget budget, Channel<T> channel) {
+        List<T> all = new ArrayList<>();
+        boolean partial = false;
+        int used = 0;
+        ZonedDateTime start = startEt.withZoneSameInstant(US_EASTERN);
+
+        while (true) {
+            if (!budget.tryConsume(costPerRequest)) {
+                log.info("UA_AGGRESSOR budget exhausted mid-fetch {} {} — returning partial ({} ticks)",
+                        label, whatToShow, all.size());
+                partial = true;
+                break;
+            }
+            used += costPerRequest;
+            int reqId = connectionManager.nextReqId();
+            CompletableFuture<List<T>> future = channel.register(reqId);
+            // Timezone suffix explicit per API contract; useRth=0 (pre/post prints belong to
+            // the day's flow), ignoreSize=false.
+            connectionManager.getClient().reqHistoricalTicks(reqId, contract,
+                    HIST_TICK_START_FMT.format(start) + " US/Eastern", "",
+                    MAX_TICKS_PER_REQUEST, whatToShow, 0, false, null);
+
+            List<T> batch;
+            try {
+                batch = future.get(aggressorRequestTimeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                log.warn("IBKR historical ticks timeout {} {} (reqId={}) — returning partial ({} ticks)",
+                        label, whatToShow, reqId, all.size());
+                channel.discard(reqId);
+                partial = true;
+                break;
+            } catch (Exception e) {
+                log.warn("IBKR historical ticks failed {} {} (reqId={}): {} — returning partial ({} ticks)",
+                        label, whatToShow, reqId, e.getMessage(), all.size());
+                channel.discard(reqId);
+                partial = true;
+                break;
+            }
+
+            all.addAll(batch);
+            if (batch.size() < MAX_TICKS_PER_REQUEST) {
+                break; // fewer than requested returned = the day is covered up to now
+            }
+            ZonedDateTime next = Instant.ofEpochSecond(channel.timeOf(batch.get(batch.size() - 1)) + 1)
+                    .atZone(US_EASTERN);
+            if (!next.isAfter(start)) {
+                // Paranoia guard: a page that cannot advance the cursor would loop forever
+                // (would require IBKR returning ticks before the requested start).
+                log.warn("IBKR historical ticks pagination stalled {} {} at {} — returning partial",
+                        label, whatToShow, start);
+                partial = true;
+                break;
+            }
+            start = next;
+        }
+        return new Page<>(all, partial, used);
+    }
+
+    /**
+     * Boundary conversion to the classifier's internal records — no com.ib.client type
+     * leaves this package. Times are epoch SECONDS (verified against TwsApi.jar; the
+     * classifier's same-second collision handling exists because of this resolution).
+     * Decimal sizes take the same path as the live tickSize handling: longValue() with the
+     * Integer.MAX_VALUE "undefined" sentinel filtered; invalid and non-positive sizes are
+     * dropped entirely (a zero-size print is not a trade, but it would still lengthen
+     * sweep runs if kept).
+     */
+    private static List<AggressorClassifier.Trade> toTrades(List<HistoricalTickLast> raw) {
+        List<AggressorClassifier.Trade> out = new ArrayList<>(raw.size());
+        for (HistoricalTickLast t : raw) {
+            Decimal size = t.size();
+            if (size == null || !Decimal.isValid(size)) continue;
+            long contracts = size.longValue();
+            if (contracts <= 0 || contracts >= Integer.MAX_VALUE) continue;
+            boolean unreported = t.tickAttribLast() != null && t.tickAttribLast().unreported();
+            out.add(new AggressorClassifier.Trade(t.time(), t.price(), contracts,
+                    t.exchange(), t.specialConditions(), unreported));
+        }
+        return out;
+    }
+
+    private static List<AggressorClassifier.Quote> toQuotes(List<HistoricalTickBidAsk> raw) {
+        List<AggressorClassifier.Quote> out = new ArrayList<>(raw.size());
+        for (HistoricalTickBidAsk q : raw) {
+            // Placeholder-side quotes (bid/ask <= 0) pass through: the classifier's
+            // A > B > 0 gate turns them into UNKNOWN rather than dropping the timeline entry.
+            out.add(new AggressorClassifier.Quote(q.time(), q.priceBid(), q.priceAsk()));
+        }
+        return out;
     }
 
     // -------------------------------------------------------------------------

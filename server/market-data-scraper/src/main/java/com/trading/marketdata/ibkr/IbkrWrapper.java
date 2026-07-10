@@ -412,6 +412,68 @@ public class IbkrWrapper extends DefaultEWrapper {
         }
     }
 
+    // =========================================================================
+    // Historical ticks (UA stage 2 — reqHistoricalTicks per flagged contract)
+    // Same pending-future pattern as the per-contract activity requests: register a
+    // future per reqId, accumulate batches on the EReader thread, complete on done=true,
+    // fail via error(), clean up on timeout (discard) and connectionClosed().
+    // whatToShow routing: "TRADES" arrives via historicalTicksLast, "BID_ASK" via
+    // historicalTicksBidAsk — tick times are epoch SECONDS (verified against TwsApi.jar).
+    // =========================================================================
+
+    private final Map<Integer, java.util.List<HistoricalTickLast>> pendingHistTrades = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<java.util.List<HistoricalTickLast>>> pendingHistTradesFutures = new ConcurrentHashMap<>();
+    private final Map<Integer, java.util.List<HistoricalTickBidAsk>> pendingHistQuotes = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<java.util.List<HistoricalTickBidAsk>>> pendingHistQuotesFutures = new ConcurrentHashMap<>();
+
+    public CompletableFuture<java.util.List<HistoricalTickLast>> registerHistoricalTradesRequest(int reqId) {
+        CompletableFuture<java.util.List<HistoricalTickLast>> f = new CompletableFuture<>();
+        pendingHistTrades.put(reqId, new java.util.ArrayList<>());
+        pendingHistTradesFutures.put(reqId, f);
+        return f;
+    }
+
+    public void discardHistoricalTradesRequest(int reqId) {
+        pendingHistTrades.remove(reqId);
+        pendingHistTradesFutures.remove(reqId);
+    }
+
+    public CompletableFuture<java.util.List<HistoricalTickBidAsk>> registerHistoricalBidAskRequest(int reqId) {
+        CompletableFuture<java.util.List<HistoricalTickBidAsk>> f = new CompletableFuture<>();
+        pendingHistQuotes.put(reqId, new java.util.ArrayList<>());
+        pendingHistQuotesFutures.put(reqId, f);
+        return f;
+    }
+
+    public void discardHistoricalBidAskRequest(int reqId) {
+        pendingHistQuotes.remove(reqId);
+        pendingHistQuotesFutures.remove(reqId);
+    }
+
+    @Override
+    public void historicalTicksLast(int reqId, java.util.List<HistoricalTickLast> ticks, boolean done) {
+        java.util.List<HistoricalTickLast> acc = pendingHistTrades.get(reqId);
+        if (acc == null) return; // not ours, or discarded after a timeout — late batches are dropped
+        if (ticks != null) acc.addAll(ticks);
+        if (done) {
+            pendingHistTrades.remove(reqId);
+            CompletableFuture<java.util.List<HistoricalTickLast>> f = pendingHistTradesFutures.remove(reqId);
+            if (f != null && !f.isDone()) f.complete(acc);
+        }
+    }
+
+    @Override
+    public void historicalTicksBidAsk(int reqId, java.util.List<HistoricalTickBidAsk> ticks, boolean done) {
+        java.util.List<HistoricalTickBidAsk> acc = pendingHistQuotes.get(reqId);
+        if (acc == null) return;
+        if (ticks != null) acc.addAll(ticks);
+        if (done) {
+            pendingHistQuotes.remove(reqId);
+            CompletableFuture<java.util.List<HistoricalTickBidAsk>> f = pendingHistQuotesFutures.remove(reqId);
+            if (f != null && !f.isDone()) f.complete(acc);
+        }
+    }
+
     private void completeContractActivity(int reqId) {
         IbkrOptionContractActivity.Builder b = pendingContractActivity.remove(reqId);
         CompletableFuture<IbkrOptionContractActivity> f = pendingContractActivityFutures.remove(reqId);
@@ -638,6 +700,16 @@ public class IbkrWrapper extends DefaultEWrapper {
             contractActivityWaitsForOI.remove(id);
             af.completeExceptionally(new IbkrException(errorCode, errorMsg));
         }
+        CompletableFuture<java.util.List<HistoricalTickLast>> htf = pendingHistTradesFutures.remove(id);
+        if (htf != null) {
+            pendingHistTrades.remove(id);
+            htf.completeExceptionally(new IbkrException(errorCode, errorMsg));
+        }
+        CompletableFuture<java.util.List<HistoricalTickBidAsk>> hqf = pendingHistQuotesFutures.remove(id);
+        if (hqf != null) {
+            pendingHistQuotes.remove(id);
+            hqf.completeExceptionally(new IbkrException(errorCode, errorMsg));
+        }
     }
 
     /**
@@ -706,6 +778,12 @@ public class IbkrWrapper extends DefaultEWrapper {
         pendingContractActivityFutures.clear();
         pendingContractActivity.clear();
         contractActivityWaitsForOI.clear();
+        pendingHistTradesFutures.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
+        pendingHistTradesFutures.clear();
+        pendingHistTrades.clear();
+        pendingHistQuotesFutures.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
+        pendingHistQuotesFutures.clear();
+        pendingHistQuotes.clear();
     }
 
     @Override public void nextValidId(int o) { log.info("IBKR next valid order ID: {}", o); }
