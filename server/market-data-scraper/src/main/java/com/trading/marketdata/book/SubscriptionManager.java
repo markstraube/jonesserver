@@ -150,9 +150,22 @@ public class SubscriptionManager {
         }
     }
 
-    /** Generic ticks of every Book line. Phase 1: default ticks only. */
+    /**
+     * Generic ticks of every Book line — one market-data line per symbol carries quote,
+     * options metrics AND auction/NOII. Classic TWS API trap: the REQUESTED generic tick
+     * numbers and the DELIVERED tick type ids differ —
+     *   requested 100 (option volume)    → arrives as tickSize 29 (call) / 30 (put);
+     *                                      there is NO put/call-ratio tick, the PCR is
+     *                                      computed from 29/30 (TickerBook.putCallRatio)
+     *   requested 104 (30d historical vol) → arrives as tickGeneric 23
+     *   requested 106 (30d implied vol)    → arrives as tickGeneric 24
+     *   requested 225 (RT auction values)  → arrives as tickPrice 35 (auction price) and
+     *                                        tickSize 34/36/61 (volume/imbalance/regulatory)
+     * Generic ticks REQUIRE a streaming subscription: snapshot=true cannot carry a generic
+     * tick list at all per IBKR's docs.
+     */
     private String genericTickList() {
-        return "";
+        return "100,104,106,225";
     }
 
     Map<String, Integer> activeSubscriptions() {

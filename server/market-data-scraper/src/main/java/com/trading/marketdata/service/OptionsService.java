@@ -1,7 +1,7 @@
 package com.trading.marketdata.service;
 
-import com.trading.marketdata.ibkr.IbkrMarketDataService;
-import com.trading.marketdata.ibkr.IbkrOptionsResult;
+import com.trading.marketdata.book.MarketDataBook;
+import com.trading.marketdata.book.TickerBook;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.scraper.BarchartScraper;
 import com.trading.marketdata.scraper.ScraperException;
@@ -18,18 +18,21 @@ public class OptionsService {
 
     private static final Logger log = LoggerFactory.getLogger(OptionsService.class);
 
-    private final IbkrMarketDataService ibkrService;
+    private final MarketDataBook book;
     private final OptionActivityService optionActivityService;
     private final BarchartScraper barchartScraper;
 
-    public OptionsService(IbkrMarketDataService ibkrService,
+    public OptionsService(MarketDataBook book,
                           OptionActivityService optionActivityService,
                           BarchartScraper barchartScraper) {
-        this.ibkrService = ibkrService;
+        this.book = book;
         this.optionActivityService = optionActivityService;
         this.barchartScraper = barchartScraper;
     }
 
+    // NOTE on this cache: it exists for the UA/OI scan below (an expensive multi-request
+    // IBKR poll), NOT for the metrics — those are free synchronous Book reads. It is
+    // removed in the Book rebuild's final phase when the scanner writes into the Book.
     @Cacheable(value = "options", key = "#ticker",
                unless = "#result.ivRank == null && #result.putCallRatio == null && #result.maxPain == null")
     public OptionsData getOptions(String ticker) {
@@ -45,26 +48,16 @@ public class OptionsService {
         List<OptionsData.OiLevel> oiProfile = List.of();
         String source        = "ibkr";
 
-        // --- Primary: IBKR Generic Ticks (put/call ratio, IV, HV on the underlying) ---
-        try {
-            IbkrOptionsResult ibkr = ibkrService.fetchOptionsMetrics(upper);
-            if (ibkr != null) {
-                putCallRatio = ibkr.putCallRatio();
-                iv = ibkr.impliedVolatility();
-                hv = ibkr.historicalVolatility();
-                // IV Rank is not directly available from IBKR; log IV for reference
-                if (ibkr.impliedVolatility() != null) {
-                    log.debug("IBKR IV for {}: {}%", upper,
-                            String.format("%.1f", ibkr.impliedVolatility() * 100));
-                }
-            }
-            log.info("IBKR options for {}: putCallRatio={}, iv={}, hv={}",
-                    upper,
-                    ibkr != null ? ibkr.putCallRatio() : null,
-                    ibkr != null ? ibkr.impliedVolatility() : null,
-                    ibkr != null ? ibkr.historicalVolatility() : null);
-        } catch (Exception e) {
-            log.warn("IBKR options metrics failed for {}: {}", upper, e.getMessage());
+        // --- Primary: the Book (IV/HV/PCR stream in on the permanent subscription; PCR is
+        // computed from option-volume ticks 29/30 — IBKR has no direct PCR tick). Non-Book
+        // tickers have no entry here and fall through to the Barchart fallback below. ---
+        TickerBook tb = book.find(upper);
+        if (tb != null) {
+            putCallRatio = tb.putCallRatio();
+            iv = tb.impliedVolatility().value();
+            hv = tb.historicalVolatility().value();
+            log.info("Book options metrics for {}: putCallRatio={}, iv={}, hv={}",
+                    upper, putCallRatio, iv, hv);
         }
 
         // --- Primary: IBKR-computed unusual activity + OI profile (chain discovery + per-contract vol/OI) ---

@@ -50,53 +50,6 @@ public class IbkrMarketDataService {
     }
 
     /**
-     * Fetches options metrics for a US stock via IBKR Generic Tick Types:
-     *   - 106 = Put/Call Ratio
-     *   - 104 = 30-day Implied Volatility
-     *   - 105 = 30-day Historical Volatility
-     *
-     * Generic ticks require a streaming subscription (snapshot=false).
-     * We start the stream, wait for the ticks, then cancel.
-     */
-    public IbkrOptionsResult fetchOptionsMetrics(String ticker) {
-        if (!connectionManager.isConnected()) {
-            log.debug("IBKR not connected — skipping options metrics for {}", ticker);
-            return null;
-        }
-
-        connectionManager.getClient().reqMarketDataType(1);
-
-        int reqId = connectionManager.nextReqId();
-        CompletableFuture<IbkrOptionsResult> future = wrapper.registerOptionsMetricsRequest(reqId);
-
-        Contract contract = usStockContract(ticker);
-
-        // Generic ticks require snapshot=false (streaming), not snapshot=true.
-        // 100 = option volume (delivered as tick types 29/30 → put/call ratio is computed
-        // from these, IBKR has no direct PCR tick), 104 = HV (arrives as 23), 106 = IV
-        // (arrives as 24). We cancel the subscription manually after receiving the ticks.
-        connectionManager.getClient().reqMktData(reqId, contract, "100,104,106", false, false, null);
-
-        try {
-            IbkrOptionsResult result = future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            log.debug("IBKR options metrics for {}: pcr={}, iv={}, hv={}",
-                    ticker, result.putCallRatio(), result.impliedVolatility(), result.historicalVolatility());
-            return result;
-        } catch (TimeoutException e) {
-            log.warn("IBKR options metrics timeout for {} (reqId={})", ticker, reqId);
-            wrapper.discardOptionsMetricsRequest(reqId);
-            return null;
-        } catch (Exception e) {
-            log.warn("IBKR options metrics failed for {}: {}", ticker, e.getMessage());
-            wrapper.discardOptionsMetricsRequest(reqId);
-            return null;
-        } finally {
-            // Always cancel the streaming subscription
-            connectionManager.getClient().cancelMktData(reqId);
-        }
-    }
-
-    /**
      * Fetches available option expirations and strikes for a US stock.
      * Useful for building a Gamma-Wall analysis without scraping.
      */
@@ -236,62 +189,6 @@ public class IbkrMarketDataService {
         } finally {
             connectionManager.getClient().cancelMktData(reqId);
             wrapper.clearContractActivityRight(reqId);
-        }
-    }
-
-    /**
-     * Collects Nasdaq auction/NOII data (Generic Tick 225) for a US stock.
-     *
-     * Inverted timeout semantics compared to every other fetch in this class: there is no
-     * completing tick and no end-of-data signal — outside Nasdaq's NOII dissemination windows
-     * (~09:28–09:30 and ~15:50–16:00 ET) the subscription simply stays silent. The request
-     * therefore streams for a FIXED collection window and then harvests whatever arrived.
-     * TimeoutException on the future is the NORMAL path; the future only completes (always
-     * exceptionally) on a hard error such as an unknown contract or a dropped connection.
-     *
-     * Same snapshot=false constraint as all other generic-tick requests: 225 cannot be
-     * combined with the snapshot=true quote request.
-     *
-     * Returns a result with all-null fields when the feed was silent (dataAvailable is
-     * decided by the caller via isEmpty()), or null on hard errors / no connection.
-     */
-    public IbkrAuctionResult fetchAuctionData(String ticker, long collectWindowMs) {
-        if (!connectionManager.isConnected()) {
-            log.debug("IBKR not connected — skipping auction data for {}", ticker);
-            return null;
-        }
-
-        connectionManager.getClient().reqMarketDataType(1);
-
-        int reqId = connectionManager.nextReqId();
-        CompletableFuture<Void> errorSignal = wrapper.registerAuctionRequest(reqId);
-
-        Contract contract = usStockContract(ticker);
-
-        // 225 = RT Auction Values → delivered as tick types 34/35/36/61 (see IbkrAuctionResult)
-        connectionManager.getClient().reqMktData(reqId, contract, "225", false, false, null);
-
-        try {
-            errorSignal.get(collectWindowMs, TimeUnit.MILLISECONDS);
-            // Unreachable by design: the future never completes normally.
-            log.warn("IBKR auction request for {} completed normally — unexpected (reqId={})", ticker, reqId);
-            return wrapper.harvestAuctionRequest(reqId);
-        } catch (TimeoutException e) {
-            // Normal path: collection window elapsed, harvest whatever ticks arrived.
-            IbkrAuctionResult result = wrapper.harvestAuctionRequest(reqId);
-            if (result != null && !result.isEmpty()) {
-                log.info("IBKR auction data for {}: price={}, volume={}, imbalance={}, regImbalance={}",
-                        ticker, result.auctionPrice(), result.auctionVolume(),
-                        result.imbalance(), result.regulatoryImbalance());
-            }
-            return result;
-        } catch (Exception e) {
-            log.warn("IBKR auction data failed for {}: {}", ticker, e.getMessage());
-            wrapper.discardAuctionRequest(reqId);
-            return null;
-        } finally {
-            // Always cancel the streaming subscription
-            connectionManager.getClient().cancelMktData(reqId);
         }
     }
 
