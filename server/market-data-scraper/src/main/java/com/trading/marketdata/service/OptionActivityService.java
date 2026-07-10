@@ -1,5 +1,8 @@
 package com.trading.marketdata.service;
 
+import com.trading.marketdata.book.MarketDataBook;
+import com.trading.marketdata.book.SubscriptionManager;
+import com.trading.marketdata.book.TickerBook;
 import com.trading.marketdata.ibkr.IbkrMarketDataService;
 import com.trading.marketdata.ibkr.IbkrOptionContractActivity;
 import com.trading.marketdata.ibkr.IbkrOptionsChainResult;
@@ -10,9 +13,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -99,13 +104,22 @@ public class OptionActivityService {
     private final QuoteService quoteService;
     private final CacheManager cacheManager;
     private final MarketStateService marketStateService;
+    private final MarketDataBook book;
+    private final SubscriptionManager subscriptionManager;
+
+    /** Serializes scans per ticker: the Book's scan fields expect a single writer, and a
+     *  concurrent duplicate scan of the same ticker would only double the IBKR request load. */
+    private final Map<String, Object> scanLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
     public OptionActivityService(IbkrMarketDataService ibkrService, QuoteService quoteService,
-                                  CacheManager cacheManager, MarketStateService marketStateService) {
+                                  CacheManager cacheManager, MarketStateService marketStateService,
+                                  MarketDataBook book, SubscriptionManager subscriptionManager) {
         this.ibkrService = ibkrService;
         this.quoteService = quoteService;
         this.cacheManager = cacheManager;
         this.marketStateService = marketStateService;
+        this.book = book;
+        this.subscriptionManager = subscriptionManager;
     }
 
     /** Result of one scan: today's flagged unusual contracts, plus the full OI ladder scanned. */
@@ -118,7 +132,49 @@ public class OptionActivityService {
         }
     }
 
+    /**
+     * Runs one scan and writes the results into the Book (timestamped) so snapshot assembly
+     * can read them synchronously and label their age honestly. Serialized per ticker.
+     */
     public OptionActivityResult computeActivity(String ticker) {
+        String upperTicker = ticker.toUpperCase();
+        synchronized (scanLocks.computeIfAbsent(upperTicker, k -> new Object())) {
+            OptionActivityResult result = doComputeActivity(upperTicker);
+            // Only a scan that actually resolved strikes overwrites the Book: a failed scan
+            // (IBKR down, no chain, no underlying price) yields an empty profile, and writing
+            // that would erase the last honest result with a wrongly-fresh nothing. The Book
+            // keeps last knowns; their age says how old they are.
+            if (!result.oiProfile().isEmpty()) {
+                TickerBook tb = book.book(upperTicker);
+                Instant now = Instant.now();
+                tb.unusualActivity().update(List.copyOf(result.unusualActivity()), now);
+                tb.oiProfile().update(List.copyOf(result.oiProfile()), now);
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Background scan of the whole watchlist (the anchor carries no UA scan — it exists for
+     * liveness, not analysis). Decouples scan cost from the request path: snapshots read the
+     * Book, this loop refreshes it.
+     */
+    @Scheduled(initialDelayString = "${book.scan-initial-delay-ms:30000}",
+               fixedDelayString = "${book.scan-interval-ms:300000}")
+    public void scheduledWatchlistScan() {
+        for (String symbol : subscriptionManager.bookSymbols()) {
+            if (symbol.equals(subscriptionManager.anchorSymbol())) continue;
+            try {
+                OptionActivityResult result = computeActivity(symbol);
+                log.info("Scheduled UA/OI scan for {}: {} flagged, {} strikes",
+                        symbol, result.unusualActivity().size(), result.oiProfile().size());
+            } catch (Exception e) {
+                log.warn("Scheduled UA/OI scan for {} failed: {}", symbol, e.getMessage());
+            }
+        }
+    }
+
+    private OptionActivityResult doComputeActivity(String ticker) {
         // Market-closed short circuit: without a live session there are no volume ticks, so
         // every volume attempt is a guaranteed timeout cascade (observed 2026-07-03: 86s scan
         // of pure timeouts). When CLOSED we serve OI from cache without any fetch, fetch OI

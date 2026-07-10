@@ -1,5 +1,6 @@
 package com.trading.marketdata.service;
 
+import com.trading.marketdata.model.DataQuality;
 import com.trading.marketdata.model.DerivedMetrics;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
@@ -14,12 +15,18 @@ import java.util.List;
  * Pure, deterministic feature computation on top of a raw snapshot. No I/O, no state, no
  * judgements — every field is arithmetic a reviewer can verify by hand. The previous-snapshot
  * parameter is optional; delta fields stay null without history.
+ *
+ * Delta fields additionally refuse stale inputs: a delta between a live previous value and a
+ * stale current one (dead feed, lost connection, old scan) measures the outage, not the
+ * market. quality == null (non-Book tickers) imposes no such gate.
  */
 @Service
 public class DerivedMetricsService {
 
     public DerivedMetrics compute(QuoteData quote, OptionsData options, ShortData shortData,
-                                  SnapshotEntity previous) {
+                                  SnapshotEntity previous, DataQuality quality) {
+        boolean quoteStale = quality != null && quality.quote() != null && quality.quote().stale();
+        boolean scanStale = quality != null && quality.uaScan() != null && quality.uaScan().stale();
         // --- Intraday position ---
         Double prevClose = null, pctFromOpen = null, pctFromHigh = null, pctFromLow = null, rangePct = null;
         if (quote != null && quote.price() != null) {
@@ -115,6 +122,9 @@ public class DerivedMetricsService {
         }
 
         // --- Deltas vs. previous persisted snapshot ---
+        // Stale-gated: a quote flagged stale contributes no price/volume delta, a stale scan
+        // no OI-PCR delta — the minutesSincePrevious window would otherwise attribute an
+        // outage-frozen value to the market.
         Double priceDeltaPct = null, oiPcrDelta = null;
         Long volumeDelta = null, minutesSince = null;
         java.time.Instant previousAt = null;
@@ -123,14 +133,14 @@ public class DerivedMetricsService {
             if (previousAt != null) {
                 minutesSince = Duration.between(previousAt, java.time.Instant.now()).toMinutes();
             }
-            if (quote != null && quote.price() != null
+            if (!quoteStale && quote != null && quote.price() != null
                     && previous.getPrice() != null && previous.getPrice() != 0) {
                 priceDeltaPct = round4((quote.price() / previous.getPrice() - 1) * 100);
             }
-            if (quote != null && quote.volume() != null && previous.getVolume() != null) {
+            if (!quoteStale && quote != null && quote.volume() != null && previous.getVolume() != null) {
                 volumeDelta = quote.volume() - previous.getVolume();
             }
-            if (oiPcr != null && previous.getOiPutCallRatio() != null) {
+            if (!scanStale && oiPcr != null && previous.getOiPutCallRatio() != null) {
                 oiPcrDelta = round4(oiPcr - previous.getOiPutCallRatio());
             }
         }

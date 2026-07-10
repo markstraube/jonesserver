@@ -15,5 +15,6 @@ public record MarketSnapshot(
         ShortData shortData,
         List<NewsItem> news,
         DerivedMetrics derived,
-        AuctionData auction
+        AuctionData auction,
+        DataQuality dataQuality // additive; only present for Book symbols
 ) {}

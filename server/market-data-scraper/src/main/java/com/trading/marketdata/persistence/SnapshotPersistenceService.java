@@ -67,12 +67,24 @@ public class SnapshotPersistenceService {
             log.info("Skipping persistence for {}: market CLOSED (response unaffected)", snapshot.ticker());
             return;
         }
-        // Rule 2: minimal data consistency. Zero/absent volume combined with a missing open
-        // does not occur during any live session — that combination is the stale-tick
-        // signature regardless of what the market-state lookup said.
-        if (snapshot.quote() != null
+        // Rule 2 — field-granular for Book snapshots: a snapshot whose quote section has
+        // ever been seen is persisted, with per-section ages/staleness recorded in
+        // data_quality_json (a stale IV is persisted FLAGGED, not blocked; the delta logic
+        // already refuses stale inputs). Only a quote section with no data at all is skipped
+        // — there is nothing worth a row.
+        if (snapshot.dataQuality() != null) {
+            var quoteQuality = snapshot.dataQuality().quote();
+            if (quoteQuality == null || quoteQuality.ageSeconds() == null) {
+                log.info("Skipping persistence for {}: Book quote section has no data yet", snapshot.ticker());
+                return;
+            }
+        } else if (snapshot.quote() != null
                 && (snapshot.quote().volume() == null || snapshot.quote().volume() == 0)
                 && snapshot.quote().open() == null) {
+            // Non-Book (scraper-served) tickers keep the old all-or-nothing signature check:
+            // zero/absent volume combined with a missing open does not occur during any live
+            // session — that combination is the stale-tick signature regardless of what the
+            // market-state lookup said.
             log.info("Skipping persistence for {}: inconsistent quote (volume={}, open=null)",
                     snapshot.ticker(), snapshot.quote().volume());
             return;
@@ -131,6 +143,7 @@ public class SnapshotPersistenceService {
             e.setAuctionImbalance(s.auction().imbalance());
             e.setAuctionJson(toJson(s.auction()));
         }
+        e.setDataQualityJson(toJson(s.dataQuality()));
         return e;
     }
 

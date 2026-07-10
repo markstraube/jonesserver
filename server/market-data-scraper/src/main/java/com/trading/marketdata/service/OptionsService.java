@@ -1,13 +1,15 @@
 package com.trading.marketdata.service;
 
 import com.trading.marketdata.book.MarketDataBook;
+import com.trading.marketdata.book.SubscriptionManager;
 import com.trading.marketdata.book.TickerBook;
+import com.trading.marketdata.book.TimestampedField;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.scraper.BarchartScraper;
 import com.trading.marketdata.scraper.ScraperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -19,22 +21,26 @@ public class OptionsService {
     private static final Logger log = LoggerFactory.getLogger(OptionsService.class);
 
     private final MarketDataBook book;
+    private final SubscriptionManager subscriptionManager;
     private final OptionActivityService optionActivityService;
     private final BarchartScraper barchartScraper;
 
+    /** Non-watchlist tickers only: minimum age of the Book's scan result before an
+     *  on-demand rescan. Watchlist tickers never rescan inline — the scheduled scanner
+     *  owns their freshness and the snapshot labels the age via dataQuality. */
+    @Value("${book.scan-refresh-seconds:120}")
+    private long scanRefreshSeconds;
+
     public OptionsService(MarketDataBook book,
+                          SubscriptionManager subscriptionManager,
                           OptionActivityService optionActivityService,
                           BarchartScraper barchartScraper) {
         this.book = book;
+        this.subscriptionManager = subscriptionManager;
         this.optionActivityService = optionActivityService;
         this.barchartScraper = barchartScraper;
     }
 
-    // NOTE on this cache: it exists for the UA/OI scan below (an expensive multi-request
-    // IBKR poll), NOT for the metrics — those are free synchronous Book reads. It is
-    // removed in the Book rebuild's final phase when the scanner writes into the Book.
-    @Cacheable(value = "options", key = "#ticker",
-               unless = "#result.ivRank == null && #result.putCallRatio == null && #result.maxPain == null")
     public OptionsData getOptions(String ticker) {
         String upper = ticker.toUpperCase();
 
@@ -48,28 +54,39 @@ public class OptionsService {
         List<OptionsData.OiLevel> oiProfile = List.of();
         String source        = "ibkr";
 
-        // --- Primary: the Book (IV/HV/PCR stream in on the permanent subscription; PCR is
-        // computed from option-volume ticks 29/30 — IBKR has no direct PCR tick). Non-Book
-        // tickers have no entry here and fall through to the Barchart fallback below. ---
+        // --- Metrics from the Book (IV/HV/PCR stream in on the permanent subscription; PCR
+        // is computed from option-volume ticks 29/30 — IBKR has no direct PCR tick). Non-Book
+        // tickers have no stream, their metrics come from the Barchart fallback below. ---
         TickerBook tb = book.find(upper);
         if (tb != null) {
             putCallRatio = tb.putCallRatio();
             iv = tb.impliedVolatility().value();
             hv = tb.historicalVolatility().value();
-            log.info("Book options metrics for {}: putCallRatio={}, iv={}, hv={}",
+            log.debug("Book options metrics for {}: putCallRatio={}, iv={}, hv={}",
                     upper, putCallRatio, iv, hv);
         }
 
-        // --- Primary: IBKR-computed unusual activity + OI profile (chain discovery + per-contract vol/OI) ---
-        // Replaces the old Barchart scrape entirely as the first choice — see OptionActivityService.
+        // --- UA/OI scan results from the Book. Watchlist tickers are kept fresh by the
+        // scheduled scanner and NEVER scanned inline (snapshot latency stays flat; age is
+        // labeled honestly in dataQuality). Other tickers scan on demand, deduped via the
+        // Book's own scan timestamp — this replaced the former 120s options cache. ---
         try {
-            OptionActivityService.OptionActivityResult activity = optionActivityService.computeActivity(upper);
-            unusualActivity = activity.unusualActivity();
-            oiProfile = activity.oiProfile();
-            log.info("IBKR options activity for {}: {} contracts flagged, {} strikes in OI profile",
-                    upper, unusualActivity.size(), oiProfile.size());
+            boolean watchlistTicker = subscriptionManager.isBookSymbol(upper);
+            Long scanAge = tb != null ? tb.oiProfile().get().ageSeconds(Instant.now()) : null;
+            if (!watchlistTicker && (scanAge == null || scanAge > scanRefreshSeconds)) {
+                optionActivityService.computeActivity(upper);
+                tb = book.find(upper); // scan writes create the entry for new tickers
+            }
+            if (tb != null) {
+                TimestampedField.Stamped<List<OptionsData.UnusualActivity>> ua = tb.unusualActivity().get();
+                TimestampedField.Stamped<List<OptionsData.OiLevel>> oi = tb.oiProfile().get();
+                if (ua.value() != null) unusualActivity = ua.value();
+                if (oi.value() != null) oiProfile = oi.value();
+                log.info("Book options activity for {}: {} contracts flagged, {} strikes in OI profile, scanAgeSeconds={}",
+                        upper, unusualActivity.size(), oiProfile.size(), oi.ageSeconds(Instant.now()));
+            }
         } catch (Exception e) {
-            log.warn("IBKR options activity computation failed for {}: {}", upper, e.getMessage());
+            log.warn("Options activity read/scan failed for {}: {}", upper, e.getMessage());
         }
 
         // --- Fallback: Barchart, only for whatever IBKR couldn't provide ---

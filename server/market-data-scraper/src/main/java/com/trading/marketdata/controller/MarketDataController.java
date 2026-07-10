@@ -1,6 +1,7 @@
 package com.trading.marketdata.controller;
 
 import com.trading.marketdata.model.AuctionData;
+import com.trading.marketdata.model.DataQuality;
 import com.trading.marketdata.model.DerivedMetrics;
 import com.trading.marketdata.model.MarketSnapshot;
 import com.trading.marketdata.model.NewsItem;
@@ -15,6 +16,7 @@ import com.trading.marketdata.service.NewsService;
 import com.trading.marketdata.service.OptionsService;
 import com.trading.marketdata.service.QuoteService;
 import com.trading.marketdata.service.ShortInterestService;
+import com.trading.marketdata.service.SnapshotQualityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,6 +50,7 @@ public class MarketDataController {
     private final SnapshotPersistenceService persistenceService;
     private final MarketStateService marketStateService;
     private final AuctionService auctionService;
+    private final SnapshotQualityService qualityService;
 
     // Virtual thread executor for parallel scraping
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -59,7 +62,8 @@ public class MarketDataController {
                                 DerivedMetricsService derivedMetricsService,
                                 SnapshotPersistenceService persistenceService,
                                 MarketStateService marketStateService,
-                                AuctionService auctionService) {
+                                AuctionService auctionService,
+                                SnapshotQualityService qualityService) {
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
@@ -68,6 +72,7 @@ public class MarketDataController {
         this.persistenceService = persistenceService;
         this.marketStateService = marketStateService;
         this.auctionService = auctionService;
+        this.qualityService = qualityService;
     }
 
     @GetMapping("/quote/{ticker}")
@@ -144,6 +149,9 @@ public class MarketDataController {
     }
 
     private MarketSnapshot buildSnapshot(String ticker) {
+        // Book symbols resolve quote/options/auction synchronously from the in-memory Book
+        // (no IBKR request on the read path); the futures still parallelize the scraper-based
+        // sources (shorts, news) and the fallback paths of non-Book tickers.
         CompletableFuture<QuoteData> quoteFuture =
                 CompletableFuture.supplyAsync(() -> quoteService.getQuote(ticker), executor);
         CompletableFuture<OptionsData> optionsFuture =
@@ -152,9 +160,6 @@ public class MarketDataController {
                 CompletableFuture.supplyAsync(() -> shortInterestService.getShortData(ticker), executor);
         CompletableFuture<List<NewsItem>> newsFuture =
                 CompletableFuture.supplyAsync(() -> newsService.getNews(ticker, 10), executor);
-        // Self-gating: outside the two NOII windows this returns null immediately without
-        // any IBKR request, so the snapshot path only pays the collection window when
-        // auction data can actually exist.
         CompletableFuture<AuctionData> auctionFuture =
                 CompletableFuture.supplyAsync(() -> auctionService.getAuctionData(ticker, false), executor);
 
@@ -164,10 +169,15 @@ public class MarketDataController {
         OptionsData options = optionsFuture.join();
         ShortData shortData = shortFuture.join();
 
+        // Quality is read AFTER the sources so it describes the ages the response actually
+        // carries. Null for non-Book tickers (scraper-served, no timestamp pairs).
+        DataQuality quality = qualityService.forTicker(ticker);
+
         // Derived features: previous persisted snapshot (if any) supplies the delta reference.
-        // findPrevious() is intentionally called BEFORE persisting this snapshot.
+        // findPrevious() is intentionally called BEFORE persisting this snapshot. Stale-flagged
+        // fields contribute no deltas (see DerivedMetricsService).
         DerivedMetrics derived = derivedMetricsService.compute(
-                quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null));
+                quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null), quality);
 
         MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
@@ -178,7 +188,8 @@ public class MarketDataController {
                 shortData,
                 newsFuture.join(),
                 derived,
-                auctionFuture.join()
+                auctionFuture.join(),
+                quality
         );
 
         persistenceService.persist(snapshot); // @Async, never blocks or fails the response

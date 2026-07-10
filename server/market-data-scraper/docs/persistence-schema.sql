@@ -52,6 +52,10 @@ CREATE TABLE IF NOT EXISTS market_snapshot (
     news_json               JSON NULL,
     auction_json            JSON NULL,
 
+    -- field-granular data quality at persist time (Book architecture; existing installs:
+    -- apply migration-2026-07-10-data-quality.sql instead of re-running this file)
+    data_quality_json       JSON NULL,
+
     PRIMARY KEY (id),
     KEY idx_ticker_ts (ticker, snapshot_ts)
 ) ENGINE=InnoDB;

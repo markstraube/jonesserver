@@ -86,6 +86,12 @@ public class SnapshotEntity {
     @Column(columnDefinition = "json")
     private String auctionJson;
 
+    // Per-section ages/staleness at persist time (Book timestamp pairs) — the field-granular
+    // quality record that replaced the all-or-nothing persistence gate. Null for tickers
+    // without a Book entry. Additive column, see docs/migration-2026-07-10-data-quality.sql.
+    @Column(columnDefinition = "json")
+    private String dataQualityJson;
+
     // --- Getters/Setters (JPA) ---
 
     public Long getId() { return id; }
@@ -152,4 +158,6 @@ public class SnapshotEntity {
     public void setAuctionImbalance(Long auctionImbalance) { this.auctionImbalance = auctionImbalance; }
     public String getAuctionJson() { return auctionJson; }
     public void setAuctionJson(String auctionJson) { this.auctionJson = auctionJson; }
+    public String getDataQualityJson() { return dataQualityJson; }
+    public void setDataQualityJson(String dataQualityJson) { this.dataQualityJson = dataQualityJson; }
 }
