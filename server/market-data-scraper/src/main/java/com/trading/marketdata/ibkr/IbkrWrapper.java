@@ -423,11 +423,36 @@ public class IbkrWrapper extends DefaultEWrapper {
             log.info("IBKR delayed data notice [reqId={}, code={}]: {}", id, errorCode, errorMsg);
             return;
         }
+        // Gateway↔IB-server connectivity transitions (id = -1). The SOCKET to the Gateway is
+        // still up in all three cases — do not confuse these with connectionClosed:
+        //   1100 / 2110: upstream feed lost → ticks stop; invalidate the Book (values kept,
+        //                flagged) so silence is not mistaken for stillness.
+        //   1101: connectivity restored, DATA LOST → subscriptions are gone server-side;
+        //         a full resubscribe with fresh reqIds is required.
+        //   1102: connectivity restored, DATA MAINTAINED → subscriptions survived; just
+        //         clear the connection-lost flag, ticks resume on their own.
+        if (errorCode == 1100 || errorCode == 2110) {
+            log.warn("IBKR upstream connectivity lost [code={}]: {} — invalidating Book", errorCode, errorMsg);
+            book.invalidateAll("error " + errorCode + ": " + errorMsg);
+            return;
+        }
+        if (errorCode == 1101) {
+            log.warn("IBKR connectivity restored, data LOST [code=1101]: {} — full resubscribe", errorMsg);
+            eventPublisher.publishEvent(new IbkrConnectedEvent());
+            return;
+        }
+        if (errorCode == 1102) {
+            log.info("IBKR connectivity restored, data maintained [code=1102]: {}", errorMsg);
+            book.markConnected();
+            return;
+        }
         // Errors on a permanent Book subscription: log with symbol context and keep the
         // route — a transient error must not silently kill a permanent stream. Error 100
         // (pacing violation) and 101 (market-data line budget exhausted) are deliberately
         // kept apart: they look similar ("too much") but need opposite reactions — 100 is
-        // retryable after backoff, 101 is not retryable until lines are freed.
+        // retryable after backoff, 101 is not retryable until lines are freed. The
+        // SubscriptionManager reacts via IbkrSubscriptionErrorEvent and reports both as
+        // distinct failure reasons in the BOOK_SUBSCRIBE_SUMMARY.
         String bookSymbol = bookRoutes.get(id);
         if (bookSymbol != null) {
             switch (errorCode) {
@@ -436,6 +461,7 @@ public class IbkrWrapper extends DefaultEWrapper {
                 default  -> log.warn("IBKR error on Book subscription symbol={} reqId={} code={}: {}",
                         bookSymbol, id, errorCode, errorMsg);
             }
+            eventPublisher.publishEvent(new IbkrSubscriptionErrorEvent(id, bookSymbol, errorCode, errorMsg));
             return;
         }
 
