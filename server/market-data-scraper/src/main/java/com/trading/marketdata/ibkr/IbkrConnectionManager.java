@@ -8,6 +8,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -47,6 +48,7 @@ public class IbkrConnectionManager {
     private int reconnectIntervalMs;
 
     private final IbkrWrapper wrapper;
+    private final ApplicationEventPublisher eventPublisher;
     private volatile EJavaSignal signal;
     private volatile EClientSocket client;
     private volatile EReader reader;
@@ -55,8 +57,9 @@ public class IbkrConnectionManager {
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
     private final AtomicInteger reqIdSeq = new AtomicInteger(1000);
 
-    public IbkrConnectionManager(IbkrWrapper wrapper) {
+    public IbkrConnectionManager(IbkrWrapper wrapper, ApplicationEventPublisher eventPublisher) {
         this.wrapper = wrapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostConstruct
@@ -145,12 +148,19 @@ public class IbkrConnectionManager {
             // otherwise an old dying thread could clobber a newer, already-successful reconnect.
             if (client == newClient) {
                 connected.set(false);
+                // Covers silent socket deaths where the connectionClosed callback never fires.
+                // Can double-fire with that callback for one drop — listeners are idempotent.
+                eventPublisher.publishEvent(new IbkrDisconnectedEvent("reader loop exit"));
             }
             log.warn("IB Gateway disconnected. Reconnect watchdog will retry within {} ms.", reconnectIntervalMs);
         });
 
         connected.set(true);
         log.info("IB Gateway connected successfully.");
+        // SubscriptionManager re-establishes all Book streams. During the initial
+        // @PostConstruct connect listeners may not exist yet — that case is covered by the
+        // SubscriptionManager's ApplicationReadyEvent check.
+        eventPublisher.publishEvent(new IbkrConnectedEvent());
     }
 
     @PreDestroy

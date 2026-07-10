@@ -1,10 +1,14 @@
 package com.trading.marketdata.ibkr;
 
 import com.ib.client.*;
+import com.trading.marketdata.book.MarketDataBook;
+import com.trading.marketdata.book.TickerBook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -25,13 +29,21 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     private EClientSocket client;
 
-    private final Map<Integer, CompletableFuture<IbkrQuoteResult>>        pendingQuotes       = new ConcurrentHashMap<>();
-    // Race-condition fix (streaming quote fetch): completes when the first VOLUME tick (8/74)
-    // arrives for a quote reqId. Volume is the freshness sentinel — it is monotonically
-    // increasing and updates on every trade, so its arrival marks the point after which the
-    // grace window opens and the harvested LAST reflects the market, not the Gateway cache.
-    // Completed exceptionally by error()/connectionClosed(), like all other signals.
-    private final Map<Integer, CompletableFuture<Void>>                   pendingQuoteVolumeSignals = new ConcurrentHashMap<>();
+    private final MarketDataBook book;
+    private final ApplicationEventPublisher eventPublisher;
+
+    public IbkrWrapper(MarketDataBook book, ApplicationEventPublisher eventPublisher) {
+        this.book = book;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // Permanent Book subscriptions: reqId → symbol. Registered by the SubscriptionManager;
+    // ticks for these reqIds are written straight into the MarketDataBook (last-value cache)
+    // on this EReader thread — the Book's single tick-writer. Routes survive error(): a
+    // transient error must not silently unroute a permanent stream (the liveness watchdog
+    // owns resubscription decisions).
+    private final Map<Integer, String> bookRoutes = new ConcurrentHashMap<>();
+
     private final Map<Integer, IbkrOptionsChainResult.Builder>             pendingChains       = new ConcurrentHashMap<>();
     private final Map<Integer, CompletableFuture<IbkrOptionsChainResult>>  pendingChainFutures = new ConcurrentHashMap<>();
     private final Map<Integer, String>                                     chainRequestTicker  = new ConcurrentHashMap<>();
@@ -56,11 +68,71 @@ public class IbkrWrapper extends DefaultEWrapper {
     public void setClient(EClientSocket client) { this.client = client; }
 
     // =========================================================================
-    // Quote callbacks
+    // Book routing — permanent streaming subscriptions (SubscriptionManager)
+    // =========================================================================
+
+    public void registerBookRoute(int reqId, String symbol) {
+        bookRoutes.put(reqId, symbol.toUpperCase());
+    }
+
+    public void unregisterBookRoute(int reqId) {
+        bookRoutes.remove(reqId);
+    }
+
+    public void clearBookRoutes() {
+        bookRoutes.clear();
+    }
+
+    /**
+     * Routes one price tick of a permanent Book subscription. IBKR sends -1 (or 0) on a
+     * side with no quote; such placeholders must be dropped, not stored. Field ids: live
+     * 1/2/4/6/7/9/14, delayed 66/67/68/72/73/75/76 — same field, delayed line.
+     */
+    private void routeBookPrice(TickerBook tb, int field, double price) {
+        if (price <= 0) return;
+        Instant now = Instant.now();
+        switch (field) {
+            case 1, 66  -> tb.bid().update(price, now);
+            case 2, 67  -> tb.ask().update(price, now);
+            case 4, 68  -> tb.last().update(price, now);
+            case 6, 72  -> tb.high().update(price, now);
+            case 7, 73  -> tb.low().update(price, now);
+            case 9, 75  -> tb.close().update(price, now);
+            case 14, 76 -> tb.open().update(price, now);
+            default -> {}
+        }
+    }
+
+    /**
+     * Delayed/frozen switch (1 = realtime, 2 = frozen, 3 = delayed, 4 = delayed-frozen).
+     * A switch to 2–4 is a statement about the LINE's quality, not a data tick: it lands in
+     * the Book's dataQuality state and deliberately does NOT touch any field's lastSeenAt —
+     * a frozen line is exactly the silence the timestamp pair exists to expose.
+     */
+    @Override
+    public void marketDataType(int reqId, int marketDataType) {
+        String symbol = bookRoutes.get(reqId);
+        if (symbol != null) {
+            book.book(symbol).setMarketDataType(marketDataType, Instant.now());
+            if (marketDataType != 1) {
+                log.warn("IBKR market data type for {} switched to {} (2=frozen, 3=delayed, 4=delayed-frozen)",
+                        symbol, marketDataType);
+            }
+        }
+    }
+
+    // =========================================================================
+    // Tick callbacks
     // =========================================================================
 
     @Override
     public void tickPrice(int reqId, int field, double price, TickAttrib attrib) {
+        String bookSymbol = bookRoutes.get(reqId);
+        if (bookSymbol != null) {
+            routeBookPrice(book.book(bookSymbol), field, price);
+            return;
+        }
+
         // Option contract activity requests receive the same default price ticks (bid/ask/
         // last) on their existing subscription — capture them at zero additional request
         // cost. IBKR sends -1 (or 0) on a side with no quote; such placeholders must be
@@ -91,21 +163,6 @@ public class IbkrWrapper extends DefaultEWrapper {
             return;
         }
 
-        CompletableFuture<IbkrQuoteResult> future = pendingQuotes.get(reqId);
-        if (future == null) return;
-        IbkrQuoteResult.Builder b = IbkrQuoteResult.builderFor(reqId);
-        switch (field) {
-            case 1, 66  -> b.bid(price);   // 66 = delayed bid
-            case 2, 67  -> b.ask(price);   // 67 = delayed ask
-            case 4, 68  -> b.last(price);  // 68 = delayed last
-            case 6, 72  -> b.high(price);  // 72 = delayed high
-            case 7, 73  -> b.low(price);   // 73 = delayed low
-            case 9, 75  -> b.close(price); // 75 = delayed close
-            case 14, 76 -> b.open(price);  // 76 = delayed open
-            default -> {}
-        }
-        // Do NOT complete here — the builder only accumulates; the service harvests the
-        // latest state after the volume sentinel + grace window (race-condition fix).
     }
 
     @Override
@@ -130,6 +187,19 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void tickSize(int reqId, int field, Decimal size) {
+        String bookSymbol = bookRoutes.get(reqId);
+        if (bookSymbol != null) {
+            // IBKR uses Integer.MAX_VALUE as an "undefined" sentinel in size ticks — such
+            // values must be filtered, never stored as data.
+            if (field == 8 || field == 74) { // 74 = delayed volume
+                long v = size.longValue();
+                if (v >= 0 && v < Integer.MAX_VALUE) {
+                    book.book(bookSymbol).volume().update(v, Instant.now());
+                }
+            }
+            return;
+        }
+
         // Auction (NOII) subscription, generic tick 225 → delivered as:
         //   34 = AUCTION_VOLUME (paired shares), 36 = AUCTION_IMBALANCE, 61 = REGULATORY_IMBALANCE.
         // Values are stored EXACTLY as delivered (after the usual MAX_VALUE sentinel filter).
@@ -177,14 +247,6 @@ public class IbkrWrapper extends DefaultEWrapper {
         }
 
         if (field == 8 || field == 74) { // 74 = delayed volume
-            if (pendingQuotes.containsKey(reqId)) {
-                IbkrQuoteResult.builderFor(reqId).volume(size.longValue());
-                CompletableFuture<Void> volumeSignal = pendingQuoteVolumeSignals.get(reqId);
-                if (volumeSignal != null && !volumeSignal.isDone()) {
-                    volumeSignal.complete(null);
-                }
-            }
-
             IbkrOptionContractActivity.Builder actBuilder = pendingContractActivity.get(reqId);
             if (actBuilder != null) {
                 actBuilder.volume(size.longValue());
@@ -231,15 +293,9 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void tickSnapshotEnd(int reqId) {
-        // LEGACY for quotes: the quote path is a streaming request since the 2026-07-08
-        // race-condition fix, so this never fires for it anymore (snapshot=false sends no
-        // tickSnapshotEnd). Kept because it is harmless (remove() returns null) and still
-        // correct should any future caller issue a snapshot=true quote request.
-        CompletableFuture<IbkrQuoteResult> quoteFuture = pendingQuotes.remove(reqId);
-        if (quoteFuture != null && !quoteFuture.isDone()) {
-            quoteFuture.complete(IbkrQuoteResult.builderFor(reqId).build(reqId));
-        }
-        // Complete options metrics future if pending
+        // Only fires for snapshot=true requests — which are banned in the Book model
+        // (snapshot answers come from the Gateway cache and cannot carry generic ticks).
+        // Kept solely for the remaining fetch-on-request options-metrics path.
         IbkrOptionsResult.Builder optBuilder = pendingOptionsMetrics.remove(reqId);
         CompletableFuture<IbkrOptionsResult> optFuture = pendingOptionsMetricsFutures.remove(reqId);
         if (optBuilder != null && optFuture != null && !optFuture.isDone()) {
@@ -307,37 +363,6 @@ public class IbkrWrapper extends DefaultEWrapper {
     // Registration helpers
     // =========================================================================
 
-    public CompletableFuture<IbkrQuoteResult> registerQuoteRequest(int reqId) {
-        CompletableFuture<IbkrQuoteResult> f = new CompletableFuture<>();
-        pendingQuotes.put(reqId, f);
-        return f;
-    }
-
-    /**
-     * Registers the volume-freshness signal for a streaming quote request. Completes on the
-     * first VOLUME tick (see tickSize), exceptionally on error()/connectionClosed(). The
-     * caller waits on this, then sleeps the grace window, then harvests — the quote future
-     * from registerQuoteRequest is no longer completed normally on this path (it remains as
-     * the routing marker for tickPrice/tickSize and legacy tickSnapshotEnd handling).
-     */
-    public CompletableFuture<Void> registerQuoteVolumeSignal(int reqId) {
-        CompletableFuture<Void> f = new CompletableFuture<>();
-        pendingQuoteVolumeSignals.put(reqId, f);
-        return f;
-    }
-
-    /**
-     * Removes and builds the accumulated quote state for this reqId — the latest value of
-     * every field that arrived up to this moment. Monotonic overwrite in the builder is the
-     * core of the race fix: a stale cache LAST delivered first is replaced by any fresher
-     * LAST that lands during the grace window.
-     */
-    public IbkrQuoteResult harvestQuoteRequest(int reqId) {
-        pendingQuotes.remove(reqId);
-        pendingQuoteVolumeSignals.remove(reqId);
-        return IbkrQuoteResult.builderFor(reqId).build(reqId);
-    }
-
     public CompletableFuture<IbkrOptionsChainResult> registerChainRequest(int reqId, String ticker) {
         CompletableFuture<IbkrOptionsChainResult> f = new CompletableFuture<>();
         pendingChainFutures.put(reqId, f);
@@ -360,17 +385,10 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     /**
      * Drops pending state for a reqId the caller has given up on (e.g. after a client-side
-     * timeout). Without this, a reqId whose tickSnapshotEnd never arrives leaks forever in
-     * pendingQuotes/IbkrQuoteResult.builders — real risk on a long-running service pointed at
-     * a data source with a non-trivial timeout rate.
+     * timeout). Without this, a reqId whose completing tick never arrives leaks forever in
+     * the pending maps — real risk on a long-running service pointed at a data source with
+     * a non-trivial timeout rate.
      */
-    public void discardQuoteRequest(int reqId) {
-        pendingQuotes.remove(reqId);
-        pendingQuoteVolumeSignals.remove(reqId);
-        IbkrQuoteResult.discard(reqId);
-    }
-
-    /** Same cleanup as {@link #discardQuoteRequest} but for the options-metrics generic-tick maps. */
     public void discardOptionsMetricsRequest(int reqId) {
         pendingOptionsMetricsFutures.remove(reqId);
         pendingOptionsMetrics.remove(reqId);
@@ -474,11 +492,23 @@ public class IbkrWrapper extends DefaultEWrapper {
             log.info("IBKR delayed data notice [reqId={}, code={}]: {}", id, errorCode, errorMsg);
             return;
         }
+        // Errors on a permanent Book subscription: log with symbol context and keep the
+        // route — a transient error must not silently kill a permanent stream. Error 100
+        // (pacing violation) and 101 (market-data line budget exhausted) are deliberately
+        // kept apart: they look similar ("too much") but need opposite reactions — 100 is
+        // retryable after backoff, 101 is not retryable until lines are freed.
+        String bookSymbol = bookRoutes.get(id);
+        if (bookSymbol != null) {
+            switch (errorCode) {
+                case 100 -> log.error("IBKR_PACING_VIOLATION symbol={} reqId={}: {}", bookSymbol, id, errorMsg);
+                case 101 -> log.error("IBKR_MAX_TICKERS symbol={} reqId={}: {}", bookSymbol, id, errorMsg);
+                default  -> log.warn("IBKR error on Book subscription symbol={} reqId={} code={}: {}",
+                        bookSymbol, id, errorCode, errorMsg);
+            }
+            return;
+        }
+
         log.warn("IBKR error id={} code={}: {}", id, errorCode, errorMsg);
-        CompletableFuture<IbkrQuoteResult> qf = pendingQuotes.remove(id);
-        if (qf != null) qf.completeExceptionally(new IbkrException(errorCode, errorMsg));
-        CompletableFuture<Void> qvs = pendingQuoteVolumeSignals.remove(id);
-        if (qvs != null) qvs.completeExceptionally(new IbkrException(errorCode, errorMsg));
         CompletableFuture<IbkrOptionsChainResult> cf = pendingChainFutures.remove(id);
         if (cf != null) cf.completeExceptionally(new IbkrException(errorCode, errorMsg));
         CompletableFuture<IbkrOptionsResult> of = pendingOptionsMetricsFutures.remove(id);
@@ -506,11 +536,11 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     @Override
     public void connectionClosed() {
+        // Routine event, not an error: the Gateway restarts nightly via IBC. The Book keeps
+        // its last known values (flagged invalidated by the disconnect listener); the
+        // SubscriptionManager resubscribes with fresh reqIds on reconnect.
         log.warn("IBKR connection closed.");
-        pendingQuotes.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
-        pendingQuotes.clear();
-        pendingQuoteVolumeSignals.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
-        pendingQuoteVolumeSignals.clear();
+        eventPublisher.publishEvent(new IbkrDisconnectedEvent("connectionClosed callback"));
         pendingChainFutures.forEach((id, f) -> f.completeExceptionally(new IbkrException(0, "Connection closed")));
         pendingChainFutures.clear();
         pendingChains.clear();

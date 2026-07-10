@@ -1,19 +1,20 @@
 package com.trading.marketdata.ibkr;
 
 import com.ib.client.Contract;
-import com.trading.marketdata.model.QuoteData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * High-level service for requesting market data from IB Gateway.
+ * Fetch-on-request entry points for IBKR data that is NOT covered by the permanent Book
+ * streams: options-chain discovery, conId resolution and the per-contract UA/OI scan.
+ * These stay future-based by design — scanning dozens–hundreds of option contracts cannot
+ * be permanently streamed within the market-data line budget.
  *
  * Usage pattern:
  *   1. Build a Contract (symbol, secType, exchange, currency)
@@ -21,19 +22,14 @@ import java.util.concurrent.TimeoutException;
  *   3. Send the request via EClientSocket
  *   4. Block with timeout — callbacks complete the future asynchronously
  *
- * This service is intentionally thin. Business logic (fallback, caching)
- * stays in the existing Service layer (QuoteService, OptionsService).
+ * Live quotes are NOT fetched here anymore: they are read from the MarketDataBook, fed by
+ * the SubscriptionManager's permanent streams (see book/ package).
  */
 @Service
 public class IbkrMarketDataService {
 
     private static final Logger log = LoggerFactory.getLogger(IbkrMarketDataService.class);
 
-    // IBKR's own docs (md_request.html) guarantee tickSnapshotEnd for a snapshot=true
-    // request is sent ~11 seconds after the request, not on-demand as data arrives.
-    // The old value of 5 here meant every fetchQuote() call timed out client-side
-    // before IBKR could ever finish the snapshot — regardless of connection health,
-    // subscription, or market hours. 15s gives a safety margin above that 11s floor.
     private static final int TIMEOUT_SECONDS = 15;
 
     // Deliberately shorter and separate from TIMEOUT_SECONDS: fetchContractActivity() scans
@@ -51,80 +47,6 @@ public class IbkrMarketDataService {
     public IbkrMarketDataService(IbkrConnectionManager connectionManager, IbkrWrapper wrapper) {
         this.connectionManager = connectionManager;
         this.wrapper = wrapper;
-    }
-
-    // Race-condition fix: grace window between the volume-freshness signal and the harvest.
-    // The first ticks of a subscription are the Gateway's cache image; LAST updates straight
-    // from the farm land within tens of milliseconds after it in an active market. 300ms is
-    // deliberately generous — quote latency is dominated by it now, not by the old 11s
-    // snapshot floor, so the fetch is still an order of magnitude faster than before.
-    @Value("${ibkr.quote-grace-ms:300}")
-    private long quoteGraceMs = 300;
-
-    /**
-     * Fetches a realtime quote for a US stock via IBKR.
-     *
-     * RACE-CONDITION FIX (2026-07-08): this is now a short-lived STREAMING request, not a
-     * snapshot. A snapshot=true request is answered from the Gateway's local cache and closed
-     * by tickSnapshotEnd at exactly that cache state — in a fast market the delivered LAST is
-     * "true but old" (observed live: LAST stuck at the 902.40 opening print while the market
-     * traded ~940). The streaming subscription keeps receiving past the cache image, so the
-     * flow is: subscribe → wait for the VOLUME tick (freshness sentinel: monotonic, updates
-     * on every trade) → sleep a short grace window so in-flight LAST ticks land → harvest the
-     * LATEST value of every field → cancel. The subscription lives ~grace+image time, so the
-     * market-data-line budget is unaffected.
-     *
-     * Returns null if the gateway is not connected or nothing usable arrived in time. If the
-     * volume sentinel never fires (halted/illiquid), falls back to whatever partial state
-     * arrived, flagged in the log as possibly stale.
-     */
-    public QuoteData fetchQuote(String ticker) {
-        if (!connectionManager.isConnected()) {
-            log.debug("IBKR not connected — skipping quote for {}", ticker);
-            return null;
-        }
-
-        // 1 = live, 3 = delayed, 4 = delayed-frozen
-        // Live subscriptions are active — request realtime data
-        connectionManager.getClient().reqMarketDataType(1);
-
-        int reqId = connectionManager.nextReqId();
-        wrapper.registerQuoteRequest(reqId); // routing marker + error channel for tickPrice/tickSize
-        CompletableFuture<Void> volumeSignal = wrapper.registerQuoteVolumeSignal(reqId);
-
-        Contract contract = usStockContract(ticker);
-
-        // snapshot=false: streaming — see method javadoc for why snapshot=true is wrong here
-        connectionManager.getClient().reqMktData(reqId, contract, "", false, false, null);
-
-        try {
-            volumeSignal.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            Thread.sleep(quoteGraceMs);
-            return toQuoteData(ticker, wrapper.harvestQuoteRequest(reqId));
-        } catch (TimeoutException e) {
-            // Volume sentinel never fired (halted / no trades / dead subscription). Harvest
-            // whatever partial state arrived rather than discarding it — but say so loudly,
-            // because without the sentinel the values may be pure Gateway cache.
-            IbkrQuoteResult partial = wrapper.harvestQuoteRequest(reqId);
-            if (partial != null && (partial.last() != null || (partial.bid() != null && partial.ask() != null))) {
-                log.warn("IBKR quote for {}: no volume tick within {}s — returning possibly-stale partial (reqId={})",
-                        ticker, TIMEOUT_SECONDS, reqId);
-                return toQuoteData(ticker, partial);
-            }
-            log.warn("IBKR quote timeout for {} (reqId={})", ticker, reqId);
-            return null;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            wrapper.discardQuoteRequest(reqId);
-            return null;
-        } catch (Exception e) {
-            log.warn("IBKR quote failed for {}: {}", ticker, e.getMessage());
-            wrapper.discardQuoteRequest(reqId);
-            return null;
-        } finally {
-            // Always cancel: this is a streaming subscription now, not a self-closing snapshot
-            connectionManager.getClient().cancelMktData(reqId);
-        }
     }
 
     /**
@@ -400,41 +322,4 @@ public class IbkrMarketDataService {
         return c;
     }
 
-    private QuoteData toQuoteData(String ticker, IbkrQuoteResult r) {
-        if (r == null) return null;
-
-        Double price = r.last() != null ? r.last()
-                     : (r.bid() != null && r.ask() != null) ? (r.bid() + r.ask()) / 2.0
-                     : null;
-
-        Double change    = (price != null && r.close() != null) ? price - r.close() : null;
-        Double changePct = (change != null && r.close() != null && r.close() != 0)
-                         ? (change / r.close()) * 100.0 : null;
-
-        return new QuoteData(
-                ticker,
-                price,
-                change,
-                changePct,
-                r.open(),
-                r.high(),
-                r.low(),
-                r.volume(),
-                null,   // avgVolume — not from snapshot
-                null,   // volumeRatio
-                null,   // marketCap
-                null,   // P/E
-                null,   // 52w high
-                null,   // 52w low
-                null,   // marketState
-                null,   // preMarketPrice
-                null,   // preMarketChangePct
-                null,   // postMarketPrice
-                null,   // postMarketChangePct
-                "ibkr",
-                null,
-                price != null,
-                Instant.now()
-        );
-    }
 }
