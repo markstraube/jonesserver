@@ -58,9 +58,14 @@ public class CacheConfig {
 
     // Per-contract OI day memory for the UA stage-2 OI-delta join: today's published OI per
     // ticker:expiry:strike:right:date, compared against the most recent previous session's
-    // entry. TTL must span a long weekend (Fri→Tue after a Monday holiday), hence 4 days —
-    // unlike oiDayMemory above, whose value only prioritizes sticky strikes within one day.
-    @Value("${cache.oi-contract-day-memory.ttl-seconds:345600}")
+    // entry (lookback 5 calendar days in OptionActivityService). TTL 6 days keeps the
+    // invariant TTL > lookback + the partial write/read days: an entry written intraday on
+    // day D must still be alive when day D+5 looks it up at a later wall-clock time — a
+    // 4-day TTL made lookback day 5 unreachable (evicted before it could ever be found).
+    // 6 days also survives a long weekend (Fri→Tue after a Monday holiday) plus one missed
+    // scan day. Unlike oiDayMemory above, whose value only prioritizes sticky strikes
+    // within one day.
+    @Value("${cache.oi-contract-day-memory.ttl-seconds:518400}")
     private long oiContractDayMemoryTtl;
 
     @Bean
