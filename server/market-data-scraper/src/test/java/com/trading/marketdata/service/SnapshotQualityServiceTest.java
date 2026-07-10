@@ -81,6 +81,19 @@ class SnapshotQualityServiceTest {
     }
 
     @Test
+    void notSubscribedGroupIsFlaggedInQuality() {
+        TickerBook spy = book.book("SPY");
+        spy.last().update(560.0, Instant.now());
+        spy.volume().update(1_000L, Instant.now());
+        spy.markNotSubscribedGenericTick(225); // error 10090: ARCA/Auction:225
+
+        DataQuality q = service.forTicker("SPY");
+        assertEquals(Boolean.TRUE, q.auction().notSubscribed());
+        assertNull(q.quote().notSubscribed(), "default-tick section is unaffected");
+        assertFalse(q.quote().stale());
+    }
+
+    @Test
     void connectionLossMakesEverythingStaleButAgesFreeze() {
         TickerBook mu = book.book("MU");
         Instant t = Instant.now().minusSeconds(5);

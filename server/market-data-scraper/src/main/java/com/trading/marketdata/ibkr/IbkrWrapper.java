@@ -455,6 +455,10 @@ public class IbkrWrapper extends DefaultEWrapper {
         // distinct failure reasons in the BOOK_SUBSCRIBE_SUMMARY.
         String bookSymbol = bookRoutes.get(id);
         if (bookSymbol != null) {
+            if (errorCode == 10090) {
+                handlePartialSubscription(bookSymbol, id, errorMsg);
+                return; // informational; nothing for the SubscriptionManager to react to
+            }
             switch (errorCode) {
                 case 100 -> log.error("IBKR_PACING_VIOLATION symbol={} reqId={}: {}", bookSymbol, id, errorMsg);
                 case 101 -> log.error("IBKR_MAX_TICKERS symbol={} reqId={}: {}", bookSymbol, id, errorMsg);
@@ -476,6 +480,52 @@ public class IbkrWrapper extends DefaultEWrapper {
             contractActivityWaitsForOI.remove(id);
             af.completeExceptionally(new IbkrException(errorCode, errorMsg));
         }
+    }
+
+    /**
+     * Error 10090 — "You have not subscribed to part of the requested market data. Ticks
+     * requiring no subscription are still delivered." The message TEXT names the affected
+     * tick group(s) in the locale-independent tail format {@code <SYMBOL> <EXCHANGE>/<Group>:<genericTick>}
+     * (observed live 2026-07-10: "...werden weiterhin angezeigt.SPY ARCA/Auction:225").
+     * Parsed structurally: each named generic tick marks its Book field group notSubscribed,
+     * so the fields' permanent silence is attributed to the account's market-data
+     * subscription instead of looking like a calm market or a dead feed (visible in the
+     * snapshot's dataQuality block). Default ticks of the same line keep streaming.
+     */
+    private void handlePartialSubscription(String bookSymbol, int reqId, String errorMsg) {
+        java.util.List<Integer> ticks = parseNotSubscribedGenericTicks(errorMsg);
+        java.util.List<Integer> mapped = new java.util.ArrayList<>();
+        for (int tick : ticks) {
+            if (book.book(bookSymbol).markNotSubscribedGenericTick(tick)) {
+                mapped.add(tick);
+            } else {
+                log.warn("IBKR_PARTIAL_SUBSCRIPTION symbol={} reqId={}: generic tick {} not mapped to any Book field group",
+                        bookSymbol, reqId, tick);
+            }
+        }
+        if (mapped.isEmpty()) {
+            log.warn("IBKR_PARTIAL_SUBSCRIPTION symbol={} reqId={}: no tick group parseable from '{}'",
+                    bookSymbol, reqId, errorMsg);
+        } else {
+            log.warn("IBKR_PARTIAL_SUBSCRIPTION symbol={} reqId={} genericTicks={} — fields marked notSubscribed",
+                    bookSymbol, reqId, mapped);
+        }
+    }
+
+    // Tail format of the 10090 text: "<EXCHANGE>/<GroupName>:<number>", e.g. "ARCA/Auction:225".
+    // Only the number matters (it is the REQUESTED generic tick id); the group name is
+    // locale-independent but redundant with the number.
+    private static final java.util.regex.Pattern NOT_SUBSCRIBED_TICK =
+            java.util.regex.Pattern.compile("/[^:/\\s][^:/]*:(\\d{1,4})");
+
+    static java.util.List<Integer> parseNotSubscribedGenericTicks(String errorMsg) {
+        if (errorMsg == null) return java.util.List.of();
+        java.util.List<Integer> ticks = new java.util.ArrayList<>();
+        java.util.regex.Matcher m = NOT_SUBSCRIBED_TICK.matcher(errorMsg);
+        while (m.find()) {
+            ticks.add(Integer.parseInt(m.group(1)));
+        }
+        return ticks;
     }
 
     @Override public void error(String str) { log.warn("IBKR: {}", str); }

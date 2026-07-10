@@ -33,8 +33,8 @@ class DerivedMetricsStaleGateTest {
     }
 
     private static DataQuality quality(boolean quoteStale) {
-        DataQuality.Section fresh = new DataQuality.Section(1L, 5L, false, false);
-        DataQuality.Section quote = new DataQuality.Section(quoteStale ? 999L : 1L, 5L, quoteStale, false);
+        DataQuality.Section fresh = new DataQuality.Section(1L, 5L, false, false, null);
+        DataQuality.Section quote = new DataQuality.Section(quoteStale ? 999L : 1L, 5L, quoteStale, false, null);
         return new DataQuality(false, 1, quote, fresh, fresh, fresh);
     }
 

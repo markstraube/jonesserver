@@ -24,8 +24,16 @@ import java.util.Objects;
  */
 public final class TimestampedField<T> {
 
-    /** Immutable view of the field at one instant. {@code value} may be null (never seen). */
-    public record Stamped<T>(T value, Instant lastChangedAt, Instant lastSeenAt, boolean invalidated) {
+    /**
+     * Immutable view of the field at one instant. {@code value} may be null (never seen).
+     *
+     * {@code notSubscribed}: IBKR reported (error 10090) that the market-data subscription
+     * of the account does not cover this field's tick group — silence here is neither
+     * stillness nor a dead feed, the data plainly cannot arrive. Cleared by the next tick
+     * (which proves the opposite).
+     */
+    public record Stamped<T>(T value, Instant lastChangedAt, Instant lastSeenAt,
+                             boolean invalidated, boolean notSubscribed) {
         public boolean isPresent() {
             return value != null;
         }
@@ -41,18 +49,19 @@ public final class TimestampedField<T> {
         }
     }
 
-    private static final Stamped<?> EMPTY = new Stamped<>(null, null, null, false);
+    private static final Stamped<?> EMPTY = new Stamped<>(null, null, null, false, false);
 
     @SuppressWarnings("unchecked")
     private volatile Stamped<T> state = (Stamped<T>) EMPTY;
 
     /** Records a tick carrying {@code newValue} at {@code now}. Same value → only lastSeenAt
-     *  moves; different value → both timestamps move. Any update clears invalidation: the
-     *  feed has demonstrably spoken again. */
+     *  moves; different value → both timestamps move. Any update clears invalidation AND
+     *  notSubscribed: an arriving tick proves the feed speaks and the subscription covers
+     *  this field. */
     public void update(T newValue, Instant now) {
         Stamped<T> cur = state;
         boolean changed = !Objects.equals(cur.value(), newValue);
-        state = new Stamped<>(newValue, changed ? now : cur.lastChangedAt(), now, false);
+        state = new Stamped<>(newValue, changed ? now : cur.lastChangedAt(), now, false, false);
     }
 
     public void update(T newValue) {
@@ -67,7 +76,21 @@ public final class TimestampedField<T> {
     public void invalidate() {
         Stamped<T> cur = state;
         if (!cur.invalidated()) {
-            state = new Stamped<>(cur.value(), cur.lastChangedAt(), cur.lastSeenAt(), true);
+            state = new Stamped<>(cur.value(), cur.lastChangedAt(), cur.lastSeenAt(), true, cur.notSubscribed());
+        }
+    }
+
+    /**
+     * IBKR error 10090: the account's market-data subscription does not cover this field's
+     * tick group. Value and timestamps are kept (a pre-downgrade value may exist); the flag
+     * tells readers that silence here is a SUBSCRIPTION gap, not market stillness and not a
+     * dead feed — the liveness/staleness logic must not raise alarms for it. Cleared by the
+     * next tick.
+     */
+    public void markNotSubscribed() {
+        Stamped<T> cur = state;
+        if (!cur.notSubscribed()) {
+            state = new Stamped<>(cur.value(), cur.lastChangedAt(), cur.lastSeenAt(), cur.invalidated(), true);
         }
     }
 

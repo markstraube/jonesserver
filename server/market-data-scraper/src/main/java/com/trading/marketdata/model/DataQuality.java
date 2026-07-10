@@ -28,12 +28,16 @@ public record DataQuality(
      * Quality of one field group. ageSeconds/changedAgeSeconds are the FRESHEST member
      * field's values (null = no member field has ever been seen). invalidated = every seen
      * member field is flagged from a connection loss and has not re-ticked since.
+     * notSubscribed (true or absent) = IBKR reported (error 10090) that the account's
+     * market-data subscription does not cover at least one member field's tick group —
+     * silence here is a subscription gap, not stillness and not a dead feed.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Section(
             Long ageSeconds,
             Long changedAgeSeconds,
             boolean stale,
-            Boolean invalidated
+            Boolean invalidated,
+            Boolean notSubscribed
     ) {}
 }

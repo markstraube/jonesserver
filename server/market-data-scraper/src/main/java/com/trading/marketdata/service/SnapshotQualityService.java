@@ -86,6 +86,7 @@ public class SnapshotQualityService {
         Long changedAge = null;
         boolean anySeen = false;
         boolean allSeenInvalidated = true;
+        boolean anyNotSubscribed = false;
         for (TimestampedField<?> field : fields) {
             TimestampedField.Stamped<?> s = field.get();
             Long a = s.ageSeconds(now);
@@ -96,12 +97,15 @@ public class SnapshotQualityService {
             }
             Long c = s.changedAgeSeconds(now);
             if (c != null && (changedAge == null || c < changedAge)) changedAge = c;
+            if (s.notSubscribed()) anyNotSubscribed = true;
         }
         boolean invalidated = anySeen && allSeenInvalidated;
         boolean stale = connectionLost
                 || !anySeen
                 || invalidated
                 || (ageGate && age != null && age > staleSeconds);
-        return new DataQuality.Section(age, changedAge, stale, anySeen ? invalidated : null);
+        return new DataQuality.Section(age, changedAge, stale,
+                anySeen ? invalidated : null,
+                anyNotSubscribed ? true : null);
     }
 }

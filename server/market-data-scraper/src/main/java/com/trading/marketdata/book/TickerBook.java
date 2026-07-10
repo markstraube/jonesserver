@@ -114,4 +114,37 @@ public final class TickerBook {
             f.invalidate();
         }
     }
+
+    /**
+     * IBKR error 10090 names the REQUESTED generic tick number whose subscription the
+     * account lacks (e.g. "SPY ARCA/Auction:225"). Marks that tick group's Book fields as
+     * notSubscribed so their silence is attributed to the subscription, not the market:
+     *   225 → auction/NOII fields (delivered tick types 34/35/36/61)
+     *   100 → call/put option volume (29/30; the computed PCR dies with them)
+     *   104 → historical volatility (23)
+     *   106 → implied volatility (24)
+     * Default ticks (bid/ask/last/volume/OHLC) need no generic tick and are never affected.
+     *
+     * @return true when the number mapped to a known group
+     */
+    public boolean markNotSubscribedGenericTick(int genericTick) {
+        switch (genericTick) {
+            case 225 -> {
+                auctionPrice.markNotSubscribed();
+                auctionVolume.markNotSubscribed();
+                imbalance.markNotSubscribed();
+                regulatoryImbalance.markNotSubscribed();
+            }
+            case 100 -> {
+                callOptionVolume.markNotSubscribed();
+                putOptionVolume.markNotSubscribed();
+            }
+            case 104 -> historicalVolatility.markNotSubscribed();
+            case 106 -> impliedVolatility.markNotSubscribed();
+            default -> {
+                return false;
+            }
+        }
+        return true;
+    }
 }
