@@ -185,6 +185,34 @@ public final class AggressorClassifier {
         return Side.UNKNOWN;                                   // midpoint zone, deliberately untested
     }
 
+    /**
+     * The OI-delta join label — the single most valuable output: it turns "unusual volume"
+     * into a positioning thesis. Dominance = one side carries >= 60% of the classified
+     * directional volume (buy+sell, UNKNOWN excluded from the base).
+     *
+     *   buy-dominant  + OI up   → OPENING_BUYS   (new longs being built, urgently)
+     *   buy-dominant  + OI down → SHORT_COVER    (writers buying their exposure back)
+     *   sell-dominant + OI up   → OPENING_WRITES (premium sellers volunteering carry)
+     *   sell-dominant + OI down → CLOSING_SALES  (longs monetizing)
+     *   no dominance, or dominance with a flat OI (opens ≈ closes) → MIXED
+     *   oiDelta unknown, or no classified directional volume at all → UNKNOWN
+     *
+     * Epoch caveat (also on AggressorProfile): OI is published pre-open as of the PREVIOUS
+     * close, so the delta describes the prior session's net positioning while the dominance
+     * describes today's flow — a thesis, not a proof.
+     */
+    public static String positionInference(long buyVolume, long sellVolume, Long oiDelta) {
+        if (oiDelta == null) return "UNKNOWN";
+        long directional = buyVolume + sellVolume;
+        if (directional <= 0) return "UNKNOWN";
+        boolean buyDominant = buyVolume >= 0.6 * directional;
+        boolean sellDominant = sellVolume >= 0.6 * directional;
+        if (!buyDominant && !sellDominant) return "MIXED";
+        if (oiDelta == 0) return "MIXED";
+        if (buyDominant) return oiDelta > 0 ? "OPENING_BUYS" : "SHORT_COVER";
+        return oiDelta > 0 ? "OPENING_WRITES" : "CLOSING_SALES";
+    }
+
     static boolean isSpreadLeg(Trade t, List<String> markers) {
         String cond = t.specialConditions();
         if (cond == null || cond.isBlank() || markers == null) return false;

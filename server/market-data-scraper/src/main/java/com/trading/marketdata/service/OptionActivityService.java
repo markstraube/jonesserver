@@ -1,8 +1,12 @@
 package com.trading.marketdata.service;
 
+import com.trading.marketdata.analysis.AggressorClassifier;
+import com.trading.marketdata.analysis.AggressorProfile;
 import com.trading.marketdata.book.MarketDataBook;
 import com.trading.marketdata.book.SubscriptionManager;
 import com.trading.marketdata.book.TickerBook;
+import com.trading.marketdata.ibkr.HistoricalRequestBudget;
+import com.trading.marketdata.ibkr.IbkrDayTicks;
 import com.trading.marketdata.ibkr.IbkrMarketDataService;
 import com.trading.marketdata.ibkr.IbkrOptionContractActivity;
 import com.trading.marketdata.ibkr.IbkrOptionsChainResult;
@@ -20,6 +24,7 @@ import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -100,6 +105,40 @@ public class OptionActivityService {
     @Value("${unusual-activity.aggressor-stale-seconds:300}")
     private long aggressorStaleSeconds;
 
+    // --- UA stage 2: per-contract aggressor classification from historical ticks ---
+    // Package-private (not private) so the escalation tests can set them without Spring.
+    // Default OFF: the stage consumes historical-data pacing budget and stays opt-in until
+    // the live SPY verification from the rebuild prompt has been run on this installation.
+    @Value("${ua.aggressor.enabled:false}")
+    boolean aggressorEnabled;
+
+    @Value("${ua.aggressor.max-candidates-per-cycle:4}")
+    int aggressorMaxCandidates;
+
+    // Request-equivalents per scan cycle (BID_ASK pages count double, see
+    // HistoricalRequestBudget). One budget spans a whole scheduled watchlist sweep;
+    // an on-demand scan gets its own fresh budget — see computeActivity.
+    @Value("${ua.aggressor.max-requests-per-cycle:20}")
+    int aggressorMaxRequests;
+
+    @Value("${ua.aggressor.sweep-window-ms:500}")
+    long aggressorSweepWindowMs;
+
+    @Value("${ua.aggressor.block-min-contracts:100}")
+    long aggressorBlockMinContracts;
+
+    // Spread-leg markers matched (case-insensitive contains) against specialConditions.
+    // The code set is exchange-dependent and poorly documented — this default is the
+    // documented single/multi-leg-of-combo mnemonics; the definitive list is built from
+    // our own wire observations via the UA_AGGRESSOR_CONDITIONS debug log below.
+    @Value("${ua.aggressor.spread-condition-markers:SLAN,SLAI,SLCN,SLFT,MLET,MLAT,MLCT,MLFT,TLET,TLAT,TLCT,TLFT,MESL,TESL}")
+    List<String> aggressorSpreadMarkers;
+
+    // Session start (ET) for the historical tick window. Options print 09:30–16:15 ET;
+    // useRth=0 in the fetch keeps anything outside that window if it exists.
+    @Value("${ua.aggressor.session-start:09:30}")
+    String aggressorSessionStart;
+
     private final IbkrMarketDataService ibkrService;
     private final QuoteService quoteService;
     private final CacheManager cacheManager;
@@ -135,11 +174,20 @@ public class OptionActivityService {
     /**
      * Runs one scan and writes the results into the Book (timestamped) so snapshot assembly
      * can read them synchronously and label their age honestly. Serialized per ticker.
+     *
+     * On-demand scans get their own fresh stage-2 budget; the scheduled watchlist sweep
+     * passes ONE shared budget across all its tickers so a full sweep cannot exceed
+     * ua.aggressor.max-requests-per-cycle request-equivalents against IBKR's historical
+     * pacing window (~60 per 10 minutes, BID_ASK counting double).
      */
     public OptionActivityResult computeActivity(String ticker) {
+        return computeActivity(ticker, new HistoricalRequestBudget(aggressorMaxRequests));
+    }
+
+    public OptionActivityResult computeActivity(String ticker, HistoricalRequestBudget aggressorBudget) {
         String upperTicker = ticker.toUpperCase();
         synchronized (scanLocks.computeIfAbsent(upperTicker, k -> new Object())) {
-            OptionActivityResult result = doComputeActivity(upperTicker);
+            OptionActivityResult result = doComputeActivity(upperTicker, aggressorBudget);
             // Only a scan that actually resolved strikes overwrites the Book: a failed scan
             // (IBKR down, no chain, no underlying price) yields an empty profile, and writing
             // that would erase the last honest result with a wrongly-fresh nothing. The Book
@@ -162,10 +210,12 @@ public class OptionActivityService {
     @Scheduled(initialDelayString = "${book.scan-initial-delay-ms:30000}",
                fixedDelayString = "${book.scan-interval-ms:300000}")
     public void scheduledWatchlistScan() {
+        // One stage-2 budget for the whole sweep — see computeActivity javadoc.
+        HistoricalRequestBudget aggressorBudget = new HistoricalRequestBudget(aggressorMaxRequests);
         for (String symbol : subscriptionManager.bookSymbols()) {
             if (symbol.equals(subscriptionManager.anchorSymbol())) continue;
             try {
-                OptionActivityResult result = computeActivity(symbol);
+                OptionActivityResult result = computeActivity(symbol, aggressorBudget);
                 log.info("Scheduled UA/OI scan for {}: {} flagged, {} strikes",
                         symbol, result.unusualActivity().size(), result.oiProfile().size());
             } catch (Exception e) {
@@ -174,7 +224,7 @@ public class OptionActivityService {
         }
     }
 
-    private OptionActivityResult doComputeActivity(String ticker) {
+    private OptionActivityResult doComputeActivity(String ticker, HistoricalRequestBudget aggressorBudget) {
         // Market-closed short circuit: without a live session there are no volume ticks, so
         // every volume attempt is a guaranteed timeout cascade (observed 2026-07-03: 86s scan
         // of pure timeouts). When CLOSED we serve OI from cache without any fetch, fetch OI
@@ -284,11 +334,149 @@ public class OptionActivityService {
                 .limit(maxResults)
                 .collect(Collectors.toList());
 
+        topUnusual = escalateAggressor(upper, topUnusual, aggressorBudget);
+
         List<OptionsData.OiLevel> sortedOiProfile = oiProfile.stream()
                 .sorted(Comparator.comparingDouble(OptionsData.OiLevel::strike))
                 .collect(Collectors.toList());
 
         return new OptionActivityResult(topUnusual, sortedOiProfile);
+    }
+
+    // -------------------------------------------------------------------------
+    // UA stage 2 — per-contract aggressor classification (escalation)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Escalation stage: the expensive trade-by-trade analysis runs ONLY on the candidates
+     * the cheap stage-1 filter already flagged. Candidates are the top
+     * {@code ua.aggressor.max-candidates-per-cycle} entries by PREMIUM notional (actual
+     * money spent — strike notional overstates cheap OTM contracts; entries without a
+     * premium rank last). The shared per-cycle budget is checked per candidate: once it is
+     * exhausted, remaining candidates carry an explicit SKIPPED_BUDGET profile instead of
+     * silently missing one. Disabled (default) = the flagged list passes through untouched,
+     * bit for bit — hard constraint of the stage.
+     */
+    List<OptionsData.UnusualActivity> escalateAggressor(String ticker,
+            List<OptionsData.UnusualActivity> flagged, HistoricalRequestBudget budget) {
+        if (!aggressorEnabled || flagged.isEmpty() || budget == null) {
+            return flagged;
+        }
+
+        List<OptionsData.UnusualActivity> candidates = flagged.stream()
+                .sorted(Comparator.comparing(OptionsData.UnusualActivity::premiumNotionalUsd,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(Math.max(aggressorMaxCandidates, 0))
+                .collect(Collectors.toList());
+
+        AggressorClassifier.Config cfg = new AggressorClassifier.Config(
+                aggressorSweepWindowMs, aggressorBlockMinContracts, aggressorSpreadMarkers);
+        ZonedDateTime sessionStart = ZonedDateTime.of(
+                LocalDate.now(US_MARKET_TZ),
+                java.time.LocalTime.parse(aggressorSessionStart),
+                US_MARKET_TZ);
+
+        Map<OptionsData.UnusualActivity, AggressorProfile> profiles = new HashMap<>();
+        for (OptionsData.UnusualActivity ua : candidates) {
+            String right = "PUT".equals(ua.type()) ? "P" : "C";
+            String contractLabel = ticker + " " + ua.expiry() + " " + ua.strike() + " " + right;
+
+            if (budget.remaining() <= 0) {
+                profiles.put(ua, AggressorProfile.skippedBudget());
+                log.info("UA_AGGRESSOR ticker={} contract={} SKIPPED_BUDGET (cycle budget exhausted)",
+                        ticker, contractLabel);
+                continue;
+            }
+
+            IbkrDayTicks ticks = ibkrService.fetchDayTicks(ticker, ua.expiry(), ua.strike(), right,
+                    sessionStart, budget);
+            if (ticks == null) {
+                log.info("UA_AGGRESSOR ticker={} contract={} no tick data (IBKR not connected)",
+                        ticker, contractLabel);
+                continue; // no profile — honest absence, not a fabricated empty one
+            }
+
+            logDistinctSpecialConditions(contractLabel, ticks);
+
+            AggressorProfile profile = AggressorClassifier.classify(
+                    ticks.trades(), ticks.quotes(), cfg, ua.volume(), ticks.partial());
+
+            Long todayOi = ua.openInterest();
+            Long previousOi = previousSessionContractOi(ticker, ua.expiry(), ua.strike(), right);
+            Long oiDelta = (todayOi != null && previousOi != null) ? todayOi - previousOi : null;
+            profile = profile.withOiJoin(oiDelta, AggressorClassifier.positionInference(
+                    profile.buyVolume(), profile.sellVolume(), oiDelta));
+
+            profiles.put(ua, profile);
+            log.info("UA_AGGRESSOR ticker={} contract={} requests={} coverage={} buy={} sell={} unknown={} "
+                            + "sweeps={} blocks={} oiDelta={} inference={} status={}",
+                    ticker, contractLabel, ticks.requestEquivalentsUsed(),
+                    // Locale.ROOT: this line is the verification instrument for the live
+                    // SPY check — it must grep the same on a de-DE host as on en-US.
+                    profile.tickCoverage() == null ? "n/a"
+                            : String.format(java.util.Locale.ROOT, "%.2f", profile.tickCoverage()),
+                    profile.buyVolume(), profile.sellVolume(), profile.unknownVolume(),
+                    profile.sweepCount(), profile.blockCount(),
+                    oiDelta, profile.positionInference(), profile.status());
+        }
+
+        // Original ratio-descending order preserved; only the profile field changes.
+        return flagged.stream()
+                .map(ua -> profiles.containsKey(ua) ? ua.withAggressorProfile(profiles.get(ua)) : ua)
+                .collect(Collectors.toList());
+    }
+
+    /** First sessions instrument (see spec): the spread-marker code set is exchange-dependent
+     *  and poorly documented — every distinct specialConditions string observed on the wire
+     *  is logged so the definitive ua.aggressor.spread-condition-markers list can be built
+     *  from reality instead of documentation. */
+    private void logDistinctSpecialConditions(String contractLabel, IbkrDayTicks ticks) {
+        if (!log.isDebugEnabled()) return;
+        Set<String> distinct = new LinkedHashSet<>();
+        for (AggressorClassifier.Trade t : ticks.trades()) {
+            if (t.specialConditions() != null && !t.specialConditions().isBlank()) {
+                distinct.add(t.specialConditions());
+            }
+        }
+        if (!distinct.isEmpty()) {
+            log.debug("UA_AGGRESSOR_CONDITIONS contract={} distinct={}", contractLabel, distinct);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Per-contract OI day memory (stage-2 OI-delta join)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Written on every scan regardless of ua.aggressor.enabled — a pure cache write with
+     * zero effect on stage-1 results, so the memory is already warm on the day stage 2 is
+     * first switched on. Key embeds the NY trading date; the value is the OI as published
+     * that morning (i.e. positions as of the PREVIOUS close — see the epoch caveat on
+     * AggressorProfile).
+     */
+    private void recordContractOi(String ticker, String expiry, double strike, String right, Long openInterest) {
+        if (openInterest == null) return;
+        Cache cache = cacheManager.getCache("oiContractDayMemory");
+        if (cache == null) return;
+        cache.put(contractOiKey(ticker, expiry, strike, right, LocalDate.now(US_MARKET_TZ)), openInterest);
+    }
+
+    /** The most recent previous session's published OI, looking back up to 5 calendar days
+     *  (weekend + holiday). Null when nothing is remembered — oiDelta then stays null and
+     *  positionInference honestly says UNKNOWN. */
+    private Long previousSessionContractOi(String ticker, String expiry, double strike, String right) {
+        Cache cache = cacheManager.getCache("oiContractDayMemory");
+        if (cache == null) return null;
+        LocalDate today = LocalDate.now(US_MARKET_TZ);
+        for (int daysBack = 1; daysBack <= 5; daysBack++) {
+            Long oi = cache.get(contractOiKey(ticker, expiry, strike, right, today.minusDays(daysBack)), Long.class);
+            if (oi != null) return oi;
+        }
+        return null;
+    }
+
+    private static String contractOiKey(String ticker, String expiry, double strike, String right, LocalDate day) {
+        return ticker + ":" + expiry + ":" + strike + ":" + right + ":" + EXPIRY_FMT.format(day);
     }
 
     /**
@@ -609,6 +797,10 @@ public class OptionActivityService {
             if (invalidCache != null) invalidCache.put(contractKey, true);
             return null;
         }
+
+        // Stage-2 OI day memory — today's published OI per contract, so tomorrow's scan can
+        // compute the delta. Deliberately unconditional (see recordContractOi javadoc).
+        recordContractOi(ticker, expiry, strike, right, openInterest);
 
         if (openInterest == null) {
             log.info("Options activity check {} {} {} {}: skipped (volume={}, openInterest=null)",

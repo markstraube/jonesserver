@@ -1,6 +1,7 @@
 package com.trading.marketdata.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.trading.marketdata.analysis.AggressorProfile;
 
 import java.time.Instant;
 import java.util.List;
@@ -71,8 +72,26 @@ public record OptionsData(
             Double iv,
             Double lastLocation,
             String aggressor,
-            Long lastAgeSeconds
-    ) {}
+            Long lastAgeSeconds,
+            AggressorProfile aggressorProfile
+    ) {
+        /** Stage-1 shape (no aggressor profile) — the scanner and the Barchart fallback
+         *  create entries with this; stage 2 attaches the profile additively afterwards. */
+        public UnusualActivity(String expiry, Double strike, String type, Long volume,
+                Long openInterest, Double volumeOiRatio, Double bid, Double ask, Double last,
+                Double premiumNotionalUsd, Double iv, Double lastLocation, String aggressor,
+                Long lastAgeSeconds) {
+            this(expiry, strike, type, volume, openInterest, volumeOiRatio, bid, ask, last,
+                    premiumNotionalUsd, iv, lastLocation, aggressor, lastAgeSeconds, null);
+        }
+
+        /** Same entry with the stage-2 profile attached (records are immutable). */
+        public UnusualActivity withAggressorProfile(AggressorProfile profile) {
+            return new UnusualActivity(expiry, strike, type, volume, openInterest, volumeOiRatio,
+                    bid, ask, last, premiumNotionalUsd, iv, lastLocation, aggressor,
+                    lastAgeSeconds, profile);
+        }
+    }
 
     /**
      * Open interest for calls and puts at one strike/expiry, regardless of whether today's

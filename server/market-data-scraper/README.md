@@ -95,6 +95,8 @@ Existing JSON fields keep name, type and semantics; `dataQuality` is additive.
 | `auction.opening-window` / `auction.closing-window` | 09:20-09:36 / 15:45-16:02 | NOII interpretation gates (ET) |
 | `book.debug-endpoints-enabled` | false | Test hook `POST /api/v1/book/debug/kill/{ticker}` |
 | `persistence.enabled` | true | MySQL snapshot history |
+| `ua.aggressor.enabled` | false | UA stage 2: per-contract aggressor profiles from historical ticks (additive `aggressorProfile` inside UA entries) |
+| `ua.aggressor.max-candidates-per-cycle` / `ua.aggressor.max-requests-per-cycle` | 4 / 20 | Stage-2 escalation width and pacing budget (request-equivalents; BID_ASK counts double) |
 
 ## Persistence
 

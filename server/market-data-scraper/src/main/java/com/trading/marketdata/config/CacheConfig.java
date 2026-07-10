@@ -56,6 +56,13 @@ public class CacheConfig {
     @Value("${cache.oi-day-memory.ttl-seconds:64800}")
     private long oiDayMemoryTtl;
 
+    // Per-contract OI day memory for the UA stage-2 OI-delta join: today's published OI per
+    // ticker:expiry:strike:right:date, compared against the most recent previous session's
+    // entry. TTL must span a long weekend (Fri→Tue after a Monday holiday), hence 4 days —
+    // unlike oiDayMemory above, whose value only prioritizes sticky strikes within one day.
+    @Value("${cache.oi-contract-day-memory.ttl-seconds:345600}")
+    private long oiContractDayMemoryTtl;
+
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager manager = new CaffeineCacheManager();
@@ -75,6 +82,8 @@ public class CacheConfig {
                 Caffeine.newBuilder().expireAfterWrite(invalidContractTtl, TimeUnit.SECONDS).maximumSize(5000).build());
         manager.registerCustomCache("oiDayMemory",
                 Caffeine.newBuilder().expireAfterWrite(oiDayMemoryTtl, TimeUnit.SECONDS).maximumSize(2000).build());
+        manager.registerCustomCache("oiContractDayMemory",
+                Caffeine.newBuilder().expireAfterWrite(oiContractDayMemoryTtl, TimeUnit.SECONDS).maximumSize(20000).build());
         return manager;
     }
 }
