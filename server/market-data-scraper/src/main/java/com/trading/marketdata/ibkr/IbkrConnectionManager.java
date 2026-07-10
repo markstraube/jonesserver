@@ -106,6 +106,7 @@ public class IbkrConnectionManager {
         EJavaSignal newSignal = new EJavaSignal();
         EClientSocket newClient = new EClientSocket(wrapper, newSignal);
         wrapper.setClient(newClient);
+        wrapper.setReqIdSupplier(this::nextReqId); // article fetches need fresh reqIds
 
         log.info("Connecting to IB Gateway at {}:{} (clientId={})", host, port, clientId);
         newClient.eConnect(host, port, clientId);

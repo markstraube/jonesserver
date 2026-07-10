@@ -220,6 +220,16 @@ public class SubscriptionManager {
             // callback per subscription and land in the Book's dataQuality state.
             connectionManager.getClient().reqMarketDataType(1);
 
+            // Discover the account's news feeds once per (re)connect. The answer arrives
+            // async (newsProviders callback) and is purely diagnostic wiring: tick 292
+            // below delivers only what these feeds cover, and an empty catalog is the
+            // honest explanation for silent news fields.
+            try {
+                connectionManager.getClient().reqNewsProviders();
+            } catch (Exception e) {
+                log.warn("reqNewsProviders failed: {}", e.getMessage());
+            }
+
             Set<String> symbols = bookSymbols();
             int firstReqId = -1, lastReqId = -1;
             for (String symbol : symbols) {
@@ -274,11 +284,14 @@ public class SubscriptionManager {
      *   requested 106 (30d implied vol)    → arrives as tickGeneric 24
      *   requested 225 (RT auction values)  → arrives as tickPrice 35 (auction price) and
      *                                        tickSize 34/36/61 (volume/imbalance/regulatory)
+     *   requested 292 (news)               → arrives as the tickNews callback (headline +
+     *                                        articleId; the body is fetched separately via
+     *                                        reqNewsArticle — see IbkrWrapper)
      * Generic ticks REQUIRE a streaming subscription: snapshot=true cannot carry a generic
      * tick list at all per IBKR's docs.
      */
     private String genericTickList() {
-        return "100,104,106,225";
+        return "100,104,106,225,292";
     }
 
     // -------------------------------------------------------------------------

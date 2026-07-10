@@ -2,6 +2,7 @@ package com.trading.marketdata.ibkr;
 
 import com.ib.client.*;
 import com.trading.marketdata.book.MarketDataBook;
+import com.trading.marketdata.model.NewsItem;
 import com.trading.marketdata.book.TickerBook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntSupplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Extends DefaultEWrapper instead of implementing EWrapper directly.
@@ -58,6 +63,127 @@ public class IbkrWrapper extends DefaultEWrapper {
     private final Map<Integer, String>                                     contractActivityRight = new ConcurrentHashMap<>();
 
     public void setClient(EClientSocket client) { this.client = client; }
+
+    // =========================================================================
+    // IBKR news (generic tick 292 on the Book lines + reqNewsArticle body fetch)
+    // =========================================================================
+
+    /** reqId authority (IbkrConnectionManager::nextReqId) — article fetches need fresh ids
+     *  and the connection manager owns the counter; injected as a supplier to avoid the
+     *  wrapper↔connection-manager constructor cycle (same pattern as setClient). */
+    private IntSupplier reqIdSupplier;
+
+    public void setReqIdSupplier(IntSupplier reqIdSupplier) { this.reqIdSupplier = reqIdSupplier; }
+
+    @Value("${news.article-fetch-enabled:true}")
+    private boolean articleFetchEnabled;
+
+    @Value("${news.max-items-per-ticker:25}")
+    private int newsMaxItemsPerTicker;
+
+    @Value("${news.article-cache-max:200}")
+    private int articleCacheMax;
+
+    /** providerCode → providerName of the account's subscribed news feeds, filled by the
+     *  newsProviders callback after reqNewsProviders on connect. Diagnostic + honest
+     *  answer to "why is there no IBKR news": empty map after connect = no feeds. */
+    private volatile Map<String, String> newsProviderCatalog = Map.of();
+
+    public Map<String, String> newsProviderCatalog() { return newsProviderCatalog; }
+
+    private record PendingArticle(String symbol, String articleId) {}
+    private final Map<Integer, PendingArticle> pendingNewsArticles = new ConcurrentHashMap<>();
+
+    /** articleId → body. The same story ticks on several symbols (sector news) and again on
+     *  reconnect; one fetch per article is enough. Bounded crudely: past the cap the whole
+     *  cache is dropped — correctness never depends on a hit, a miss just refetches. */
+    private final Map<String, String> articleTextCache = new ConcurrentHashMap<>();
+
+    /** Leading IBKR headline metadata like "{K:n/a,C:0.6}Actual headline". */
+    private static final Pattern HEADLINE_META = Pattern.compile("^\\{[^}]*\\}");
+
+    @Override
+    public void newsProviders(NewsProvider[] providers) {
+        Map<String, String> catalog = new java.util.LinkedHashMap<>();
+        if (providers != null) {
+            for (NewsProvider np : providers) {
+                catalog.put(np.providerCode(), np.providerName());
+            }
+        }
+        newsProviderCatalog = Map.copyOf(catalog);
+        if (catalog.isEmpty()) {
+            log.warn("NEWS_PROVIDERS none — the account has no news feed subscriptions; "
+                    + "generic tick 292 will stay silent on every Book line");
+        } else {
+            log.info("NEWS_PROVIDERS count={} {}", catalog.size(), catalog);
+        }
+    }
+
+    /**
+     * A headline on a Book line (generic tick 292). tickerId IS the reqMktData reqId of the
+     * symbol's permanent subscription, so the existing bookRoutes map resolves the symbol.
+     * The body is fetched asynchronously via reqNewsArticle; both this callback and the
+     * newsArticle response run on the EReader thread, preserving the Book's single-writer
+     * contract for the news field.
+     */
+    @Override
+    public void tickNews(int tickerId, long timeStamp, String providerCode, String articleId,
+                         String headline, String extraData) {
+        String symbol = bookRoutes.get(tickerId);
+        if (symbol == null) {
+            log.debug("tickNews for unrouted reqId={} articleId={} — dropped", tickerId, articleId);
+            return;
+        }
+        TickerBook tb = book.book(symbol);
+        Instant now = Instant.now();
+
+        String cleanHeadline = headline == null ? "" : stripHeadlineMeta(headline);
+        // IBKR delivers epoch millis; guard against a seconds-scale value anyway (cheap,
+        // and a wrong century in publishedAt would poison downstream recency logic).
+        Instant published = timeStamp <= 0 ? now
+                : Instant.ofEpochMilli(timeStamp < 100_000_000_000L ? timeStamp * 1000 : timeStamp);
+
+        NewsItem item = new NewsItem(cleanHeadline, "ibkr:" + providerCode, null, published,
+                providerCode, articleId, articleTextCache.get(articleId));
+        tb.appendNews(item, newsMaxItemsPerTicker, now);
+        log.info("IBKR_NEWS symbol={} provider={} articleId={} headline=\"{}\"",
+                symbol, providerCode, articleId, cleanHeadline);
+
+        if (item.fullText() == null && articleFetchEnabled
+                && client != null && reqIdSupplier != null
+                && providerCode != null && articleId != null) {
+            int reqId = reqIdSupplier.getAsInt();
+            pendingNewsArticles.put(reqId, new PendingArticle(symbol, articleId));
+            client.reqNewsArticle(reqId, providerCode, articleId, null);
+        }
+    }
+
+    /** Article body response. articleType: 0 = plain text, 1 = HTML (Briefing delivers
+     *  HTML) — HTML is flattened to text with jsoup, which the project already ships for
+     *  the scrapers. */
+    @Override
+    public void newsArticle(int requestId, int articleType, String articleText) {
+        PendingArticle pending = pendingNewsArticles.remove(requestId);
+        if (pending == null) return;
+        String text = articleText == null ? "" : articleText;
+        if (articleType == 1) {
+            text = org.jsoup.Jsoup.parse(text).text();
+        }
+        if (articleTextCache.size() >= articleCacheMax) {
+            articleTextCache.clear(); // crude bound, see field comment
+        }
+        articleTextCache.put(pending.articleId(), text);
+        TickerBook tb = book.find(pending.symbol());
+        boolean attached = tb != null
+                && tb.attachArticleText(pending.articleId(), text, Instant.now());
+        log.debug("IBKR_NEWS_ARTICLE symbol={} articleId={} chars={} attached={}",
+                pending.symbol(), pending.articleId(), text.length(), attached);
+    }
+
+    static String stripHeadlineMeta(String headline) {
+        Matcher m = HEADLINE_META.matcher(headline);
+        return m.find() ? headline.substring(m.end()).trim() : headline.trim();
+    }
 
     // =========================================================================
     // Book routing — permanent streaming subscriptions (SubscriptionManager)
@@ -453,6 +579,16 @@ public class IbkrWrapper extends DefaultEWrapper {
         // retryable after backoff, 101 is not retryable until lines are freed. The
         // SubscriptionManager reacts via IbkrSubscriptionErrorEvent and reports both as
         // distinct failure reasons in the BOOK_SUBSCRIBE_SUMMARY.
+        // Failed article fetch (bad articleId, feed hiccup): drop the pending entry so the
+        // map cannot grow; the headline stays in the Book without a body, which the
+        // fullText=null contract already expresses. Never worth a retry loop.
+        PendingArticle failedArticle = pendingNewsArticles.remove(id);
+        if (failedArticle != null) {
+            log.warn("IBKR news article fetch failed symbol={} articleId={} code={}: {}",
+                    failedArticle.symbol(), failedArticle.articleId(), errorCode, errorMsg);
+            return;
+        }
+
         String bookSymbol = bookRoutes.get(id);
         if (bookSymbol != null) {
             if (errorCode == 10090) {

@@ -1,5 +1,6 @@
 package com.trading.marketdata.book;
 
+import com.trading.marketdata.model.NewsItem;
 import com.trading.marketdata.model.OptionsData;
 
 import java.time.Instant;
@@ -44,6 +45,15 @@ public final class TickerBook {
     private final TimestampedField<List<OptionsData.UnusualActivity>> unusualActivity = new TimestampedField<>();
     private final TimestampedField<List<OptionsData.OiLevel>> oiProfile = new TimestampedField<>();
 
+    // --- IBKR news (generic tick 292 → tickNews callback; article text via reqNewsArticle) ---
+    // Bounded newest-first list, deduped by articleId. The ONE exception to "no history" in
+    // the Book: news is inherently a short list, not a scalar — but it is still last-value
+    // in spirit (a fixed-size window of the latest items, no unbounded growth, history in
+    // MySQL as for everything else). Written exclusively on the EReader thread: both
+    // tickNews (headline arrives) and newsArticle (body arrives) are EWrapper callbacks,
+    // so the single-writer contract of TimestampedField holds without extra locking.
+    private final TimestampedField<List<NewsItem>> news = new TimestampedField<>();
+
     // --- Data-quality block state ---
     // marketDataType per IBKR callback: 1 = realtime, 2 = frozen, 3 = delayed, 4 = delayed-
     // frozen. A switch to 2–4 is a quality statement about the whole line, not a data tick:
@@ -56,7 +66,7 @@ public final class TickerBook {
             bid, ask, last, open, high, low, close, volume,
             impliedVolatility, historicalVolatility, callOptionVolume, putOptionVolume,
             auctionPrice, auctionVolume, imbalance, regulatoryImbalance,
-            unusualActivity, oiProfile);
+            unusualActivity, oiProfile, news);
 
     TickerBook(String symbol) {
         this.symbol = symbol;
@@ -87,6 +97,51 @@ public final class TickerBook {
 
     public TimestampedField<List<OptionsData.UnusualActivity>> unusualActivity() { return unusualActivity; }
     public TimestampedField<List<OptionsData.OiLevel>> oiProfile() { return oiProfile; }
+
+    public TimestampedField<List<NewsItem>> news() { return news; }
+
+    /**
+     * Records one arriving headline (tickNews). Newest first, deduped by articleId (IBKR
+     * re-ticks the same story, e.g. after reconnect), capped at {@code maxItems}. EReader
+     * thread only — see the field comment.
+     */
+    public void appendNews(NewsItem item, int maxItems, Instant now) {
+        List<NewsItem> cur = news.value();
+        java.util.ArrayList<NewsItem> next = new java.util.ArrayList<>(maxItems + 1);
+        next.add(item);
+        if (cur != null) {
+            for (NewsItem n : cur) {
+                if (next.size() >= maxItems) break;
+                if (item.articleId() != null && item.articleId().equals(n.articleId())) continue;
+                next.add(n);
+            }
+        }
+        news.update(List.copyOf(next), now);
+    }
+
+    /**
+     * Attaches the asynchronously fetched article body (newsArticle callback) to the item it
+     * belongs to. A miss is normal, not an error: the item may have been rotated out of the
+     * bounded window between request and response. EReader thread only.
+     *
+     * @return true when the item was found and updated
+     */
+    public boolean attachArticleText(String articleId, String fullText, Instant now) {
+        List<NewsItem> cur = news.value();
+        if (cur == null || articleId == null) return false;
+        boolean hit = false;
+        java.util.ArrayList<NewsItem> next = new java.util.ArrayList<>(cur.size());
+        for (NewsItem n : cur) {
+            if (articleId.equals(n.articleId()) && n.fullText() == null) {
+                next.add(n.withFullText(fullText));
+                hit = true;
+            } else {
+                next.add(n);
+            }
+        }
+        if (hit) news.update(List.copyOf(next), now);
+        return hit;
+    }
 
     public void setMarketDataType(int type, Instant now) {
         this.marketDataType = type;
@@ -123,6 +178,7 @@ public final class TickerBook {
      *   100 → call/put option volume (29/30; the computed PCR dies with them)
      *   104 → historical volatility (23)
      *   106 → implied volatility (24)
+     *   292 → news headlines (tickNews callback; needs at least one news feed subscription)
      * Default ticks (bid/ask/last/volume/OHLC) need no generic tick and are never affected.
      *
      * @return true when the number mapped to a known group
@@ -141,6 +197,7 @@ public final class TickerBook {
             }
             case 104 -> historicalVolatility.markNotSubscribed();
             case 106 -> impliedVolatility.markNotSubscribed();
+            case 292 -> news.markNotSubscribed();
             default -> {
                 return false;
             }
