@@ -161,6 +161,23 @@ public class OptionActivityService {
         this.subscriptionManager = subscriptionManager;
     }
 
+    /**
+     * The effective stage-2 config of THIS process, logged once at startup. Diagnostic for
+     * config-source confusion: the packaged application.properties can be silently REPLACED
+     * by an external spring.config.location / config/ directory next to the jar — then a
+     * flag flipped in src/main/resources never reaches the runtime and stage 2 stays off
+     * without any error (observed 2026-07-10: jar contained enabled=true, process ran with
+     * the code default false). One glance at this line settles where the config came from.
+     */
+    @jakarta.annotation.PostConstruct
+    void logAggressorConfig() {
+        log.info("UA_AGGRESSOR_CONFIG enabled={} maxCandidatesPerCycle={} maxRequestEquivalentsPerCycle={} "
+                        + "sessionStartEt={} sweepWindowMs={} blockMinContracts={} spreadMarkers={}",
+                aggressorEnabled, aggressorMaxCandidates, aggressorMaxRequests,
+                aggressorSessionStart, aggressorSweepWindowMs, aggressorBlockMinContracts,
+                aggressorSpreadMarkers);
+    }
+
     /** Result of one scan: today's flagged unusual contracts, plus the full OI ladder scanned. */
     public record OptionActivityResult(
             List<OptionsData.UnusualActivity> unusualActivity,
