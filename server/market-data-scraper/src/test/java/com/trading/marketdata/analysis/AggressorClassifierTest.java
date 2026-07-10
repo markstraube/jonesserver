@@ -35,7 +35,7 @@ class AggressorClassifierTest {
     }
 
     private static AggressorProfile classify(List<Trade> trades, List<Quote> quotes) {
-        return AggressorClassifier.classify(trades, quotes, CFG, null, false);
+        return AggressorClassifier.classify(trades, quotes, CFG, null, false, false);
     }
 
     // -------------------------------------------------------------------------
@@ -176,7 +176,7 @@ class AggressorClassifierTest {
                 new Trade(T0 + 1, 5.0, 40, "CBOE", "SPREAD", false),      // excluded spread
                 new Trade(T0 + 1, 5.0, 50, "CBOE", null, true));          // excluded unreported
         AggressorProfile p = AggressorClassifier.classify(trades, List.of(quote(T0, 4.0, 6.0)),
-                CFG, 300L, false);
+                CFG, 300L, false, false);
         long analyzed = p.buyVolume() + p.sellVolume() + p.unknownVolume()
                 + p.excludedSpreadVolume() + p.excludedUnreportedVolume();
         assertEquals(150, analyzed);
@@ -313,24 +313,24 @@ class AggressorClassifierTest {
     @Test
     void coverageNullWithoutDayVolumeAndCappedMathOtherwise() {
         AggressorProfile noDayVolume = AggressorClassifier.classify(
-                List.of(trade(T0 + 1, 6.0, 10)), List.of(quote(T0, 4.0, 6.0)), CFG, null, false);
+                List.of(trade(T0 + 1, 6.0, 10)), List.of(quote(T0, 4.0, 6.0)), CFG, null, false, false);
         assertNull(noDayVolume.tickCoverage());
 
         AggressorProfile half = AggressorClassifier.classify(
-                List.of(trade(T0 + 1, 6.0, 10)), List.of(quote(T0, 4.0, 6.0)), CFG, 20L, false);
+                List.of(trade(T0 + 1, 6.0, 10)), List.of(quote(T0, 4.0, 6.0)), CFG, 20L, false, false);
         assertEquals(0.5, half.tickCoverage(), 1e-9);
     }
 
     @Test
     void partialFlagAndEmptyInputs() {
-        AggressorProfile p = AggressorClassifier.classify(List.of(), List.of(), CFG, 100L, true);
+        AggressorProfile p = AggressorClassifier.classify(List.of(), List.of(), CFG, 100L, true, false);
         assertEquals(AggressorProfile.STATUS_PARTIAL, p.status());
         assertEquals(0, p.buyVolume());
         assertNull(p.firstTradeAt());
         assertNull(p.vwapBuy());
         assertEquals(0.0, p.tickCoverage(), 1e-9);
 
-        AggressorProfile ok = AggressorClassifier.classify(List.of(), List.of(), CFG, null, false);
+        AggressorProfile ok = AggressorClassifier.classify(List.of(), List.of(), CFG, null, false, false);
         assertEquals(AggressorProfile.STATUS_OK, ok.status());
     }
 
@@ -340,5 +340,135 @@ class AggressorClassifierTest {
         assertEquals(AggressorProfile.STATUS_SKIPPED_BUDGET, p.status());
         assertNull(p.buyVolume());
         assertNull(p.tickCoverage());
+    }
+
+    // -------------------------------------------------------------------------
+    // Partial semantics: quote-coverage cutoff, partialDetail, coverage clamp
+    // -------------------------------------------------------------------------
+
+    @Test
+    void partialQuotesStopClassificationAtCoverageEnd() {
+        // Quote coverage ends at T0+10 (partial fetch). The T0+5 trade classifies normally;
+        // the T0+60 trade would join against the T0+10 quote — with quotesPartial that NBBO
+        // is unknowable (updates existed that were not fetched), so it must be UNKNOWN.
+        List<Trade> trades = List.of(
+                trade(T0 + 5, 6.0, 10),    // inside coverage → BUY at the ask
+                trade(T0 + 60, 6.0, 20));  // beyond coverage end → UNKNOWN, not stale-BUY
+        List<Quote> quotes = List.of(quote(T0, 4.0, 6.0), quote(T0 + 10, 4.0, 6.0));
+
+        AggressorProfile p = AggressorClassifier.classify(trades, quotes, CFG, null, false, true);
+        assertEquals(10, p.buyVolume());
+        assertEquals(20, p.unknownVolume());
+        assertEquals(AggressorProfile.STATUS_PARTIAL, p.status());
+        assertEquals("QUOTES", p.partialDetail());
+    }
+
+    @Test
+    void completeQuotesClassifyBeyondLastUpdate() {
+        // Asymmetry to the partial case: with a COMPLETE quote stream an old quote is one
+        // that simply hasn't changed and remains the valid NBBO — the T0+60 trade classifies.
+        List<Trade> trades = List.of(trade(T0 + 60, 6.0, 20));
+        List<Quote> quotes = List.of(quote(T0, 4.0, 6.0), quote(T0 + 10, 4.0, 6.0));
+
+        AggressorProfile p = AggressorClassifier.classify(trades, quotes, CFG, null, false, false);
+        assertEquals(20, p.buyVolume());
+        assertEquals(AggressorProfile.STATUS_OK, p.status());
+        assertNull(p.partialDetail());
+    }
+
+    @Test
+    void partialDetailNamesTheIncompleteSide() {
+        List<Trade> trades = List.of(trade(T0 + 1, 6.0, 10));
+        List<Quote> quotes = List.of(quote(T0, 4.0, 6.0));
+
+        assertEquals("TRADES", AggressorClassifier.classify(trades, quotes, CFG, null, true, false)
+                .partialDetail());
+        assertEquals("TRADES+QUOTES", AggressorClassifier.classify(trades, quotes, CFG, null, true, true)
+                .partialDetail());
+    }
+
+    @Test
+    void tickCoverageIsClampedAtOne() {
+        // The stage-1 volume reference is a snapshot OLDER than the tick window's end, so a
+        // busy contract can compute slightly above 1 (observed live: 1.0002) — clamped.
+        List<Trade> trades = List.of(trade(T0 + 1, 6.0, 150));
+        AggressorProfile p = AggressorClassifier.classify(trades, List.of(quote(T0, 4.0, 6.0)),
+                CFG, 100L, false, false);
+        assertEquals(1.0, p.tickCoverage(), 1e-9);
+    }
+
+    // -------------------------------------------------------------------------
+    // Stratified quote islands (coverage intervals)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void tradesClassifyOnlyInsideIslands() {
+        // Two islands: [T0, T0+100] and [T0+500, T0+600]. The gap trade is UNKNOWN even
+        // though a (stale) quote from island 1 precedes it.
+        var coverage = List.of(
+                new AggressorClassifier.Interval(T0, T0 + 100),
+                new AggressorClassifier.Interval(T0 + 500, T0 + 600));
+        List<Trade> trades = List.of(
+                trade(T0 + 50, 6.0, 10),   // island 1 → BUY at ask
+                trade(T0 + 300, 6.0, 20),  // gap → UNKNOWN
+                trade(T0 + 550, 4.0, 30)); // island 2 → SELL at bid
+        List<Quote> quotes = List.of(quote(T0 + 10, 4.0, 6.0), quote(T0 + 510, 4.0, 6.0));
+
+        AggressorProfile p = AggressorClassifier.classify(trades, quotes, CFG, null, false, coverage);
+        assertEquals(10, p.buyVolume());
+        assertEquals(30, p.sellVolume());
+        assertEquals(20, p.unknownVolume());
+        assertEquals("QUOTES", p.partialDetail());
+        assertEquals(40.0 / 60.0, p.classifiedShare(), 1e-9);
+    }
+
+    @Test
+    void quoteFromPreviousIslandNeverBridgesTheGap() {
+        // A trade INSIDE island 2 but BEFORE island 2's first quote: the prevailing quote
+        // by time is island 1's — which must be rejected (the NBBO changed unseen in the
+        // gap). The trade is covered (classifiable in principle) but UNKNOWN.
+        var coverage = List.of(
+                new AggressorClassifier.Interval(T0, T0 + 100),
+                new AggressorClassifier.Interval(T0 + 500, T0 + 600));
+        List<Trade> trades = List.of(trade(T0 + 505, 6.0, 10)); // island 2, before its first quote
+        List<Quote> quotes = List.of(quote(T0 + 10, 4.0, 6.0), quote(T0 + 520, 4.0, 6.0));
+
+        AggressorProfile p = AggressorClassifier.classify(trades, quotes, CFG, null, false, coverage);
+        assertEquals(0, p.buyVolume());
+        assertEquals(10, p.unknownVolume());
+        assertEquals(1.0, p.classifiedShare(), 1e-9); // covered, the island just had no quote yet
+    }
+
+    @Test
+    void nullCoverageMeansCompleteStreamShareOne() {
+        AggressorProfile p = AggressorClassifier.classify(
+                List.of(trade(T0 + 60, 6.0, 20)),
+                List.of(quote(T0, 4.0, 6.0)), CFG, null, false, (List<AggressorClassifier.Interval>) null);
+        assertEquals(20, p.buyVolume());
+        assertEquals(1.0, p.classifiedShare(), 1e-9);
+        assertEquals(AggressorProfile.STATUS_OK, p.status());
+    }
+
+    @Test
+    void emptyCoverageMeansNothingClassifiable() {
+        AggressorProfile p = AggressorClassifier.classify(
+                List.of(trade(T0 + 60, 6.0, 20)),
+                List.of(quote(T0, 4.0, 6.0)), CFG, null, false, List.of());
+        assertEquals(20, p.unknownVolume());
+        assertEquals(0.0, p.classifiedShare(), 1e-9);
+        assertEquals("QUOTES", p.partialDetail());
+    }
+
+    @Test
+    void excludedVolumeStaysOutOfClassifiedShare() {
+        var coverage = List.of(new AggressorClassifier.Interval(T0, T0 + 100));
+        List<Trade> trades = List.of(
+                trade(T0 + 50, 6.0, 10),                              // covered → BUY
+                new Trade(T0 + 50, 5.0, 40, "CBOE", "SPREAD", false), // excluded
+                trade(T0 + 300, 6.0, 30));                            // outside → UNKNOWN
+        AggressorProfile p = AggressorClassifier.classify(trades,
+                List.of(quote(T0 + 10, 4.0, 6.0)), CFG, null, false, coverage);
+        assertEquals(40, p.excludedSpreadVolume());
+        assertEquals(10.0 / 40.0, p.classifiedShare(), 1e-9); // 10 covered of 40 non-excluded
     }
 }

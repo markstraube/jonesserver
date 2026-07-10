@@ -217,6 +217,13 @@ public class IbkrMarketDataService {
     @Value("${ua.aggressor.request-timeout-seconds:15}")
     int aggressorRequestTimeoutSeconds = 15;
 
+    /** Upper bound on stratified BID_ASK windows per contract (each costs 2 equivalents).
+     *  More windows = finer sampling of the day, but 3-5 evenly spread islands already give
+     *  an unbiased estimate of the buy/sell split; beyond that the budget is better spent
+     *  on additional candidates. */
+    @Value("${ua.aggressor.quote-windows-max:4}")
+    int aggressorQuoteWindowsMax = 4;
+
     /**
      * Fetches one option contract's trade prints and NBBO updates from the session start
      * forward (UA stage 2 raw material), paginated per §"verified API facts":
@@ -239,26 +246,116 @@ public class IbkrMarketDataService {
         }
         Contract contract = optionContract(ticker, expiry, strike, right);
         String label = ticker + " " + expiry + " " + strike + " " + right;
+        Channel<HistoricalTickBidAsk> bidAskChannel = new Channel<>() {
+            public CompletableFuture<List<HistoricalTickBidAsk>> register(int reqId) { return wrapper.registerHistoricalBidAskRequest(reqId); }
+            public void discard(int reqId) { wrapper.discardHistoricalBidAskRequest(reqId); }
+            public long timeOf(HistoricalTickBidAsk t) { return t.time(); }
+        };
 
-        Page<HistoricalTickLast> trades = fetchTickPages(contract, label, "TRADES", 1, sessionStartEt, budget,
+        // Trades first, but with a reserve of one BID_ASK page (2 equivalents) held back —
+        // trades without a single quote island are unclassifiable, and unclassifiable
+        // trades are exactly the degenerate all-UNKNOWN profile observed live. The reserve
+        // is skipped when the whole budget is below one viable pair anyway.
+        int quoteReserve = budget.remaining() >= 3 ? 2 : 0;
+        Page<HistoricalTickLast> trades = fetchTickPages(contract, label, "TRADES", 1, sessionStartEt,
+                budget.slice(budget.remaining() - quoteReserve),
                 new Channel<>() {
                     public CompletableFuture<List<HistoricalTickLast>> register(int reqId) { return wrapper.registerHistoricalTradesRequest(reqId); }
                     public void discard(int reqId) { wrapper.discardHistoricalTradesRequest(reqId); }
                     public long timeOf(HistoricalTickLast t) { return t.time(); }
                 });
-        Page<HistoricalTickBidAsk> quotes = fetchTickPages(contract, label, "BID_ASK", 2, sessionStartEt, budget,
-                new Channel<>() {
-                    public CompletableFuture<List<HistoricalTickBidAsk>> register(int reqId) { return wrapper.registerHistoricalBidAskRequest(reqId); }
-                    public void discard(int reqId) { wrapper.discardHistoricalBidAskRequest(reqId); }
-                    public long timeOf(HistoricalTickBidAsk t) { return t.time(); }
-                });
+
+        QuoteSample quotes = fetchStratifiedQuotes(contract, label, sessionStartEt, budget, bidAskChannel);
 
         IbkrDayTicks result = new IbkrDayTicks(toTrades(trades.ticks), toQuotes(quotes.ticks),
-                trades.partial || quotes.partial, trades.used + quotes.used);
-        log.info("IBKR day ticks {}: trades={} quotes={} requestEquivalents={} partial={}",
+                trades.partial, quotes.coverage, trades.used + quotes.used);
+        log.info("IBKR day ticks {}: trades={} quotes={} requestEquivalents={} tradesPartial={} quoteIslands={}",
                 label, result.trades().size(), result.quotes().size(),
-                result.requestEquivalentsUsed(), result.partial());
+                result.requestEquivalentsUsed(), result.tradesPartial(),
+                quotes.coverage == null ? "complete" : quotes.coverage.size());
         return result;
+    }
+
+    /** Quote ticks + the coverage intervals they establish (null = the whole session is
+     *  covered — the sampling collapsed into completeness). */
+    private record QuoteSample(List<HistoricalTickBidAsk> ticks,
+                               List<AggressorClassifier.Interval> coverage, int used) {}
+
+    /**
+     * STRATIFIED quote sampling. A 0DTE contract produces tens of thousands of NBBO updates
+     * — no pacing budget paginates that forward from the open; the naive forward fetch
+     * spends everything on the first minutes of the session and the classifier (correctly)
+     * refuses everything after, which is the all-UNKNOWN failure observed live. The
+     * distribution does not need an exhaustive stream, it needs REPRESENTATIVE coverage:
+     * the available BID_ASK pages are spread as evenly spaced islands across
+     * [sessionStart, now], one page per island. Trades inside an island classify against
+     * that island's quotes; trades between islands are UNKNOWN; the profile's
+     * classifiedShare reports the sampled fraction honestly. A uniformly spread sample
+     * estimates the day's buy/sell split without the opening-regime bias of the
+     * front-loaded fetch.
+     *
+     * Completeness collapse: when an island's page comes back with fewer than the maximum
+     * ticks, no further NBBO updates exist from its start to NOW — later islands are
+     * redundant, and if that island was the FIRST one starting at the session start, the
+     * sample IS the complete stream (coverage null).
+     */
+    private QuoteSample fetchStratifiedQuotes(Contract contract, String label,
+                                              ZonedDateTime sessionStartEt, HistoricalRequestBudget budget,
+                                              Channel<HistoricalTickBidAsk> channel) {
+        List<HistoricalTickBidAsk> all = new ArrayList<>();
+        List<AggressorClassifier.Interval> coverage = new ArrayList<>();
+        int used = 0;
+
+        long sessionStart = sessionStartEt.toEpochSecond();
+        long now = Instant.now().getEpochSecond();
+        long span = Math.max(now - sessionStart, 0);
+        int windows = Math.max(Math.min(budget.remaining() / 2, aggressorQuoteWindowsMax), 0);
+        if (windows == 0) {
+            return new QuoteSample(all, coverage, 0); // empty coverage: nothing classifiable
+        }
+
+        long lastCovered = Long.MIN_VALUE;
+        for (int i = 0; i < windows; i++) {
+            long windowStart = sessionStart + (span * i) / windows;
+            if (windowStart <= lastCovered) {
+                continue; // a previous island already reached into this window
+            }
+            if (!budget.tryConsume(2)) {
+                break; // remaining islands stay uncovered — visible via classifiedShare
+            }
+            used += 2;
+
+            int reqId = connectionManager.nextReqId();
+            CompletableFuture<List<HistoricalTickBidAsk>> future = channel.register(reqId);
+            connectionManager.getClient().reqHistoricalTicks(reqId, contract,
+                    HIST_TICK_START_FMT.format(Instant.ofEpochSecond(windowStart).atZone(US_EASTERN))
+                            + " US/Eastern", "",
+                    MAX_TICKS_PER_REQUEST, "BID_ASK", 0, false, null);
+
+            List<HistoricalTickBidAsk> batch;
+            try {
+                batch = future.get(aggressorRequestTimeoutSeconds, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.warn("IBKR stratified quotes failed {} window={} (reqId={}): {} — island uncovered",
+                        label, i, reqId, e.getMessage());
+                channel.discard(reqId);
+                continue; // this island stays dark; later ones may still succeed
+            }
+
+            all.addAll(batch);
+            if (batch.size() < MAX_TICKS_PER_REQUEST) {
+                // No further NBBO updates exist between this island's start and NOW.
+                coverage.add(new AggressorClassifier.Interval(windowStart, now));
+                if (i == 0 && windowStart == sessionStart) {
+                    return new QuoteSample(all, null, used); // the sample IS the complete stream
+                }
+                break; // later islands are redundant
+            }
+            long lastTick = channel.timeOf(batch.get(batch.size() - 1));
+            coverage.add(new AggressorClassifier.Interval(windowStart, lastTick));
+            lastCovered = lastTick;
+        }
+        return new QuoteSample(all, coverage, used);
     }
 
     private interface Channel<T> {

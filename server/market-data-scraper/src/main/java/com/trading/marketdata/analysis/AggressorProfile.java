@@ -19,14 +19,23 @@ import java.time.Instant;
  *   silently dropped. Invariant: buy + sell + unknown + excluded == analyzed volume.
  *
  * tickCoverage: analyzed trade volume (including excluded) ÷ the contract's day volume from
- * the stage-1 scan — the honesty metric. Pagination caps and timeouts mean the window may
+ * the stage-1 scan — the trade-side honesty metric. classifiedShare: the QUOTE-side one —
+ * share of non-excluded volume that fell inside quote coverage and was classifiable in
+ * principle (stratified sampling spreads the quote budget as islands across the session;
+ * see AggressorClassifier.Interval). Pagination caps and timeouts mean the window may
  * not contain every trade; a coverage of 0.6 says "this distribution describes 60% of the
  * day", and downstream analysis must weigh it accordingly.
  *
- * status: OK (complete fetch), PARTIAL (timeout/pagination stall — profile describes what
- * arrived), SKIPPED_BUDGET (stage-2 pacing budget exhausted before this candidate; all
- * other fields null — the skip is visible in the JSON instead of the profile silently
- * missing).
+ * status: OK (complete fetch), PARTIAL (timeout/pagination stall/budget cap — profile
+ * describes what arrived), SKIPPED_BUDGET (stage-2 pacing budget exhausted before this
+ * candidate; all other fields null — the skip is visible in the JSON instead of the
+ * profile silently missing).
+ *
+ * partialDetail (only with status PARTIAL): WHICH side is incomplete — "TRADES",
+ * "QUOTES", or "TRADES+QUOTES". The distinction matters downstream: partial trades only
+ * lower tickCoverage (the distribution remains trustworthy for what it saw); partial
+ * quotes cap the classifiable window — trades beyond the last fetched quote are counted
+ * UNKNOWN rather than classified against a stale NBBO (see AggressorClassifier).
  *
  * oiDelta / positionInference: today's OI minus the most recent previous session's OI
  * (per-contract day memory), joined with the buy/sell dominance:
@@ -40,6 +49,7 @@ import java.time.Instant;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AggressorProfile(
         String status,
+        String partialDetail,
         Long buyVolume,
         Long sellVolume,
         Long unknownVolume,
@@ -60,6 +70,7 @@ public record AggressorProfile(
         Long blockVolume,
         Long largestBlockVolume,
         Double tickCoverage,
+        Double classifiedShare,
         Instant firstTradeAt,
         Instant lastTradeAt,
         Long oiDelta,
@@ -69,24 +80,30 @@ public record AggressorProfile(
     public static final String STATUS_PARTIAL = "PARTIAL";
     public static final String STATUS_SKIPPED_BUDGET = "SKIPPED_BUDGET";
 
+    /** positionInference for contracts expiring on the analysis day itself: position and
+     *  expiry coincide, next-session OI never exists, the inference is STRUCTURALLY
+     *  impossible — not a data gap. Distinct from UNKNOWN so a 0DTE does not look like a
+     *  hole in the day memory. */
+    public static final String INFERENCE_EXPIRES_TODAY = "EXPIRES_TODAY";
+
     /** Budget-skip marker: the candidate was flagged but stage 2 ran out of pacing budget. */
     public static AggressorProfile skippedBudget() {
-        return new AggressorProfile(STATUS_SKIPPED_BUDGET,
+        return new AggressorProfile(STATUS_SKIPPED_BUDGET, null,
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     /** Same profile with the OI-delta join attached (records are immutable). */
     public AggressorProfile withOiJoin(Long oiDelta, String positionInference) {
-        return new AggressorProfile(status,
+        return new AggressorProfile(status, partialDetail,
                 buyVolume, sellVolume, unknownVolume,
                 buyStrongVolume, buyLeanVolume, sellStrongVolume, sellLeanVolume,
                 excludedSpreadVolume, excludedUnreportedVolume,
                 buyNotionalUsd, sellNotionalUsd, vwapBuy, vwapSell,
                 sweepCount, sweepVolume, largestSweepVolume,
                 blockCount, blockVolume, largestBlockVolume,
-                tickCoverage, firstTradeAt, lastTradeAt,
+                tickCoverage, classifiedShare, firstTradeAt, lastTradeAt,
                 oiDelta, positionInference);
     }
 }

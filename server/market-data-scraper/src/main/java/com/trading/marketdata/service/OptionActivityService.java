@@ -393,20 +393,34 @@ public class OptionActivityService {
                 java.time.LocalTime.parse(aggressorSessionStart),
                 US_MARKET_TZ);
 
+        // Minimum viable slice: 1 TRADES page (1) + 1 BID_ASK page (2). Below that a
+        // candidate cannot produce a single classifiable window and the equivalents are
+        // better left to the pool.
+        final int minViableSlice = 3;
+        String todayExpiry = LocalDate.now(US_MARKET_TZ)
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+
         Map<OptionsData.UnusualActivity, AggressorProfile> profiles = new HashMap<>();
-        for (OptionsData.UnusualActivity ua : candidates) {
+        for (int i = 0; i < candidates.size(); i++) {
+            OptionsData.UnusualActivity ua = candidates.get(i);
             String right = "PUT".equals(ua.type()) ? "P" : "C";
             String contractLabel = ticker + " " + ua.expiry() + " " + ua.strike() + " " + right;
 
-            if (budget.remaining() <= 0) {
+            // Fair share: each candidate may use at most an equal split of what is left
+            // (remaining / candidates still to serve). The slice CAPS, it does not reserve —
+            // whatever a candidate leaves unused flows back to the pool and grows the share
+            // of everyone after it. Prevents the observed starvation where the first (=
+            // largest) candidate ate the whole cycle budget and the rest got SKIPPED_BUDGET.
+            int share = budget.remaining() / (candidates.size() - i);
+            if (share < minViableSlice) {
                 profiles.put(ua, AggressorProfile.skippedBudget());
-                log.info("UA_AGGRESSOR ticker={} contract={} SKIPPED_BUDGET (cycle budget exhausted)",
-                        ticker, contractLabel);
+                log.info("UA_AGGRESSOR ticker={} contract={} SKIPPED_BUDGET (share={} < {} viable)",
+                        ticker, contractLabel, share, minViableSlice);
                 continue;
             }
 
             IbkrDayTicks ticks = ibkrService.fetchDayTicks(ticker, ua.expiry(), ua.strike(), right,
-                    sessionStart, budget);
+                    sessionStart, budget.slice(share));
             if (ticks == null) {
                 log.info("UA_AGGRESSOR ticker={} contract={} no tick data (IBKR not connected)",
                         ticker, contractLabel);
@@ -416,25 +430,35 @@ public class OptionActivityService {
             logDistinctSpecialConditions(contractLabel, ticks);
 
             AggressorProfile profile = AggressorClassifier.classify(
-                    ticks.trades(), ticks.quotes(), cfg, ua.volume(), ticks.partial());
+                    ticks.trades(), ticks.quotes(), cfg, ua.volume(),
+                    ticks.tradesPartial(), ticks.quoteCoverage());
 
-            Long todayOi = ua.openInterest();
-            Long previousOi = previousSessionContractOi(ticker, ua.expiry(), ua.strike(), right);
-            Long oiDelta = (todayOi != null && previousOi != null) ? todayOi - previousOi : null;
-            profile = profile.withOiJoin(oiDelta, AggressorClassifier.positionInference(
-                    profile.buyVolume(), profile.sellVolume(), oiDelta));
+            if (todayExpiry.equals(ua.expiry())) {
+                // 0DTE: position and expiry coincide — next-session OI never exists, the
+                // inference is STRUCTURALLY impossible, which is different from a memory
+                // gap. Say so instead of UNKNOWN.
+                profile = profile.withOiJoin(null, AggressorProfile.INFERENCE_EXPIRES_TODAY);
+            } else {
+                Long todayOi = ua.openInterest();
+                Long previousOi = previousSessionContractOi(ticker, ua.expiry(), ua.strike(), right);
+                Long oiDelta = (todayOi != null && previousOi != null) ? todayOi - previousOi : null;
+                profile = profile.withOiJoin(oiDelta, AggressorClassifier.positionInference(
+                        profile.buyVolume(), profile.sellVolume(), oiDelta));
+            }
 
             profiles.put(ua, profile);
-            log.info("UA_AGGRESSOR ticker={} contract={} requests={} coverage={} buy={} sell={} unknown={} "
+            log.info("UA_AGGRESSOR ticker={} contract={} requests={} coverage={} classified={} buy={} sell={} unknown={} "
                             + "sweeps={} blocks={} oiDelta={} inference={} status={}",
                     ticker, contractLabel, ticks.requestEquivalentsUsed(),
                     // Locale.ROOT: this line is the verification instrument for the live
                     // SPY check — it must grep the same on a de-DE host as on en-US.
                     profile.tickCoverage() == null ? "n/a"
                             : String.format(java.util.Locale.ROOT, "%.2f", profile.tickCoverage()),
+                    profile.classifiedShare() == null ? "n/a"
+                            : String.format(java.util.Locale.ROOT, "%.2f", profile.classifiedShare()),
                     profile.buyVolume(), profile.sellVolume(), profile.unknownVolume(),
                     profile.sweepCount(), profile.blockCount(),
-                    oiDelta, profile.positionInference(), profile.status());
+                    profile.oiDelta(), profile.positionInference(), profile.status());
         }
 
         // Original ratio-descending order preserved; only the profile field changes.

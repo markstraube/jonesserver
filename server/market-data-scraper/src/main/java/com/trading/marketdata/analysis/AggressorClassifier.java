@@ -31,6 +31,21 @@ public final class AggressorClassifier {
     public record Quote(long epochSeconds, double bid, double ask) {}
 
     /**
+     * One covered stretch of the quote stream, inclusive on both ends (toEpoch may be
+     * Long.MAX_VALUE for an open end). Stratified quote sampling — see fetchDayTicks —
+     * delivers the NBBO as ISLANDS spread across the session instead of an exhaustive
+     * front-loaded window: trades are classifiable only INSIDE an island, and only against
+     * a quote from the SAME island (the prevailing quote at an island's start is whatever
+     * held before the island began, which we did not see — a quote from a previous island
+     * must never bridge the gap).
+     */
+    public record Interval(long fromEpoch, long toEpoch) {
+        boolean contains(long epoch) {
+            return epoch >= fromEpoch && epoch <= toEpoch;
+        }
+    }
+
+    /**
      * Tunables that are genuinely configuration. The classification thresholds themselves
      * (0.35/0.65, the midpoint zone) are fixed by spec and deliberately NOT configurable —
      * a threshold nobody can quietly change is a threshold whose numbers stay comparable
@@ -65,11 +80,44 @@ public final class AggressorClassifier {
      *
      * @param contractDayVolume the contract's day volume from the stage-1 scan (tick 8) —
      *                          denominator of tickCoverage; null/0 → coverage null
-     * @param partial           the fetch layer's honesty flag (timeout / pagination stall /
-     *                          budget cap mid-fetch) — propagated to status
+     * @param tradesPartial     trade fetch incomplete (timeout / pagination stall / budget
+     *                          cap) — lowers coverage, distribution stays trustworthy
+     * @param quotesPartial     quote fetch incomplete — beyond the last fetched quote the
+     *                          prevailing NBBO is UNKNOWABLE (updates existed that we did
+     *                          not see); trades past that point are counted UNKNOWN instead
+     *                          of being classified against a stale quote. Note the
+     *                          asymmetry to a COMPLETE quote stream, where an old quote is
+     *                          simply one that hasn't changed and remains perfectly valid.
      */
     public static AggressorProfile classify(List<Trade> trades, List<Quote> quotes, Config cfg,
-                                            Long contractDayVolume, boolean partial) {
+                                            Long contractDayVolume,
+                                            boolean tradesPartial, boolean quotesPartial) {
+        // Compatibility shape of the pre-stratification behavior: a partial quote fetch is
+        // ONE island from the beginning of time to the last fetched quote (the original
+        // coverage cutoff); a complete stream is null coverage.
+        List<Interval> coverage = null;
+        if (quotesPartial) {
+            long lastQuote = (quotes == null || quotes.isEmpty()) ? Long.MIN_VALUE
+                    : quotes.stream().mapToLong(Quote::epochSeconds).max().getAsLong();
+            coverage = (lastQuote == Long.MIN_VALUE) ? List.of()
+                    : List.of(new Interval(Long.MIN_VALUE, lastQuote));
+        }
+        return classify(trades, quotes, cfg, contractDayVolume, tradesPartial, coverage);
+    }
+
+    /**
+     * Primary form: quote coverage as explicit intervals.
+     *
+     * @param quoteCoverage null = the quote stream is COMPLETE for the session (every trade
+     *                      may join against the latest quote at or before it — an old quote
+     *                      is simply one that has not changed). Non-null = the stream is
+     *                      SAMPLED/partial: a trade is classifiable only inside an interval,
+     *                      and only against a quote from that same interval; everything else
+     *                      is UNKNOWN. An empty list means no usable quote coverage at all.
+     */
+    public static AggressorProfile classify(List<Trade> trades, List<Quote> quotes, Config cfg,
+                                            Long contractDayVolume,
+                                            boolean tradesPartial, List<Interval> quoteCoverage) {
         List<Trade> byTime = new ArrayList<>(trades == null ? List.of() : trades);
         byTime.sort(Comparator.comparingLong(Trade::epochSeconds)); // stable: same-second arrival order kept
         List<Quote> quotesByTime = new ArrayList<>(quotes == null ? List.of() : quotes);
@@ -83,6 +131,8 @@ public final class AggressorClassifier {
 
         List<Side> sides = new ArrayList<>(byTime.size()); // parallel to byTime; null = excluded
         long firstTrade = Long.MAX_VALUE, lastTrade = Long.MIN_VALUE;
+
+        long coveredVolume = 0, nonExcludedVolume = 0; // for classifiedShare
 
         for (Trade t : byTime) {
             firstTrade = Math.min(firstTrade, t.epochSeconds());
@@ -101,7 +151,19 @@ public final class AggressorClassifier {
                 continue;
             }
 
-            Side side = classifyTrade(t, prevailingQuote(quotesByTime, t.epochSeconds()));
+            nonExcludedVolume += t.size();
+            Interval island = coveringInterval(quoteCoverage, t.epochSeconds());
+            Side side;
+            if (quoteCoverage != null && island == null) {
+                side = Side.UNKNOWN; // outside every quote island — NBBO unknowable, not stale-joined
+            } else {
+                Quote q = prevailingQuote(quotesByTime, t.epochSeconds());
+                if (island != null && q != null && q.epochSeconds() < island.fromEpoch()) {
+                    q = null; // quote from a previous island must not bridge the gap
+                }
+                side = classifyTrade(t, q);
+                coveredVolume += t.size(); // classifiable in principle (may still be mid-zone UNKNOWN)
+            }
             sides.add(side);
 
             switch (side) {
@@ -134,11 +196,29 @@ public final class AggressorClassifier {
         long buy = buyStrong + buyLean;
         long sell = sellStrong + sellLean;
         long analyzed = buy + sell + unknown + excludedSpread + excludedUnreported;
+        // Clamped at 1.0: the denominator (stage-1 volume tick) is a snapshot OLDER than the
+        // tick window's end, so a busy contract legitimately computes slightly above 1 —
+        // observed live: 1.0002. Raw >1 carries no information beyond "reference is older",
+        // and a coverage above 100% only confuses downstream consumers.
         Double coverage = (contractDayVolume == null || contractDayVolume <= 0) ? null
-                : (double) analyzed / contractDayVolume;
+                : Math.min((double) analyzed / contractDayVolume, 1.0);
+
+        boolean quotesSampled = quoteCoverage != null;
+        boolean partial = tradesPartial || quotesSampled;
+        String partialDetail = !partial ? null
+                : (tradesPartial && quotesSampled) ? "TRADES+QUOTES"
+                : tradesPartial ? "TRADES" : "QUOTES";
+        // Share of the non-excluded volume that fell inside quote coverage, i.e. was
+        // classifiable IN PRINCIPLE (mid-zone UNKNOWNs count as covered — they had a valid
+        // NBBO and the zone rule said no). 1.0 with a complete stream; the honesty metric
+        // of stratified sampling: a 0.35 says "the buy/sell split estimates 35% of the
+        // day's flow, uniformly sampled".
+        Double classifiedShare = nonExcludedVolume <= 0 ? null
+                : (double) coveredVolume / nonExcludedVolume;
 
         return new AggressorProfile(
                 partial ? AggressorProfile.STATUS_PARTIAL : AggressorProfile.STATUS_OK,
+                partialDetail,
                 buy, sell, unknown,
                 buyStrong, buyLean, sellStrong, sellLean,
                 excludedSpread, excludedUnreported,
@@ -149,9 +229,20 @@ public final class AggressorClassifier {
                 sweeps.count, sweeps.volume, sweeps.largest,
                 (int) blockCount, blockVolume, largestBlock,
                 coverage,
+                classifiedShare,
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(firstTrade),
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(lastTrade),
                 null, null); // OI join happens in the escalation layer (needs the day memory)
+    }
+
+    /** The interval containing {@code epoch}, or null. Null coverage = complete stream —
+     *  treated as "everything covered" by the caller. */
+    static Interval coveringInterval(List<Interval> coverage, long epoch) {
+        if (coverage == null) return null;
+        for (Interval i : coverage) {
+            if (i.contains(epoch)) return i;
+        }
+        return null;
     }
 
     /**
