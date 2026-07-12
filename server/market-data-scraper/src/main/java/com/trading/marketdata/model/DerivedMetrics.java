@@ -40,6 +40,13 @@ public record DerivedMetrics(
                                    // short-dated "panic" positioning, monthly = structure) into
                                    // one number that is neither; per-board it stays readable
 
+        // --- Dealer gamma (from scanned OI window + per-contract model gammas) ---
+        com.trading.marketdata.analysis.DealerGamma.Profile dealerGamma,
+                                   // GEX profile: net exposure, flip level, gamma wall,
+                                   // coverage. THESIS, not measurement — the positioning
+                                   // convention and its limits are documented on DealerGamma;
+                                   // gammaCoverage inside is the interpretation gate
+
         // --- Unusual activity aggregates (strike-referenced notional, USD) ---
         Long uaCallVolume,
         Long uaPutVolume,

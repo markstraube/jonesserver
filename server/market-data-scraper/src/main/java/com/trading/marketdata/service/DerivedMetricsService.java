@@ -164,6 +164,9 @@ public class DerivedMetricsService {
                 prevClose, pctFromOpen, pctFromHigh, pctFromLow, rangePct, relativeVolume,
                 expectedVolumeUntilNow, relativeVolumeAtTime,
                 oiCallTotal, oiPutTotal, oiPcr, oiByExpiry,
+                com.trading.marketdata.analysis.DealerGamma.compute(
+                        options != null ? options.oiProfile() : null,
+                        quote != null ? quote.price() : null),
                 uaCallVol, uaPutVol, uaCallNotional, uaPutNotional, uaCallPremium, uaPutPremium,
                 priceDeltaPct, volumeDelta, oiPcrDelta, minutesSince, previousAt);
     }

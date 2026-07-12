@@ -562,12 +562,14 @@ public class OptionActivityService {
                                List<OptionsData.UnusualActivity> unusual,
                                List<OptionsData.OiLevel> oiProfile) {
         Long callOI = null, putOI = null;
+        Double callGamma = null, putGamma = null;
         boolean anyValid = false;
         for (String right : new String[]{"C", "P"}) {
             ContractResult result = evaluateContract(ticker, expiry, strike, right, marketClosed);
             if (result == null) continue; // invalid for this expiry, or fetch failed
             anyValid = true;
-            if ("C".equals(right)) callOI = result.openInterest; else putOI = result.openInterest;
+            if ("C".equals(right)) { callOI = result.openInterest; callGamma = result.gamma; }
+            else { putOI = result.openInterest; putGamma = result.gamma; }
 
             if (result.ratio != null && result.ratio >= minVolumeOiRatio) {
                 // Notional floor: ratio alone over-flags illiquid contracts (tiny OI in the
@@ -608,7 +610,7 @@ public class OptionActivityService {
                         unusual.add(new OptionsData.UnusualActivity(
                                 expiry, strike, type, result.volume, result.openInterest,
                                 result.ratio, result.bid, result.ask, result.last,
-                                premiumNotional, null,
+                                premiumNotional, result.iv,
                                 agg.lastLocation(), agg.aggressor(), agg.lastAgeSeconds()));
                     }
                 }
@@ -616,7 +618,8 @@ public class OptionActivityService {
         }
 
         if (anyValid) {
-            oiProfile.add(new OptionsData.OiLevel(expiry, strike, callOI, putOI));
+            oiProfile.add(new OptionsData.OiLevel(expiry, strike, callOI, putOI,
+                    callGamma, putGamma));
         }
         return anyValid;
     }
@@ -754,7 +757,8 @@ public class OptionActivityService {
 
     private record ContractResult(Long volume, Long openInterest, Double ratio,
                                   Double bid, Double ask, Double last,
-                                  Double bidAtLast, Double askAtLast, Long lastTimestampEpoch) {}
+                                  Double bidAtLast, Double askAtLast, Long lastTimestampEpoch,
+                                  Double iv, Double gamma) {}
 
     /**
      * Premium basis for notional: last print first (a traded contract's own price), bid/ask
@@ -840,11 +844,12 @@ public class OptionActivityService {
         Double bid = null, ask = null, last = null;
         Double bidAtLast = null, askAtLast = null;
         Long lastTs = null;
+        Double iv = null, gamma = null;
 
         try {
             if (cachedOI != null && marketClosed) {
                 // Closed market: cached OI is the complete answer, a volume fetch can only time out.
-                return new ContractResult(null, cachedOI, null, null, null, null, null, null, null);
+                return new ContractResult(null, cachedOI, null, null, null, null, null, null, null, null, null);
             } else if (cachedOI != null) {
                 // OI doesn't move intraday — reuse it, only ask IBKR for a fresh volume read.
                 // Price ticks (bid/ask/last) ride on the same request as default ticks.
@@ -854,6 +859,7 @@ public class OptionActivityService {
                 if (act != null) {
                     bid = act.bid(); ask = act.ask(); last = act.last();
                     bidAtLast = act.bidAtLast(); askAtLast = act.askAtLast(); lastTs = act.lastTimestampEpoch();
+                    iv = act.iv(); gamma = act.gamma();
                 }
             } else {
                 IbkrOptionContractActivity act = fetchWithRetry(ticker, expiry, strike, right, true);
@@ -862,6 +868,7 @@ public class OptionActivityService {
                 openInterest = act.openInterest();
                 bid = act.bid(); ask = act.ask(); last = act.last();
                 bidAtLast = act.bidAtLast(); askAtLast = act.askAtLast(); lastTs = act.lastTimestampEpoch();
+                iv = act.iv(); gamma = act.gamma();
                 if (openInterest != null && oiCache != null) {
                     oiCache.put(contractKey, openInterest);
                 }
@@ -928,13 +935,13 @@ public class OptionActivityService {
         if (volume == null || openInterest <= 0) {
             log.info("Options activity check {} {} {} {}: volume={}, openInterest={} (no ratio, OI-only)",
                     ticker, expiry, strike, right, volume, openInterest);
-            return new ContractResult(volume, openInterest, null, bid, ask, last, bidAtLast, askAtLast, lastTs);
+            return new ContractResult(volume, openInterest, null, bid, ask, last, bidAtLast, askAtLast, lastTs, iv, gamma);
         }
 
         double ratio = (double) volume / openInterest;
         log.info("Options activity check {} {} {} {}: volume={}, openInterest={}, ratio={}",
                 ticker, expiry, strike, right, volume, openInterest, String.format("%.2f", ratio));
-        return new ContractResult(volume, openInterest, ratio, bid, ask, last, bidAtLast, askAtLast, lastTs);
+        return new ContractResult(volume, openInterest, ratio, bid, ask, last, bidAtLast, askAtLast, lastTs, iv, gamma);
     }
 
     /**

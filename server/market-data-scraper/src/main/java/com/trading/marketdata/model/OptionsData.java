@@ -123,8 +123,15 @@ public record OptionsData(
             String expiry,
             Double strike,
             Long callOpenInterest,
-            Long putOpenInterest
-    ) {}
+            Long putOpenInterest,
+            Double callGamma,
+            Double putGamma
+    ) {
+        /** Pre-greeks shape — persisted JSON of old snapshots and existing call sites. */
+        public OiLevel(String expiry, Double strike, Long callOpenInterest, Long putOpenInterest) {
+            this(expiry, strike, callOpenInterest, putOpenInterest, null, null);
+        }
+    }
 
     public static OptionsData empty(String ticker, String errorMsg) {
         return new OptionsData(ticker, null, null, null, null, null, null, null, null, null,

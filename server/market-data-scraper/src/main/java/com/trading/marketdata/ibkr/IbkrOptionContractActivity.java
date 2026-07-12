@@ -27,6 +27,13 @@ package com.trading.marketdata.ibkr;
  *         Null when the last tick arrived before any quote tick in this window — consumers
  *         may then fall back to the end-of-window pair (same ~2s market moment, slightly
  *         weaker guarantee) but must not mix one frozen side with one end-of-window side.
+ * iv/gamma: from tickOptionComputation — the per-contract model greeks IBKR pushes
+ *         automatically on every option market-data subscription (no generic tick needed).
+ *         MODEL-based values (field 13) are preferred; bid/ask/last-based computations
+ *         (fields 10/11/12) fill in only while no model value has arrived. Sentinel
+ *         filtering (Double.MAX_VALUE, negative IV/gamma) happens in the wrapper. These
+ *         were silently DROPPED before the dealer-gamma feature — the subscription always
+ *         delivered them.
  * lastTimestampEpoch: TickType.LAST_TIMESTAMP (field 45, delayed 88) — unix epoch seconds
  *         of the last trade, a default tick on the same subscription. This is what turns
  *         "the last print might be stale" from a guess into a measurement: a last from
@@ -41,7 +48,9 @@ public record IbkrOptionContractActivity(
         Double last,
         Double bidAtLast,
         Double askAtLast,
-        Long lastTimestampEpoch
+        Long lastTimestampEpoch,
+        Double iv,
+        Double gamma
 ) {
     public static class Builder {
         private Long volume;
@@ -52,6 +61,9 @@ public record IbkrOptionContractActivity(
         private Double bidAtLast;
         private Double askAtLast;
         private Long lastTimestampEpoch;
+        private Double iv;
+        private Double gamma;
+        private boolean greeksFromModel;
 
         public Builder volume(long v)       { this.volume = v;       return this; }
         public Builder openInterest(long v) { this.openInterest = v; return this; }
@@ -74,9 +86,21 @@ public record IbkrOptionContractActivity(
 
         public Builder lastTimestamp(long epochSeconds) { this.lastTimestampEpoch = epochSeconds; return this; }
 
+        /** Model-preferred greek intake: field 13 (MODEL) always wins and locks; bid/ask/
+         *  last-based computations only fill gaps until a model value arrives. */
+        public Builder greeks(int field, Double iv, Double gamma) {
+            boolean model = field == 13;
+            if (model || !greeksFromModel) {
+                if (iv != null) this.iv = iv;
+                if (gamma != null) this.gamma = gamma;
+                if (model && (iv != null || gamma != null)) this.greeksFromModel = true;
+            }
+            return this;
+        }
+
         public IbkrOptionContractActivity build() {
             return new IbkrOptionContractActivity(volume, openInterest, bid, ask, last,
-                    bidAtLast, askAtLast, lastTimestampEpoch);
+                    bidAtLast, askAtLast, lastTimestampEpoch, iv, gamma);
         }
     }
 

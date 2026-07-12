@@ -75,6 +75,31 @@ public class IbkrWrapper extends DefaultEWrapper {
 
     public void setReqIdSupplier(IntSupplier reqIdSupplier) { this.reqIdSupplier = reqIdSupplier; }
 
+    /**
+     * Per-contract model greeks — pushed automatically on every option market-data
+     * subscription; before the dealer-gamma feature these were silently dropped. Routed
+     * into the SAME pending contract-activity builder as the price/size ticks of the scan.
+     * field: 10/11/12 = bid/ask/last-based computation, 13 = MODEL (preferred; see
+     * Builder.greeks). IBKR uses Double.MAX_VALUE as the N/A sentinel and can deliver -1/-2
+     * for unavailable IV — both filtered here so downstream only ever sees plausible values
+     * (IV > 0, gamma >= 0).
+     */
+    @Override
+    public void tickOptionComputation(int tickerId, int field, int tickAttrib,
+                                      double impliedVol, double delta, double optPrice,
+                                      double pvDividend, double gamma, double vega,
+                                      double theta, double undPrice) {
+        IbkrOptionContractActivity.Builder builder = pendingContractActivity.get(tickerId);
+        if (builder == null) return;
+        Double iv = (Double.isFinite(impliedVol) && impliedVol > 0 && impliedVol != Double.MAX_VALUE)
+                ? impliedVol : null;
+        Double g = (Double.isFinite(gamma) && gamma >= 0 && gamma != Double.MAX_VALUE)
+                ? gamma : null;
+        if (iv != null || g != null) {
+            builder.greeks(field, iv, g);
+        }
+    }
+
     @Value("${news.article-fetch-enabled:true}")
     private boolean articleFetchEnabled;
 
