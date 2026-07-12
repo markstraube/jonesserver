@@ -105,9 +105,12 @@ class FetchDayTicksTest {
         assertEquals("cond", result.trades().get(1).specialConditions());
         assertEquals(1, result.quotes().size());
         assertEquals(T0 + 1, result.quotes().get(0).epochSeconds());
-        // Exactly one page each, starting at the session start in ET with explicit timezone
+        // TRADES starts at the session start; BID_ASK is TRADE-ANCHORED — its first window
+        // begins at the first trade's time (09:30:05), not at the session open: quotes
+        // before the first trade cannot classify anything, so the budget is not spent on
+        // them. Both carry ET with explicit timezone.
         assertEquals(List.of("TRADES|20260710 09:30:00 US/Eastern",
-                             "BID_ASK|20260710 09:30:00 US/Eastern"),
+                             "BID_ASK|20260710 09:30:05 US/Eastern"),
                 fx.client().requests);
     }
 

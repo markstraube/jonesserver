@@ -265,7 +265,8 @@ public class IbkrMarketDataService {
                     public long timeOf(HistoricalTickLast t) { return t.time(); }
                 });
 
-        QuoteSample quotes = fetchStratifiedQuotes(contract, label, sessionStartEt, budget, bidAskChannel);
+        QuoteSample quotes = fetchStratifiedQuotes(contract, label, sessionStartEt, budget, bidAskChannel,
+                trades.ticks.stream().map(HistoricalTickLast::time).toList());
 
         IbkrDayTicks result = new IbkrDayTicks(toTrades(trades.ticks), toQuotes(quotes.ticks),
                 trades.partial, quotes.coverage, trades.used + quotes.used);
@@ -301,7 +302,8 @@ public class IbkrMarketDataService {
      */
     private QuoteSample fetchStratifiedQuotes(Contract contract, String label,
                                               ZonedDateTime sessionStartEt, HistoricalRequestBudget budget,
-                                              Channel<HistoricalTickBidAsk> channel) {
+                                              Channel<HistoricalTickBidAsk> channel,
+                                              List<Long> tradeEpochs) {
         List<HistoricalTickBidAsk> all = new ArrayList<>();
         List<AggressorClassifier.Interval> coverage = new ArrayList<>();
         int used = 0;
@@ -314,9 +316,29 @@ public class IbkrMarketDataService {
             return new QuoteSample(all, coverage, 0); // empty coverage: nothing classifiable
         }
 
+        // TRADE-ANCHORED starts: the trades are already fully fetched, so we KNOW where the
+        // flow was — islands go to the quantiles of the trade-time distribution instead of a
+        // uniform time grid. Same budget, several times the classified volume: uniform
+        // windows on a hyperactive 0DTE landed in random quiet seconds (observed live:
+        // classifiedShare 0.00018 — 2 of 12,691 contracts), while the volume sat in a
+        // morning wave and an afternoon push the quantiles hit by construction. Uniform
+        // spread remains the fallback without trades.
+        List<Long> starts = new ArrayList<>(windows);
+        if (tradeEpochs == null || tradeEpochs.isEmpty()) {
+            for (int i = 0; i < windows; i++) {
+                starts.add(sessionStart + (span * i) / windows);
+            }
+        } else {
+            List<Long> sorted = new ArrayList<>(tradeEpochs);
+            java.util.Collections.sort(sorted);
+            for (int i = 0; i < windows; i++) {
+                starts.add(sorted.get((int) ((long) sorted.size() * i / windows)));
+            }
+        }
+
         long lastCovered = Long.MIN_VALUE;
         for (int i = 0; i < windows; i++) {
-            long windowStart = sessionStart + (span * i) / windows;
+            long windowStart = starts.get(i);
             if (windowStart <= lastCovered) {
                 continue; // a previous island already reached into this window
             }
@@ -346,8 +368,13 @@ public class IbkrMarketDataService {
             if (batch.size() < MAX_TICKS_PER_REQUEST) {
                 // No further NBBO updates exist between this island's start and NOW.
                 coverage.add(new AggressorClassifier.Interval(windowStart, now));
-                if (i == 0 && windowStart == sessionStart) {
-                    return new QuoteSample(all, null, used); // the sample IS the complete stream
+                // Completeness collapse: the FIRST island under-ran the page cap, so no NBBO
+                // update between its start and NOW went unseen. With anchored starts the
+                // first island begins at the first trade — quotes before it are irrelevant
+                // for classification (no trade can join against them), so the sample IS
+                // complete for every classifiable purpose.
+                if (i == 0) {
+                    return new QuoteSample(all, null, used);
                 }
                 break; // later islands are redundant
             }

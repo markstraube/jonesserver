@@ -17,6 +17,7 @@ public record OptionsData(
         List<UnusualActivity> unusualActivity,
         List<OiLevel> oiProfile,
         Double maxPain,
+        Double todayMaxPain,
         String source,
         String sourceError,
         boolean dataAvailable,
@@ -73,6 +74,8 @@ public record OptionsData(
             Double lastLocation,
             String aggressor,
             Long lastAgeSeconds,
+            Double distanceToSpotPct,
+            Long oiPrevious,
             AggressorProfile aggressorProfile
     ) {
         /** Stage-1 shape (no aggressor profile) — the scanner and the Barchart fallback
@@ -82,14 +85,23 @@ public record OptionsData(
                 Double premiumNotionalUsd, Double iv, Double lastLocation, String aggressor,
                 Long lastAgeSeconds) {
             this(expiry, strike, type, volume, openInterest, volumeOiRatio, bid, ask, last,
-                    premiumNotionalUsd, iv, lastLocation, aggressor, lastAgeSeconds, null);
+                    premiumNotionalUsd, iv, lastLocation, aggressor, lastAgeSeconds, null, null, null);
         }
 
         /** Same entry with the stage-2 profile attached (records are immutable). */
         public UnusualActivity withAggressorProfile(AggressorProfile profile) {
             return new UnusualActivity(expiry, strike, type, volume, openInterest, volumeOiRatio,
                     bid, ask, last, premiumNotionalUsd, iv, lastLocation, aggressor,
-                    lastAgeSeconds, profile);
+                    lastAgeSeconds, distanceToSpotPct, oiPrevious, profile);
+        }
+
+        /** Post-scan enrichment: strike distance to spot and the previous session's OI for
+         *  THIS contract (from the day memory). Both are consumer conveniences — the LLM
+         *  should read them, not recompute/guess them. */
+        public UnusualActivity enriched(Double distanceToSpotPct, Long oiPrevious) {
+            return new UnusualActivity(expiry, strike, type, volume, openInterest, volumeOiRatio,
+                    bid, ask, last, premiumNotionalUsd, iv, lastLocation, aggressor,
+                    lastAgeSeconds, distanceToSpotPct, oiPrevious, aggressorProfile);
         }
     }
 
@@ -115,7 +127,7 @@ public record OptionsData(
     ) {}
 
     public static OptionsData empty(String ticker, String errorMsg) {
-        return new OptionsData(ticker, null, null, null, null, null, null, null, null,
+        return new OptionsData(ticker, null, null, null, null, null, null, null, null, null,
                 null, errorMsg, false, Instant.now());
     }
 }

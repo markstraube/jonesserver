@@ -119,6 +119,11 @@ public class OptionsService {
         log.info("Final options for {}: putCallRatio={}, ivRank={}, ivPercentile={}, maxPain={}, unusualActivity={}",
                 upper, putCallRatio, ivRank, ivPercentile, maxPain, unusualActivity.size());
 
+        // Intraday pinning reference from our own scanned OI window (nearest expiry) —
+        // deliberately separate from the full-chain maxPain a fallback source may provide;
+        // see MaxPain's scope note.
+        Double todayMaxPain = com.trading.marketdata.analysis.MaxPain.nearestExpiry(oiProfile);
+
         return new OptionsData(
                 upper,
                 putCallRatio,
@@ -129,6 +134,7 @@ public class OptionsService {
                 unusualActivity,
                 oiProfile,
                 maxPain,
+                todayMaxPain,
                 source,
                 null,
                 true,

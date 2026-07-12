@@ -71,6 +71,7 @@ public record AggressorProfile(
         Long largestBlockVolume,
         Double tickCoverage,
         Double classifiedShare,
+        String profileQuality,
         Instant firstTradeAt,
         Instant lastTradeAt,
         Long oiDelta,
@@ -86,12 +87,19 @@ public record AggressorProfile(
      *  hole in the day memory. */
     public static final String INFERENCE_EXPIRES_TODAY = "EXPIRES_TODAY";
 
+    /** profileQuality ladder — the LLM's interpretation gate; rules live in
+     *  AggressorClassifier.profileQuality. */
+    public static final String QUALITY_HIGH = "HIGH";
+    public static final String QUALITY_MEDIUM = "MEDIUM";
+    public static final String QUALITY_LOW = "LOW";
+    public static final String QUALITY_INSUFFICIENT = "INSUFFICIENT";
+
     /** Budget-skip marker: the candidate was flagged but stage 2 ran out of pacing budget. */
     public static AggressorProfile skippedBudget() {
         return new AggressorProfile(STATUS_SKIPPED_BUDGET, null,
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+                null, null, QUALITY_INSUFFICIENT, null, null, null, null);
     }
 
     /** Same profile with the OI-delta join attached (records are immutable). */
@@ -103,7 +111,7 @@ public record AggressorProfile(
                 buyNotionalUsd, sellNotionalUsd, vwapBuy, vwapSell,
                 sweepCount, sweepVolume, largestSweepVolume,
                 blockCount, blockVolume, largestBlockVolume,
-                tickCoverage, classifiedShare, firstTradeAt, lastTradeAt,
+                tickCoverage, classifiedShare, profileQuality, firstTradeAt, lastTradeAt,
                 oiDelta, positionInference);
     }
 }

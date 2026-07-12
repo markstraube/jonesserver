@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class AggressorClassifierTest {
 
-    private static final Config CFG = new Config(500, 100, List.of("SPREAD", "LEG"));
+    private static final Config CFG = new Config(500, 100, List.of("SPREAD", "LEG"), 200);
 
     /** T0 as a readable base epoch (any second-aligned instant works, the logic is relative). */
     private static final long T0 = 1_770_000_000L;
@@ -470,5 +470,44 @@ class AggressorClassifierTest {
                 List.of(quote(T0 + 10, 4.0, 6.0)), CFG, null, false, coverage);
         assertEquals(40, p.excludedSpreadVolume());
         assertEquals(10.0 / 40.0, p.classifiedShare(), 1e-9); // 10 covered of 40 non-excluded
+    }
+
+    // -------------------------------------------------------------------------
+    // profileQuality ladder
+    // -------------------------------------------------------------------------
+
+    private static final AggressorClassifier.Config QCFG =
+            new AggressorClassifier.Config(500, 100, List.of("SPREAD"), 200);
+
+    @Test
+    void qualityInsufficientBelowDirectionalFloor() {
+        assertEquals(AggressorProfile.QUALITY_INSUFFICIENT,
+                AggressorClassifier.profileQuality(QCFG, 199, null, 0, 1.0));
+    }
+
+    @Test
+    void qualityHighOnCompleteStream() {
+        assertEquals(AggressorProfile.QUALITY_HIGH,
+                AggressorClassifier.profileQuality(QCFG, 200, null, 0, 1.0));
+    }
+
+    @Test
+    void qualityHighNeedsShareAndIslands() {
+        var twoIslands = List.of(new AggressorClassifier.Interval(0, 1), new AggressorClassifier.Interval(2, 3));
+        assertEquals(AggressorProfile.QUALITY_HIGH,
+                AggressorClassifier.profileQuality(QCFG, 600, twoIslands, 2, 0.30));
+        // Same share, single island: one-regime sample → not HIGH
+        assertEquals(AggressorProfile.QUALITY_LOW,
+                AggressorClassifier.profileQuality(QCFG, 600, twoIslands, 1, 0.30));
+    }
+
+    @Test
+    void qualityMediumTwoIslandsSmallShare() {
+        var twoIslands = List.of(new AggressorClassifier.Interval(0, 1), new AggressorClassifier.Interval(2, 3));
+        assertEquals(AggressorProfile.QUALITY_MEDIUM,
+                AggressorClassifier.profileQuality(QCFG, 600, twoIslands, 2, 0.05));
+        // Below the 5% floor even two islands stay LOW
+        assertEquals(AggressorProfile.QUALITY_LOW,
+                AggressorClassifier.profileQuality(QCFG, 600, twoIslands, 2, 0.04));
     }
 }

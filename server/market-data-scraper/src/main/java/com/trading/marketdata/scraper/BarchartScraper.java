@@ -58,7 +58,7 @@ public class BarchartScraper {
 
             return new OptionsData(
                     ticker, putCallRatio, ivRank, null, null, null,
-                    unusual, null, maxPain, "barchart", null, true, Instant.now()
+                    unusual, null, maxPain, null, "barchart", null, true, Instant.now()
             );
         } catch (ScraperException se) {
             throw se;

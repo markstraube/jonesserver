@@ -51,7 +51,8 @@ public final class AggressorClassifier {
      * a threshold nobody can quietly change is a threshold whose numbers stay comparable
      * across days.
      */
-    public record Config(long sweepWindowMs, long blockMinContracts, List<String> spreadMarkers) {}
+    public record Config(long sweepWindowMs, long blockMinContracts, List<String> spreadMarkers,
+                         long qualityMinDirectionalVolume) {}
 
     // Spread position thresholds (fixed by spec): >= BUY_LEAN_MIN of the spread → buyer-
     // leaning, <= SELL_LEAN_MAX → seller-leaning, between → midpoint zone = UNKNOWN.
@@ -133,6 +134,7 @@ public final class AggressorClassifier {
         long firstTrade = Long.MAX_VALUE, lastTrade = Long.MIN_VALUE;
 
         long coveredVolume = 0, nonExcludedVolume = 0; // for classifiedShare
+        java.util.Set<Interval> islandsHit = new java.util.HashSet<>(); // for profileQuality
 
         for (Trade t : byTime) {
             firstTrade = Math.min(firstTrade, t.epochSeconds());
@@ -157,12 +159,11 @@ public final class AggressorClassifier {
             if (quoteCoverage != null && island == null) {
                 side = Side.UNKNOWN; // outside every quote island — NBBO unknowable, not stale-joined
             } else {
-                Quote q = prevailingQuote(quotesByTime, t.epochSeconds());
-                if (island != null && q != null && q.epochSeconds() < island.fromEpoch()) {
-                    q = null; // quote from a previous island must not bridge the gap
-                }
+                Quote q = prevailingQuote(quotesByTime, t.epochSeconds(),
+                        island == null ? Long.MIN_VALUE : island.fromEpoch());
                 side = classifyTrade(t, q);
                 coveredVolume += t.size(); // classifiable in principle (may still be mid-zone UNKNOWN)
+                if (island != null) islandsHit.add(island);
             }
             sides.add(side);
 
@@ -216,6 +217,9 @@ public final class AggressorClassifier {
         Double classifiedShare = nonExcludedVolume <= 0 ? null
                 : (double) coveredVolume / nonExcludedVolume;
 
+        String profileQuality = profileQuality(cfg, buy + sell, quoteCoverage, islandsHit.size(),
+                classifiedShare);
+
         return new AggressorProfile(
                 partial ? AggressorProfile.STATUS_PARTIAL : AggressorProfile.STATUS_OK,
                 partialDetail,
@@ -230,9 +234,39 @@ public final class AggressorClassifier {
                 (int) blockCount, blockVolume, largestBlock,
                 coverage,
                 classifiedShare,
+                profileQuality,
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(firstTrade),
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(lastTrade),
                 null, null); // OI join happens in the escalation layer (needs the day memory)
+    }
+
+    /**
+     * Deterministic, rule-based reliability label for the buy/sell distribution — the
+     * interpretation gate the downstream LLM follows without judgment calls. What matters
+     * statistically is the SIZE and SPREAD of the directional sample, not the sampling
+     * quote alone: a uniformly spread 5% sample with 600 directional contracts beats a 35%
+     * sample of 3 trades; a share threshold alone would also permanently lock out
+     * hyperactive 0DTEs whose share stays tiny at any fixed page size. Deliberately a
+     * coarse label, NOT a pseudo-calibrated confidence number — a "0.94" would claim a
+     * precision this heuristic does not have. Raw components stay on the profile for
+     * anyone who wants to re-derive.
+     *
+     *   INSUFFICIENT: directional volume below the floor — anecdote, do not interpret.
+     *   LOW:          floor met, but the sample is single-regime (one island) or covers
+     *                 < 5% — direction only, with caution.
+     *   MEDIUM:       floor met, >= 2 islands, share < 30%.
+     *   HIGH:         floor met and (complete stream, or share >= 30% across >= 2 islands).
+     */
+    static String profileQuality(Config cfg, long directionalVolume, List<Interval> coverage,
+                                 int islandsHit, Double classifiedShare) {
+        if (directionalVolume < cfg.qualityMinDirectionalVolume()) {
+            return AggressorProfile.QUALITY_INSUFFICIENT;
+        }
+        boolean complete = coverage == null;
+        double share = classifiedShare == null ? 0 : classifiedShare;
+        if (complete || (share >= 0.30 && islandsHit >= 2)) return AggressorProfile.QUALITY_HIGH;
+        if (islandsHit >= 2 && share >= 0.05) return AggressorProfile.QUALITY_MEDIUM;
+        return AggressorProfile.QUALITY_LOW;
     }
 
     /** The interval containing {@code epoch}, or null. Null coverage = complete stream —
@@ -254,9 +288,22 @@ public final class AggressorClassifier {
      * null → UNKNOWN.
      */
     static Quote prevailingQuote(List<Quote> quotesByTime, long tradeEpochSeconds) {
+        return prevailingQuote(quotesByTime, tradeEpochSeconds, Long.MIN_VALUE);
+    }
+
+    /**
+     * Island-aware form: {@code minEpoch} is the containing island's start — quotes before
+     * it are NOT candidates (the NBBO changed unseen in the gap; a cross-island quote must
+     * never bridge). The bound belongs INSIDE the selection, not as a post-hoc rejection:
+     * the same-second rule prefers a strictly-earlier quote, and when that earlier quote is
+     * cross-island, post-hoc rejection would discard the trade even though a valid
+     * SAME-ISLAND same-second quote exists.
+     */
+    static Quote prevailingQuote(List<Quote> quotesByTime, long tradeEpochSeconds, long minEpoch) {
         Quote lastEarlier = null, lastAtOrBefore = null;
         for (Quote q : quotesByTime) { // sorted ascending; linear is fine, callers bound list size
             if (q.epochSeconds() > tradeEpochSeconds) break;
+            if (q.epochSeconds() < minEpoch) continue;
             lastAtOrBefore = q;
             if (q.epochSeconds() < tradeEpochSeconds) lastEarlier = q;
         }

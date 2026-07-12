@@ -134,6 +134,11 @@ public class OptionActivityService {
     @Value("${ua.aggressor.spread-condition-markers:SLAN,SLAI,SLCN,SLFT,MLET,MLAT,MLCT,MLFT,TLET,TLAT,TLCT,TLFT,MESL,TESL}")
     List<String> aggressorSpreadMarkers;
 
+    /** Floor for profileQuality: below this many DIRECTIONALLY classified contracts
+     *  (buy+sell) the distribution is anecdote, not signal — labeled INSUFFICIENT. */
+    @Value("${ua.aggressor.quality-min-directional-volume:200}")
+    long aggressorQualityMinDirectionalVolume = 200;
+
     // Session start (ET) for the historical tick window. Options print 09:30–16:15 ET;
     // useRth=0 in the fetch keeps anything outside that window if it exists.
     @Value("${ua.aggressor.session-start:09:30}")
@@ -205,6 +210,7 @@ public class OptionActivityService {
         String upperTicker = ticker.toUpperCase();
         synchronized (scanLocks.computeIfAbsent(upperTicker, k -> new Object())) {
             OptionActivityResult result = doComputeActivity(upperTicker, aggressorBudget);
+            result = enrich(upperTicker, result);
             // Only a scan that actually resolved strikes overwrites the Book: a failed scan
             // (IBKR down, no chain, no underlying price) yields an empty profile, and writing
             // that would erase the last honest result with a wrongly-fresh nothing. The Book
@@ -387,7 +393,8 @@ public class OptionActivityService {
                 .collect(Collectors.toList());
 
         AggressorClassifier.Config cfg = new AggressorClassifier.Config(
-                aggressorSweepWindowMs, aggressorBlockMinContracts, aggressorSpreadMarkers);
+                aggressorSweepWindowMs, aggressorBlockMinContracts, aggressorSpreadMarkers,
+                aggressorQualityMinDirectionalVolume);
         ZonedDateTime sessionStart = ZonedDateTime.of(
                 LocalDate.now(US_MARKET_TZ),
                 java.time.LocalTime.parse(aggressorSessionStart),
@@ -505,6 +512,29 @@ public class OptionActivityService {
     /** The most recent previous session's published OI, looking back up to 5 calendar days
      *  (weekend + holiday). Null when nothing is remembered — oiDelta then stays null and
      *  positionInference honestly says UNKNOWN. */
+    /**
+     * Consumer conveniences on every flagged entry, added post-scan: distanceToSpotPct
+     * (signed strike distance to the Book's current last, in percent — positive = strike
+     * above spot) and oiPrevious (previous session's OI for THIS contract from the day
+     * memory; the pair oiPrevious/openInterest lets the LLM see position building without
+     * inventing an intraday OI that does not exist — OI is struck once daily by the OCC).
+     */
+    private OptionActivityResult enrich(String ticker, OptionActivityResult result) {
+        if (result.unusualActivity().isEmpty()) return result;
+        TickerBook tb = book.find(ticker);
+        Double spot = tb != null ? tb.last().value() : null;
+        List<OptionsData.UnusualActivity> enriched = new ArrayList<>(result.unusualActivity().size());
+        for (OptionsData.UnusualActivity ua : result.unusualActivity()) {
+            Double distance = (spot != null && spot > 0 && ua.strike() != null)
+                    ? (ua.strike() - spot) / spot * 100.0 : null;
+            String right = "PUT".equals(ua.type()) ? "P" : "C";
+            Long oiPrevious = ua.expiry() != null && ua.strike() != null
+                    ? previousSessionContractOi(ticker, ua.expiry(), ua.strike(), right) : null;
+            enriched.add(ua.enriched(distance, oiPrevious));
+        }
+        return new OptionActivityResult(enriched, result.oiProfile());
+    }
+
     private Long previousSessionContractOi(String ticker, String expiry, double strike, String right) {
         Cache cache = cacheManager.getCache("oiContractDayMemory");
         if (cache == null) return null;
