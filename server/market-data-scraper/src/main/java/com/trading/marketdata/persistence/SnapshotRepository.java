@@ -12,6 +12,13 @@ public interface SnapshotRepository extends JpaRepository<SnapshotEntity, Long> 
     /** Most recent persisted snapshot for a ticker — the reference for delta computation. */
     Optional<SnapshotEntity> findTopByTickerOrderBySnapshotTsDesc(String ticker);
 
+    /** Lightweight (id, ticker, snapshotTs) projection over a time range — lets callers pick
+     *  the relevant snapshot ids (e.g. last per ticker+day) WITHOUT dragging the JSON
+     *  columns through the wire, then batch-load just those via findAllById. */
+    @Query("select s.id, s.ticker, s.snapshotTs from SnapshotEntity s "
+            + "where s.snapshotTs >= ?1 order by s.ticker, s.snapshotTs")
+    List<Object[]> findIdIndexSince(Instant from);
+
     /** (snapshotTs, volume) series for the intraday volume curve — one indexed range scan
      *  over (ticker, snapshotTs); rows with null volume are filtered at the source. */
     @Query("select s.snapshotTs, s.volume from SnapshotEntity s "

@@ -546,7 +546,9 @@ public class OptionActivityService {
         return null;
     }
 
-    private static String contractOiKey(String ticker, String expiry, double strike, String right, LocalDate day) {
+    /** Package-private: OiMemoryWarmup rebuilds the cache after a restart and MUST produce
+     *  byte-identical keys — one shared construction instead of two drifting copies. */
+    static String contractOiKey(String ticker, String expiry, double strike, String right, LocalDate day) {
         return ticker + ":" + expiry + ":" + strike + ":" + right + ":" + EXPIRY_FMT.format(day);
     }
 
