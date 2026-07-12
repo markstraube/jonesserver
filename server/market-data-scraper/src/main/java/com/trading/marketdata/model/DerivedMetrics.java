@@ -22,6 +22,14 @@ public record DerivedMetrics(
         Double pctFromLow,         // distance above session low, in % (>= 0)
         Double rangePct,           // (high - low) / prevClose, in %: the day's realized span
         Double relativeVolume,     // today's volume / Finviz average daily volume (RVOL)
+        Long expectedVolumeUntilNow, // avg daily volume x the symbol's own empirical intraday
+                                   // curve at this time of day — what an AVERAGE day would
+                                   // have printed by now (null: thin history, pre-market)
+        Double relativeVolumeAtTime, // today's volume / expectedVolumeUntilNow: the
+                                   // time-honest RVOL. Plain relativeVolume mid-session
+                                   // reads low by construction (the day is not over);
+                                   // this one is ~1.0 on an average day at ANY hour and
+                                   // converges to relativeVolume at the close
 
         // --- Options window aggregates (from oiProfile) ---
         Long oiCallTotal,          // sum of call OI across the visible strike window

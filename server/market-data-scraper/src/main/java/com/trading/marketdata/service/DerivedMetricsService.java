@@ -23,8 +23,12 @@ import java.util.List;
 @Service
 public class DerivedMetricsService {
 
+    /** @param expectedVolumeShare the symbol's expected cumulative volume share at THIS
+     *         time of day (IntradayVolumeService), or null — keeps this class pure: the
+     *         I/O-owning caller supplies it. */
     public DerivedMetrics compute(QuoteData quote, OptionsData options, ShortData shortData,
-                                  SnapshotEntity previous, DataQuality quality) {
+                                  SnapshotEntity previous, DataQuality quality,
+                                  Double expectedVolumeShare) {
         boolean quoteStale = quality != null && quality.quote() != null && quality.quote().stale();
         boolean scanStale = quality != null && quality.uaScan() != null && quality.uaScan().stale();
         // --- Intraday position ---
@@ -50,9 +54,20 @@ public class DerivedMetricsService {
 
         // --- Relative volume (RVOL): today's tape vs. the Finviz average day ---
         Double relativeVolume = null;
+        Long expectedVolumeUntilNow = null;
+        Double relativeVolumeAtTime = null;
         if (quote != null && quote.volume() != null && quote.volume() > 0
                 && shortData != null && shortData.avgVolume() != null && shortData.avgVolume() > 0) {
             relativeVolume = round4((double) quote.volume() / shortData.avgVolume());
+            // Time-normalized twin: same numerator, but the denominator is what an average
+            // day would have printed BY NOW (own empirical curve). Mid-session the plain
+            // RVOL reads low by construction; this one is comparable at any hour.
+            if (expectedVolumeShare != null && expectedVolumeShare > 0) {
+                expectedVolumeUntilNow = Math.round(shortData.avgVolume() * expectedVolumeShare);
+                if (expectedVolumeUntilNow > 0) {
+                    relativeVolumeAtTime = round4((double) quote.volume() / expectedVolumeUntilNow);
+                }
+            }
         }
 
         // --- OI window aggregates ---
@@ -147,6 +162,7 @@ public class DerivedMetricsService {
 
         return new DerivedMetrics(
                 prevClose, pctFromOpen, pctFromHigh, pctFromLow, rangePct, relativeVolume,
+                expectedVolumeUntilNow, relativeVolumeAtTime,
                 oiCallTotal, oiPutTotal, oiPcr, oiByExpiry,
                 uaCallVol, uaPutVol, uaCallNotional, uaPutNotional, uaCallPremium, uaPutPremium,
                 priceDeltaPct, volumeDelta, oiPcrDelta, minutesSince, previousAt);

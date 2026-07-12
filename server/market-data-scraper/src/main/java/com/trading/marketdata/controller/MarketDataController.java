@@ -11,6 +11,7 @@ import com.trading.marketdata.model.ShortData;
 import com.trading.marketdata.persistence.SnapshotPersistenceService;
 import com.trading.marketdata.service.AuctionService;
 import com.trading.marketdata.service.DerivedMetricsService;
+import com.trading.marketdata.service.IntradayVolumeService;
 import com.trading.marketdata.service.MarketStateService;
 import com.trading.marketdata.service.NewsService;
 import com.trading.marketdata.service.OptionsService;
@@ -47,6 +48,7 @@ public class MarketDataController {
     private final ShortInterestService shortInterestService;
     private final NewsService newsService;
     private final DerivedMetricsService derivedMetricsService;
+    private final IntradayVolumeService intradayVolumeService;
     private final SnapshotPersistenceService persistenceService;
     private final MarketStateService marketStateService;
     private final AuctionService auctionService;
@@ -63,12 +65,14 @@ public class MarketDataController {
                                 SnapshotPersistenceService persistenceService,
                                 MarketStateService marketStateService,
                                 AuctionService auctionService,
-                                SnapshotQualityService qualityService) {
+                                SnapshotQualityService qualityService,
+                                IntradayVolumeService intradayVolumeService) {
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
         this.newsService = newsService;
         this.derivedMetricsService = derivedMetricsService;
+        this.intradayVolumeService = intradayVolumeService;
         this.persistenceService = persistenceService;
         this.marketStateService = marketStateService;
         this.auctionService = auctionService;
@@ -177,7 +181,8 @@ public class MarketDataController {
         // findPrevious() is intentionally called BEFORE persisting this snapshot. Stale-flagged
         // fields contribute no deltas (see DerivedMetricsService).
         DerivedMetrics derived = derivedMetricsService.compute(
-                quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null), quality);
+                quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null), quality,
+                intradayVolumeService.expectedShareNow(ticker));
 
         MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
