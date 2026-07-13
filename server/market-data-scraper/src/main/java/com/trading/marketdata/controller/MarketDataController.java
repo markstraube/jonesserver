@@ -1,23 +1,24 @@
 package com.trading.marketdata.controller;
 
 import com.trading.marketdata.model.AuctionData;
-import com.trading.marketdata.model.DataQuality;
-import com.trading.marketdata.model.DerivedMetrics;
+
+
 import com.trading.marketdata.model.MarketSnapshot;
 import com.trading.marketdata.model.NewsItem;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
 import com.trading.marketdata.model.ShortData;
-import com.trading.marketdata.persistence.SnapshotPersistenceService;
+
 import com.trading.marketdata.service.AuctionService;
-import com.trading.marketdata.service.DerivedMetricsService;
-import com.trading.marketdata.service.IntradayVolumeService;
-import com.trading.marketdata.service.MarketStateService;
+
+
+
 import com.trading.marketdata.service.NewsService;
+import com.trading.marketdata.service.SnapshotAssemblyService;
 import com.trading.marketdata.service.OptionsService;
 import com.trading.marketdata.service.QuoteService;
 import com.trading.marketdata.service.ShortInterestService;
-import com.trading.marketdata.service.SnapshotQualityService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,7 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -43,40 +44,28 @@ public class MarketDataController {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataController.class);
 
+    private final SnapshotAssemblyService snapshotAssemblyService;
     private final QuoteService quoteService;
     private final OptionsService optionsService;
     private final ShortInterestService shortInterestService;
     private final NewsService newsService;
-    private final DerivedMetricsService derivedMetricsService;
-    private final IntradayVolumeService intradayVolumeService;
-    private final SnapshotPersistenceService persistenceService;
-    private final MarketStateService marketStateService;
     private final AuctionService auctionService;
-    private final SnapshotQualityService qualityService;
 
     // Virtual thread executor for parallel scraping
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public MarketDataController(QuoteService quoteService,
+    public MarketDataController(SnapshotAssemblyService snapshotAssemblyService,
+                                QuoteService quoteService,
                                 OptionsService optionsService,
                                 ShortInterestService shortInterestService,
                                 NewsService newsService,
-                                DerivedMetricsService derivedMetricsService,
-                                SnapshotPersistenceService persistenceService,
-                                MarketStateService marketStateService,
-                                AuctionService auctionService,
-                                SnapshotQualityService qualityService,
-                                IntradayVolumeService intradayVolumeService) {
+                                AuctionService auctionService) {
+        this.snapshotAssemblyService = snapshotAssemblyService;
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
         this.newsService = newsService;
-        this.derivedMetricsService = derivedMetricsService;
-        this.intradayVolumeService = intradayVolumeService;
-        this.persistenceService = persistenceService;
-        this.marketStateService = marketStateService;
         this.auctionService = auctionService;
-        this.qualityService = qualityService;
     }
 
     @GetMapping("/quote/{ticker}")
@@ -153,51 +142,6 @@ public class MarketDataController {
     }
 
     private MarketSnapshot buildSnapshot(String ticker) {
-        // Book symbols resolve quote/options/auction synchronously from the in-memory Book
-        // (no IBKR request on the read path); the futures still parallelize the scraper-based
-        // sources (shorts, news) and the fallback paths of non-Book tickers.
-        CompletableFuture<QuoteData> quoteFuture =
-                CompletableFuture.supplyAsync(() -> quoteService.getQuote(ticker), executor);
-        CompletableFuture<OptionsData> optionsFuture =
-                CompletableFuture.supplyAsync(() -> optionsService.getOptions(ticker), executor);
-        CompletableFuture<ShortData> shortFuture =
-                CompletableFuture.supplyAsync(() -> shortInterestService.getShortData(ticker), executor);
-        CompletableFuture<List<NewsItem>> newsFuture =
-                CompletableFuture.supplyAsync(() -> newsService.getNews(ticker, 10), executor);
-        CompletableFuture<AuctionData> auctionFuture =
-                CompletableFuture.supplyAsync(() -> auctionService.getAuctionData(ticker, false), executor);
-
-        CompletableFuture.allOf(quoteFuture, optionsFuture, shortFuture, newsFuture, auctionFuture).join();
-
-        QuoteData quote = quoteFuture.join();
-        OptionsData options = optionsFuture.join();
-        ShortData shortData = shortFuture.join();
-
-        // Quality is read AFTER the sources so it describes the ages the response actually
-        // carries. Null for non-Book tickers (scraper-served, no timestamp pairs).
-        DataQuality quality = qualityService.forTicker(ticker);
-
-        // Derived features: previous persisted snapshot (if any) supplies the delta reference.
-        // findPrevious() is intentionally called BEFORE persisting this snapshot. Stale-flagged
-        // fields contribute no deltas (see DerivedMetricsService).
-        DerivedMetrics derived = derivedMetricsService.compute(
-                quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null), quality,
-                intradayVolumeService.expectedShareNow(ticker));
-
-        MarketSnapshot snapshot = new MarketSnapshot(
-                ticker,
-                Instant.now(),
-                marketStateService.getMarketState().name(),
-                quote,
-                options,
-                shortData,
-                newsFuture.join(),
-                derived,
-                auctionFuture.join(),
-                quality
-        );
-
-        persistenceService.persist(snapshot); // @Async, never blocks or fails the response
-        return snapshot;
+        return snapshotAssemblyService.build(ticker);
     }
 }
