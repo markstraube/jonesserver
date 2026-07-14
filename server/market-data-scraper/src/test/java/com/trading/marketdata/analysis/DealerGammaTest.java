@@ -79,4 +79,32 @@ class DealerGammaTest {
         // Rows exist but none carries a gamma → null, no pretend profile
         assertNull(DealerGamma.compute(List.of(l(100, 1000, 1000, null, null)), SPOT));
     }
+
+    @Test
+    void wallCoverageExposesConcentratedGaps() {
+        // The live case: a strike whose dominant side has no gamma. 3.8k covered calls show
+        // +GEX; 14.7k puts are invisible. Global coverage looks acceptable, wallCoverage
+        // does not — the gate the consumer needs.
+        var p = DealerGamma.compute(List.of(
+                l(900, 3790, 14729, 0.004, null),   // wall: only 3790 of 18519 covered
+                l(930, 2000, 2000, 0.004, 0.004)),  // fully covered strike
+                SPOT);
+        assertEquals(900.0, p.wallStrike(), 1e-9);
+        assertEquals(3790.0 / 18519.0, p.wallCoverage(), 1e-9);
+        assertTrue(p.gammaCoverage() > p.wallCoverage(), "global coverage hides the wall gap");
+    }
+
+    @Test
+    void wallCoverageIsOneWhenWallFullyCovered() {
+        // Asymmetric OI at 100 — a SYMMETRIC fully-covered strike nets to zero GEX (calls
+        // and puts cancel exactly) and loses the wall to any nonzero neighbor, which is
+        // correct wall semantics: the wall is the largest hedging-flow imbalance, not the
+        // largest OI pile.
+        var p = DealerGamma.compute(List.of(
+                l(100, 1000, 500, 0.05, 0.05),
+                l(110, 10, 0, 0.01, null)),
+                SPOT);
+        assertEquals(100.0, p.wallStrike(), 1e-9);
+        assertEquals(1.0, p.wallCoverage(), 1e-9);
+    }
 }

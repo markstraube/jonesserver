@@ -49,13 +49,23 @@ public final class DealerGamma {
      * @param gammaCoverage      OI-weighted share of the window's open interest that carried a
      *                           model gamma — the honesty metric: 0.4 means 60% of the OI had
      *                           no greek tick and is invisible to every number here
+     * @param wallCoverage       the SAME honesty metric restricted to the wall strike itself.
+     *                           A global coverage of 0.64 can hide a wall whose dominant side
+     *                           is entirely invisible — observed live: a 900 strike shown as
+     *                           +10M dealer-long GEX from 3.8k covered calls while its 14.7k
+     *                           puts (the window's largest single position) carried no gamma;
+     *                           with them visible the strike was deeply NEGATIVE. Gate rule
+     *                           for consumers: a wall with low wallCoverage names the right
+     *                           LEVEL (the OI is real) but its GEX sign/magnitude is not
+     *                           trustworthy
      */
     public record Profile(
             Double netGexUsdPer1Pct,
             Double flipLevel,
             Double wallStrike,
             Double wallGexUsdPer1Pct,
-            Double gammaCoverage
+            Double gammaCoverage,
+            Double wallCoverage
     ) {}
 
     /** Null when spot is unusable or NO row carries a gamma — no pretend profiles. */
@@ -65,6 +75,7 @@ public final class DealerGamma {
         // Aggregate per strike across expiry boards: the hedging flow at a price level is
         // the sum over every board pinning there.
         Map<Double, Double> gexByStrike = new TreeMap<>();
+        Map<Double, long[]> oiByStrike = new TreeMap<>(); // [coveredOi, totalOi] per strike
         long coveredOi = 0, totalOi = 0;
         double contractUsdPer1Pct = 100 * spot * (spot * 0.01);
 
@@ -73,17 +84,21 @@ public final class DealerGamma {
             long callOi = level.callOpenInterest() == null ? 0 : level.callOpenInterest();
             long putOi = level.putOpenInterest() == null ? 0 : level.putOpenInterest();
             totalOi += callOi + putOi;
+            long[] strikeOi = oiByStrike.computeIfAbsent(level.strike(), k -> new long[2]);
+            strikeOi[1] += callOi + putOi;
 
             double gex = 0;
             boolean any = false;
             if (level.callGamma() != null && callOi > 0) {
                 gex += level.callGamma() * callOi * contractUsdPer1Pct;  // dealers long calls
                 coveredOi += callOi;
+                strikeOi[0] += callOi;
                 any = true;
             }
             if (level.putGamma() != null && putOi > 0) {
                 gex -= level.putGamma() * putOi * contractUsdPer1Pct;    // dealers short puts
                 coveredOi += putOi;
+                strikeOi[0] += putOi;
                 any = true;
             }
             if (any) {
@@ -123,6 +138,14 @@ public final class DealerGamma {
             prevStrike = e.getKey();
         }
 
-        return new Profile(net, flip, wallStrike, wallGex, (double) coveredOi / totalOi);
+        Double wallCoverage = null;
+        if (wallStrike != null) {
+            long[] atWall = oiByStrike.get(wallStrike);
+            if (atWall != null && atWall[1] > 0) {
+                wallCoverage = (double) atWall[0] / atWall[1];
+            }
+        }
+
+        return new Profile(net, flip, wallStrike, wallGex, (double) coveredOi / totalOi, wallCoverage);
     }
 }
