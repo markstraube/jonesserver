@@ -54,6 +54,28 @@ public class IbkrWrapper extends DefaultEWrapper {
     private final Map<Integer, String>                                     chainRequestTicker  = new ConcurrentHashMap<>();
     private final Map<Integer, CompletableFuture<Integer>>                 pendingContractDetails = new ConcurrentHashMap<>();
     private final Map<Integer, IbkrOptionContractActivity.Builder>         pendingContractActivity = new ConcurrentHashMap<>();
+
+    // ------------------------------------------------------------------------
+    // Greek grace: tickOptionComputation (model greeks) habitually lags the volume/OI ticks
+    // by a moment — the documented Gateway greek-stall pattern. Completing on volume/OI
+    // alone therefore dropped the greeks of nearly every contract (observed live: 0 of 46
+    // OI rows carried a gamma in REGULAR). When the completion condition fires and no gamma
+    // has arrived yet, completion is DEFERRED by a short grace window; the greek tick
+    // completes it early, the timer completes it with whatever is there. The grace must
+    // stay well below ibkr.contract-activity-timeout-seconds (2s) — a grace at/over the
+    // caller's timeout would turn today's "success without greeks" into a timeout failure.
+    // 0 disables (pre-grace behavior).
+    // ------------------------------------------------------------------------
+    @Value("${ibkr.greek-grace-ms:700}")
+    long greekGraceMs = 700;
+
+    private final Map<Integer, java.util.concurrent.ScheduledFuture<?>> pendingGreekGrace = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ScheduledExecutorService graceScheduler =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "ibkr-greek-grace");
+                t.setDaemon(true);
+                return t;
+            });
     private final Map<Integer, CompletableFuture<IbkrOptionContractActivity>> pendingContractActivityFutures = new ConcurrentHashMap<>();
     // true = only complete once the open-interest tick (27/28) arrives; false = volume alone is enough
     // (used when open interest is already cached and we only need a fresh volume read)
@@ -97,6 +119,11 @@ public class IbkrWrapper extends DefaultEWrapper {
                 ? gamma : null;
         if (iv != null || g != null) {
             builder.greeks(field, iv, g);
+            // The tick the grace was waiting for: complete immediately instead of burning
+            // the rest of the window. Contracts whose greeks arrive fast pay ~0 extra time.
+            if (builder.hasGamma() && pendingGreekGrace.containsKey(tickerId)) {
+                completeContractActivityNow(tickerId);
+            }
         }
     }
 
@@ -499,7 +526,25 @@ public class IbkrWrapper extends DefaultEWrapper {
         }
     }
 
+    /** Completion entry point for the volume/OI triggers: defers by the greek grace when
+     *  greeks are still missing (see field comment). Idempotent and race-safe — both the
+     *  grace timer and an early greek tick funnel into completeContractActivityNow, whose
+     *  map-removals and future-completion are naturally single-winner. */
     private void completeContractActivity(int reqId) {
+        IbkrOptionContractActivity.Builder b = pendingContractActivity.get(reqId);
+        if (b != null && greekGraceMs > 0 && !b.hasGamma()
+                && !pendingGreekGrace.containsKey(reqId)) {
+            pendingGreekGrace.put(reqId, graceScheduler.schedule(
+                    () -> completeContractActivityNow(reqId), greekGraceMs,
+                    java.util.concurrent.TimeUnit.MILLISECONDS));
+            return;
+        }
+        completeContractActivityNow(reqId);
+    }
+
+    private void completeContractActivityNow(int reqId) {
+        java.util.concurrent.ScheduledFuture<?> grace = pendingGreekGrace.remove(reqId);
+        if (grace != null) grace.cancel(false);
         IbkrOptionContractActivity.Builder b = pendingContractActivity.remove(reqId);
         CompletableFuture<IbkrOptionContractActivity> f = pendingContractActivityFutures.remove(reqId);
         contractActivityWaitsForOI.remove(reqId);
@@ -605,6 +650,8 @@ public class IbkrWrapper extends DefaultEWrapper {
     }
 
     public void discardContractActivityRequest(int reqId) {
+        java.util.concurrent.ScheduledFuture<?> grace = pendingGreekGrace.remove(reqId);
+        if (grace != null) grace.cancel(false);
         pendingContractActivityFutures.remove(reqId);
         pendingContractActivity.remove(reqId);
         contractActivityWaitsForOI.remove(reqId);

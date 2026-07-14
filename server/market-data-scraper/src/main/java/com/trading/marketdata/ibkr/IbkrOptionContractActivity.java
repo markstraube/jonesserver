@@ -86,6 +86,9 @@ public record IbkrOptionContractActivity(
 
         public Builder lastTimestamp(long epochSeconds) { this.lastTimestampEpoch = epochSeconds; return this; }
 
+        /** True once any gamma landed — the greek-grace completion check. */
+        public boolean hasGamma() { return gamma != null; }
+
         /** Model-preferred greek intake: field 13 (MODEL) always wins and locks; bid/ask/
          *  last-based computations only fill gaps until a model value arrives. */
         public Builder greeks(int field, Double iv, Double gamma) {
