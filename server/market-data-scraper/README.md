@@ -48,6 +48,20 @@ IBKR Gateway ──ticks──▶ SubscriptionManager ──▶ MarketDataBook (
 Non-goals, by design: no message queue, no event sourcing, no tick history, no websocket
 push — an in-process cache plus lifecycle management.
 
+
+## Interpretation safety added in v10.1
+
+- `aggressorProfile.positionInference` is now suppressed (`UNKNOWN`) unless the flow profile
+  is at least `MEDIUM` quality. The JSON also carries `positionInferenceConfidence` and
+  `positionInferenceReason`, so an LLM cannot mistake a tiny classified sample for a firm
+  opening/closing conclusion.
+- `derived.dealerGamma` now carries `signModel`, `observedDealerPositions=false`, and a
+  coverage-based `confidence`. The GEX numbers remain model estimates, never observed dealer
+  inventory.
+- Build verification in this delivery was limited to static source checks because the
+  execution environment could not download Maven; run `./mvnw test` in a network-enabled
+  development environment before deployment.
+
 ## Requirements
 
 - Java 21+, Maven 3.8+

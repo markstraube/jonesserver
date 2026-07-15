@@ -237,7 +237,7 @@ public final class AggressorClassifier {
                 profileQuality,
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(firstTrade),
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(lastTrade),
-                null, null); // OI join happens in the escalation layer (needs the day memory)
+                null, null, null, null); // OI join happens in the escalation layer (needs the day memory)
     }
 
     /**

@@ -444,13 +444,38 @@ public class OptionActivityService {
                 // 0DTE: position and expiry coincide — next-session OI never exists, the
                 // inference is STRUCTURALLY impossible, which is different from a memory
                 // gap. Say so instead of UNKNOWN.
-                profile = profile.withOiJoin(null, AggressorProfile.INFERENCE_EXPIRES_TODAY);
+                profile = profile.withOiJoin(null, AggressorProfile.INFERENCE_EXPIRES_TODAY,
+                        "NOT_APPLICABLE", "Contract expires today; next-session OI cannot exist");
             } else {
                 Long todayOi = ua.openInterest();
                 Long previousOi = previousSessionContractOi(ticker, ua.expiry(), ua.strike(), right);
                 Long oiDelta = (todayOi != null && previousOi != null) ? todayOi - previousOi : null;
-                profile = profile.withOiJoin(oiDelta, AggressorClassifier.positionInference(
-                        profile.buyVolume(), profile.sellVolume(), oiDelta));
+                boolean inferenceQualitySufficient = AggressorProfile.QUALITY_HIGH.equals(profile.profileQuality())
+                        || AggressorProfile.QUALITY_MEDIUM.equals(profile.profileQuality());
+                String inference;
+                String inferenceConfidence;
+                String inferenceReason;
+                if (!inferenceQualitySufficient) {
+                    inference = "UNKNOWN";
+                    inferenceConfidence = "INSUFFICIENT";
+                    inferenceReason = "Aggressor profile quality below MEDIUM; directional flow is not representative";
+                } else if (oiDelta == null) {
+                    // Quality is fine but the join partner is missing (contract not in the
+                    // day memory — e.g. a strike that drifted into the scan window today).
+                    // Without this branch the report claimed a join that never happened,
+                    // with HIGH confidence on an UNKNOWN — the reason must state the actual
+                    // limitation, not the generic epoch caveat.
+                    inference = "UNKNOWN";
+                    inferenceConfidence = "INSUFFICIENT";
+                    inferenceReason = "No prior-session OI in memory for this contract; delta join not possible";
+                } else {
+                    inference = AggressorClassifier.positionInference(
+                            profile.buyVolume(), profile.sellVolume(), oiDelta);
+                    inferenceConfidence = AggressorProfile.QUALITY_HIGH.equals(profile.profileQuality())
+                            ? "HIGH" : "MEDIUM";
+                    inferenceReason = "Prior-session OI delta joined with current-session aggressor dominance; sessions differ";
+                }
+                profile = profile.withOiJoin(oiDelta, inference, inferenceConfidence, inferenceReason);
             }
 
             profiles.put(ua, profile);

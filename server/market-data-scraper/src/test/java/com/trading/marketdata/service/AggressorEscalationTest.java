@@ -74,6 +74,7 @@ class AggressorEscalationTest {
         service.aggressorMaxRequests = 20;
         service.aggressorSweepWindowMs = 500;
         service.aggressorBlockMinContracts = 100;
+        service.aggressorQualityMinDirectionalVolume = 1;
         service.aggressorSpreadMarkers = List.of("SLAN");
         service.aggressorSessionStart = "09:30";
         return new Fixture(service, ibkr, caches);
@@ -163,6 +164,7 @@ class AggressorEscalationTest {
         AggressorProfile p = out.get(0).aggressorProfile();
         assertEquals(100L, p.oiDelta()); // 500 today - 400 previous session
         assertEquals("OPENING_BUYS", p.positionInference()); // stub day is 100% buys, OI up
+        assertEquals("HIGH", p.positionInferenceConfidence());
     }
 
     @Test

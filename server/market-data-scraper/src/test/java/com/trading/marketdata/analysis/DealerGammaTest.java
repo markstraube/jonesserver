@@ -107,4 +107,28 @@ class DealerGammaTest {
         assertEquals(100.0, p.wallStrike(), 1e-9);
         assertEquals(1.0, p.wallCoverage(), 1e-9);
     }
+
+    @Test
+    void disclosureFieldsAreAlwaysPresent() {
+        var p = DealerGamma.compute(List.of(l(100, 1000, 500, 0.05, 0.05)), SPOT);
+        assertEquals(DealerGamma.SIGN_MODEL, p.signModel());
+        assertEquals(Boolean.FALSE, p.observedDealerPositions());
+        assertEquals("MEDIUM", p.confidence()); // full coverage on both metrics
+    }
+
+    @Test
+    void confidenceIsLowWhenEitherCoverageBelowFloor() {
+        // The live 900-strike case: global coverage acceptable, wall coverage 0.21 → LOW.
+        var lowWall = DealerGamma.compute(List.of(
+                l(900, 3790, 14729, 0.004, null),
+                l(930, 2000, 2000, 0.004, 0.004)),
+                SPOT);
+        assertEquals("LOW", lowWall.confidence());
+        // Global below floor with a clean wall → also LOW.
+        var lowGlobal = DealerGamma.compute(List.of(
+                l(100, 100, 0, 0.05, null),
+                l(110, 3000, 0, null, null)),
+                SPOT);
+        assertEquals("LOW", lowGlobal.confidence());
+    }
 }

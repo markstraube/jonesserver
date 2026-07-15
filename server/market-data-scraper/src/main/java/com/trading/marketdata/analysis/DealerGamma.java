@@ -58,6 +58,17 @@ public final class DealerGamma {
      *                           for consumers: a wall with low wallCoverage names the right
      *                           LEVEL (the OI is real) but its GEX sign/magnitude is not
      *                           trustworthy
+     * @param signModel          the positioning convention every sign here rests on — in the
+     *                           report itself, not only in this javadoc, so the downstream
+     *                           consumer cannot read GEX as a measurement
+     * @param observedDealerPositions always false: no number in this profile comes from
+     *                           observed dealer inventory; it is OI x model gamma under the
+     *                           convention above
+     * @param confidence         coverage-derived, deliberately capped at MEDIUM — a modeled
+     *                           quantity under an unverifiable positioning assumption never
+     *                           earns HIGH. MEDIUM requires BOTH coverages at/above
+     *                           {@link #CONFIDENCE_COVERAGE_FLOOR} (the live 900-strike case
+     *                           had global 0.64 but wall 0.21 — LOW, correctly)
      */
     public record Profile(
             Double netGexUsdPer1Pct,
@@ -65,8 +76,17 @@ public final class DealerGamma {
             Double wallStrike,
             Double wallGexUsdPer1Pct,
             Double gammaCoverage,
-            Double wallCoverage
+            Double wallCoverage,
+            String signModel,
+            Boolean observedDealerPositions,
+            String confidence
     ) {}
+
+    /** The convention behind every sign in this profile (assumption 1 above). */
+    public static final String SIGN_MODEL = "CUSTOMERS_LONG_PUTS_SHORT_CALLS";
+
+    /** Both coverages must reach this floor for MEDIUM confidence. */
+    public static final double CONFIDENCE_COVERAGE_FLOOR = 0.70;
 
     /** Null when spot is unusable or NO row carries a gamma — no pretend profiles. */
     public static Profile compute(List<OptionsData.OiLevel> oiProfile, Double spot) {
@@ -146,6 +166,12 @@ public final class DealerGamma {
             }
         }
 
-        return new Profile(net, flip, wallStrike, wallGex, (double) coveredOi / totalOi, wallCoverage);
+        double globalCoverage = (double) coveredOi / totalOi;
+        String confidence = (globalCoverage >= CONFIDENCE_COVERAGE_FLOOR
+                && wallCoverage != null && wallCoverage >= CONFIDENCE_COVERAGE_FLOOR)
+                ? "MEDIUM" : "LOW";
+
+        return new Profile(net, flip, wallStrike, wallGex, globalCoverage, wallCoverage,
+                SIGN_MODEL, false, confidence);
     }
 }

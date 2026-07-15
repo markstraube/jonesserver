@@ -75,7 +75,9 @@ public record AggressorProfile(
         Instant firstTradeAt,
         Instant lastTradeAt,
         Long oiDelta,
-        String positionInference
+        String positionInference,
+        String positionInferenceConfidence,
+        String positionInferenceReason
 ) {
     public static final String STATUS_OK = "OK";
     public static final String STATUS_PARTIAL = "PARTIAL";
@@ -99,11 +101,13 @@ public record AggressorProfile(
         return new AggressorProfile(STATUS_SKIPPED_BUDGET, null,
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, QUALITY_INSUFFICIENT, null, null, null, null);
+                null, null, QUALITY_INSUFFICIENT, null, null, null, null, null, null);
     }
 
     /** Same profile with the OI-delta join attached (records are immutable). */
-    public AggressorProfile withOiJoin(Long oiDelta, String positionInference) {
+    public AggressorProfile withOiJoin(Long oiDelta, String positionInference,
+                                        String positionInferenceConfidence,
+                                        String positionInferenceReason) {
         return new AggressorProfile(status, partialDetail,
                 buyVolume, sellVolume, unknownVolume,
                 buyStrongVolume, buyLeanVolume, sellStrongVolume, sellLeanVolume,
@@ -112,6 +116,6 @@ public record AggressorProfile(
                 sweepCount, sweepVolume, largestSweepVolume,
                 blockCount, blockVolume, largestBlockVolume,
                 tickCoverage, classifiedShare, profileQuality, firstTradeAt, lastTradeAt,
-                oiDelta, positionInference);
+                oiDelta, positionInference, positionInferenceConfidence, positionInferenceReason);
     }
 }
