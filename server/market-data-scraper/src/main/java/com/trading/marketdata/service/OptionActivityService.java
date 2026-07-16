@@ -112,7 +112,11 @@ public class OptionActivityService {
     @Value("${ua.aggressor.enabled:false}")
     boolean aggressorEnabled;
 
-    @Value("${ua.aggressor.max-candidates-per-cycle:4}")
+    /** Default 2, deliberately: at realistic per-ticker shares, two candidates with 2+
+     *  quote islands each beat four candidates with one island each — the live pattern was
+     *  four INSUFFICIENT profiles per ticker (classifiedShare ~0.001-0.005). Depth over
+     *  breadth; the quality gate proves it knows the difference. */
+    @Value("${ua.aggressor.max-candidates-per-cycle:2}")
     int aggressorMaxCandidates;
 
     // Request-equivalents per scan cycle (BID_ASK pages count double, see
@@ -233,14 +237,32 @@ public class OptionActivityService {
     @Scheduled(initialDelayString = "${book.scan-initial-delay-ms:30000}",
                fixedDelayString = "${book.scan-interval-ms:300000}")
     public void scheduledWatchlistScan() {
-        // One stage-2 budget for the whole sweep — see computeActivity javadoc.
-        HistoricalRequestBudget aggressorBudget = new HistoricalRequestBudget(aggressorMaxRequests);
-        for (String symbol : subscriptionManager.bookSymbols()) {
-            if (symbol.equals(subscriptionManager.anchorSymbol())) continue;
+        // One stage-2 budget for the whole sweep (the pacing pot is global), but handed to
+        // each ticker as a FAIR-SHARE SLICE — the same cap-not-reserve mechanism the
+        // candidate level already uses, one level up. Without it, the first ticker in scan
+        // order ate the entire cycle budget and every later ticker's candidates came back
+        // SKIPPED_BUDGET wholesale (observed live: MU with computed profiles, SNDK all
+        // skipped in the same cycle). Tickers without stage-2 candidates consume ~nothing,
+        // so their unused share flows to the tickers after them automatically.
+        //
+        // Known asymmetry, accepted for now: the flow-back only helps LATER tickers — when
+        // the candidate-rich tickers sit early in scan order, their share stays at
+        // budget/n while the tail's unused equivalents expire. The clean fix is a
+        // two-pass cycle (stage-1 for all tickers first, then one global candidate pool
+        // allocated by premium); deferred because it moves the escalation out of
+        // doComputeActivity and needs a second Book write. Until then: every ticker is
+        // guaranteed its top candidate, none is starved wholesale.
+        HistoricalRequestBudget cycleBudget = new HistoricalRequestBudget(aggressorMaxRequests);
+        List<String> symbols = subscriptionManager.bookSymbols().stream()
+                .filter(sym -> !sym.equals(subscriptionManager.anchorSymbol()))
+                .toList();
+        for (int i = 0; i < symbols.size(); i++) {
+            String symbol = symbols.get(i);
+            int share = cycleBudget.remaining() / (symbols.size() - i);
             try {
-                OptionActivityResult result = computeActivity(symbol, aggressorBudget);
-                log.info("Scheduled UA/OI scan for {}: {} flagged, {} strikes",
-                        symbol, result.unusualActivity().size(), result.oiProfile().size());
+                OptionActivityResult result = computeActivity(symbol, cycleBudget.slice(share));
+                log.info("Scheduled UA/OI scan for {}: {} flagged, {} strikes, stage2Share={}",
+                        symbol, result.unusualActivity().size(), result.oiProfile().size(), share);
             } catch (Exception e) {
                 log.warn("Scheduled UA/OI scan for {} failed: {}", symbol, e.getMessage());
             }
