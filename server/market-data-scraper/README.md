@@ -130,3 +130,15 @@ stale-flagged inputs. Snapshots are never persisted while the market is CLOSED.
 - **IBKR quirk knowledge** (wire-log-verified tick mappings, error semantics, sentinel
   filters) lives as comments at the code that implements it; the inventory is in
   `docs/book-rebuild-recon.md`, the rebuild spec in `docs/book-service-rebuild-prompt.md`
+
+## News pipeline V8 migration
+
+V8 makes news articles global and stores ticker membership in link tables. Existing V7 news tables are structurally incompatible.
+
+For a development/test installation:
+
+1. Run `docs/news-history-v7-to-v8-reset.sql`.
+2. Run `docs/news-history-schema.sql`.
+3. Restart the scraper.
+
+This reset affects only derived news history, story, annotation and condensation data. It does not delete market snapshots.

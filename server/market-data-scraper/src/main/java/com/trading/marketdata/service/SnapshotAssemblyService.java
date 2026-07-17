@@ -9,6 +9,8 @@ import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
 import com.trading.marketdata.model.ShortData;
 import com.trading.marketdata.persistence.SnapshotPersistenceService;
+import com.trading.marketdata.news.model.NewsContext;
+import com.trading.marketdata.news.service.NewsHistoryService;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -39,6 +41,7 @@ public class SnapshotAssemblyService {
     private final IntradayVolumeService intradayVolumeService;
     private final SnapshotPersistenceService persistenceService;
     private final MarketStateService marketStateService;
+    private final NewsHistoryService newsHistoryService;
 
     // Virtual thread executor for parallel scraping (moved with the method)
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -52,7 +55,8 @@ public class SnapshotAssemblyService {
                                    DerivedMetricsService derivedMetricsService,
                                    IntradayVolumeService intradayVolumeService,
                                    SnapshotPersistenceService persistenceService,
-                                   MarketStateService marketStateService) {
+                                   MarketStateService marketStateService,
+                                   NewsHistoryService newsHistoryService) {
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
@@ -63,6 +67,7 @@ public class SnapshotAssemblyService {
         this.intradayVolumeService = intradayVolumeService;
         this.persistenceService = persistenceService;
         this.marketStateService = marketStateService;
+        this.newsHistoryService = newsHistoryService;
     }
 
     public MarketSnapshot build(String ticker) {
@@ -98,6 +103,9 @@ public class SnapshotAssemblyService {
                 quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null), quality,
                 intradayVolumeService.expectedShareNow(ticker), marketState);
 
+        List<NewsItem> currentNews = newsFuture.join();
+        NewsContext newsContext = newsHistoryService.ingestAndBuild(ticker, currentNews);
+
         MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
                 Instant.now(),
@@ -105,7 +113,8 @@ public class SnapshotAssemblyService {
                 quote,
                 options,
                 shortData,
-                newsFuture.join(),
+                currentNews,
+                newsContext,
                 derived,
                 auctionFuture.join(),
                 quality

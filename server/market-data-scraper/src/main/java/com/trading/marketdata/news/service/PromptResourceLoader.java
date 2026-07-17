@@ -1,0 +1,3 @@
+package com.trading.marketdata.news.service;
+import org.springframework.core.io.ResourceLoader; import org.springframework.stereotype.Component; import java.nio.charset.StandardCharsets;
+@Component public class PromptResourceLoader{ private final ResourceLoader loader; public PromptResourceLoader(ResourceLoader l){loader=l;} public String load(String version){try(var in=loader.getResource("classpath:prompts/"+version+".md").getInputStream()){return new String(in.readAllBytes(), StandardCharsets.UTF_8);}catch(Exception e){throw new IllegalStateException("Prompt resource not found: "+version,e);}}}
