@@ -13,6 +13,8 @@ import java.util.List;
 
 @Service
 public class OpenAiNewsCondenserService {
+    private static final String PROMPT_VERSION = "market-news-condenser-v2";
+
     public static final class Output {
         @JsonPropertyDescription("Compact factual overview of the supplied stories") public String overview;
         @JsonPropertyDescription("Dominant current market narrative in one concise sentence") public String dominantTheme;
@@ -33,7 +35,6 @@ public class OpenAiNewsCondenserService {
     private final ObjectMapper mapper;
 
     @Value("${news.condensation.model:gpt-5.4-mini}") String model;
-    @Value("${news.condensation.prompt-version:market-news-condenser-v2}") String promptVersion;
 
     public OpenAiNewsCondenserService(ObjectProvider<OpenAIClient> clients,
                                       PromptResourceLoader prompts,
@@ -50,7 +51,7 @@ public class OpenAiNewsCondenserService {
         String data = stories.stream().map(this::storyLine).reduce("", (left, right) -> left + "\n" + right);
         ResponseCreateParams params = ResponseCreateParams.builder()
                 .model(model)
-                .input(prompts.load(promptVersion) + "\nStories:" + data)
+                .input(prompts.load(PROMPT_VERSION) + "\nStories:" + data)
                 .text(Output.class)
                 .build();
         Output output = client.responses().create(params).output().stream()
@@ -103,5 +104,5 @@ public class OpenAiNewsCondenserService {
     }
 
     public String model(){ return model; }
-    public String promptVersion(){ return promptVersion; }
+    public String promptVersion(){ return PROMPT_VERSION; }
 }
