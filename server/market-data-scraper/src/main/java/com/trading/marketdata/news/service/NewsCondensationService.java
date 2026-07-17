@@ -43,6 +43,14 @@ public class NewsCondensationService {
             return;
         }
 
+        recentStories.forEach(story -> {
+            String normalized = NewsTickerNormalizer.normalizeCsv(story.getAffectedTickers());
+            if (!Objects.equals(normalized, story.getAffectedTickers())) {
+                story.setAffectedTickers(normalized);
+                stories.save(story);
+            }
+        });
+
         CondensedNewsStateEntity state = new CondensedNewsStateEntity();
         state.setScopeKey(scope);
         state.setGeneratedAt(end);
