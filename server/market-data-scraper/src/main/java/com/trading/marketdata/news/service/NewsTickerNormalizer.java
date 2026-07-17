@@ -16,24 +16,24 @@ public class NewsTickerNormalizer {
             Map.entry("SPXC", "SPCX")
     );
 
-    public String normalize(String raw) {
+    public static String normalize(String raw) {
         if (raw == null) return null;
         String value = raw.trim().toUpperCase(Locale.ROOT);
         if (value.isBlank()) return null;
         return ALIASES.getOrDefault(value, value);
     }
 
-    public List<String> normalizeAll(Collection<String> rawTickers) {
+    public static List<String> normalizeAll(Collection<String> rawTickers) {
         if (rawTickers == null || rawTickers.isEmpty()) return List.of();
         return rawTickers.stream()
-                .map(this::normalize)
+                .map(NewsTickerNormalizer::normalize)
                 .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
                 .toList();
     }
 
-    public String normalizeCsv(String csv) {
+    public static String normalizeCsv(String csv) {
         if (csv == null || csv.isBlank()) return null;
         List<String> normalized = normalizeAll(Arrays.asList(csv.split(",")));
         return normalized.isEmpty() ? null : String.join(",", normalized);
