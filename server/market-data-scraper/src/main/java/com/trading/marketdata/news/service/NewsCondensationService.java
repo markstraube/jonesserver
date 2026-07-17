@@ -43,6 +43,14 @@ public class NewsCondensationService {
             return;
         }
 
+        recentStories.forEach(story -> {
+            String normalized = NewsTickerNormalizer.normalizeCsv(story.getAffectedTickers());
+            if (!Objects.equals(normalized, story.getAffectedTickers())) {
+                story.setAffectedTickers(normalized);
+                stories.save(story);
+            }
+        });
+
         CondensedNewsStateEntity state = new CondensedNewsStateEntity();
         state.setScopeKey(scope);
         state.setGeneratedAt(end);
@@ -60,15 +68,14 @@ public class NewsCondensationService {
             story.setRequiresRecondensation(false);
             stories.save(story);
         });
-        log.info("NEWS_CONDENSATION trigger={} storyCount={} stateId={}", trigger, recentStories.size(), state.getId());
+        log.info("NEWS_CONDENSATION trigger={} storyCount={} stateId={} promptVersion={}",
+                trigger, recentStories.size(), state.getId(), state.getPromptVersion());
     }
 
     public void condenseIfCritical() {
         if (!enabled) return;
         CondensedNewsStateEntity latest = latest().orElse(null);
-        if (latest != null && latest.getGeneratedAt().isAfter(Instant.now().minus(Duration.ofMinutes(criticalCooldownMinutes)))) {
-            return;
-        }
+        if (latest != null && latest.getGeneratedAt().isAfter(Instant.now().minus(Duration.ofMinutes(criticalCooldownMinutes)))) return;
         boolean critical = stories
                 .findByLastUpdatedAtGreaterThanEqualOrderByLastUpdatedAtDesc(Instant.now().minus(Duration.ofHours(24)))
                 .stream().anyMatch(NewsStoryEntity::isRequiresRecondensation);
@@ -85,8 +92,13 @@ public class NewsCondensationService {
         if (now.isBefore(firstRun)) return;
 
         CondensedNewsStateEntity latest = latest().orElse(null);
-        boolean alreadyToday = latest != null
-                && latest.getGeneratedAt().atZone(NEW_YORK).toLocalDate().equals(now.toLocalDate());
+        boolean promptChanged = latest == null || !Objects.equals(latest.getPromptVersion(), condenser.promptVersion());
+        if (promptChanged) {
+            condenseNow("PROMPT_VERSION_CHANGE");
+            return;
+        }
+
+        boolean alreadyToday = latest.getGeneratedAt().atZone(NEW_YORK).toLocalDate().equals(now.toLocalDate());
         if (!alreadyToday) condenseNow("STARTUP_CATCH_UP");
     }
 
