@@ -53,10 +53,13 @@ public class IbkrMarketDataService {
 
     private final IbkrConnectionManager connectionManager;
     private final IbkrWrapper wrapper;
+    private final IbkrRequestGovernor requestGovernor;
 
-    public IbkrMarketDataService(IbkrConnectionManager connectionManager, IbkrWrapper wrapper) {
+    public IbkrMarketDataService(IbkrConnectionManager connectionManager, IbkrWrapper wrapper,
+                                 IbkrRequestGovernor requestGovernor) {
         this.connectionManager = connectionManager;
         this.wrapper = wrapper;
+        this.requestGovernor = requestGovernor;
     }
 
     /**
@@ -69,7 +72,7 @@ public class IbkrMarketDataService {
             return null;
         }
 
-        connectionManager.getClient().reqMarketDataType(1);
+        connectionManager.requestConfiguredMarketDataType();
 
         int reqId = connectionManager.nextReqId();
         CompletableFuture<IbkrOptionsChainResult> future = wrapper.registerChainRequest(reqId, ticker);
@@ -154,7 +157,7 @@ public class IbkrMarketDataService {
             return null;
         }
 
-        connectionManager.getClient().reqMarketDataType(1);
+        connectionManager.requestConfiguredMarketDataType();
 
         int reqId = connectionManager.nextReqId();
         CompletableFuture<IbkrOptionContractActivity> future =
@@ -349,6 +352,10 @@ public class IbkrMarketDataService {
 
             int reqId = connectionManager.nextReqId();
             CompletableFuture<List<HistoricalTickBidAsk>> future = channel.register(reqId);
+            String pacingScope = contract.symbol() + "|" + contract.lastTradeDateOrContractMonth() + "|"
+                    + contract.strike() + "|" + contract.right() + "|BID_ASK";
+            String identicalRequest = pacingScope + "|" + windowStart;
+            requestGovernor.acquireHistorical(pacingScope, identicalRequest, 2);
             connectionManager.getClient().reqHistoricalTicks(reqId, contract,
                     HIST_TICK_START_FMT.format(Instant.ofEpochSecond(windowStart).atZone(US_EASTERN))
                             + " US/Eastern", "",
@@ -412,6 +419,10 @@ public class IbkrMarketDataService {
             CompletableFuture<List<T>> future = channel.register(reqId);
             // Timezone suffix explicit per API contract; useRth=0 (pre/post prints belong to
             // the day's flow), ignoreSize=false.
+            String pacingScope = contract.symbol() + "|" + contract.lastTradeDateOrContractMonth() + "|"
+                    + contract.strike() + "|" + contract.right() + "|" + whatToShow;
+            String identicalRequest = pacingScope + "|" + start.toEpochSecond();
+            requestGovernor.acquireHistorical(pacingScope, identicalRequest, costPerRequest);
             connectionManager.getClient().reqHistoricalTicks(reqId, contract,
                     HIST_TICK_START_FMT.format(start) + " US/Eastern", "",
                     MAX_TICKS_PER_REQUEST, whatToShow, 0, false, null);

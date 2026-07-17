@@ -6,6 +6,7 @@ import com.trading.marketdata.book.MarketDataBook;
 import com.trading.marketdata.ibkr.HistoricalRequestBudget;
 import com.trading.marketdata.ibkr.IbkrDayTicks;
 import com.trading.marketdata.ibkr.IbkrMarketDataService;
+import com.trading.marketdata.ibkr.IbkrRequestGovernor;
 import com.trading.marketdata.model.OptionsData;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -42,7 +43,7 @@ class AggressorEscalationTest {
         /** Equivalents each fetch consumes from its slice (real fetches vary; tests tune it). */
         int consumePerFetch = 3;
 
-        StubIbkr() { super(null, null); }
+        StubIbkr() { super(null, null, new IbkrRequestGovernor()); }
 
         @Override
         public IbkrDayTicks fetchDayTicks(String ticker, String expiry, double strike, String right,
@@ -148,7 +149,7 @@ class AggressorEscalationTest {
     }
 
     @Test
-    void oiDeltaJoinsAgainstPreviousSessionMemory() {
+    void currentSessionFlowWaitsForNextSessionOiBeforeInference() {
         Fixture fx = fixture();
         // Yesterday's memory entry for the fixture contract (FAR_EXPIRY 100.0 C): OI 400.
         // Today's UA entry says 500. Key must match the fixture's expiry — a 0DTE expiry
@@ -163,8 +164,9 @@ class AggressorEscalationTest {
 
         AggressorProfile p = out.get(0).aggressorProfile();
         assertEquals(100L, p.oiDelta()); // 500 today - 400 previous session
-        assertEquals("OPENING_BUYS", p.positionInference()); // stub day is 100% buys, OI up
-        assertEquals("HIGH", p.positionInferenceConfidence());
+        assertEquals("PENDING_NEXT_SESSION_OI", p.positionInference());
+        assertEquals("NOT_AVAILABLE_INTRADAY", p.positionInferenceConfidence());
+        assertTrue(p.positionInferenceReason().contains("next-session published OI"));
     }
 
     @Test

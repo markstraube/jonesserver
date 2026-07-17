@@ -40,14 +40,14 @@ class DerivedMetricsStaleGateTest {
 
     @Test
     void freshQuoteProducesDeltas() {
-        DerivedMetrics m = service.compute(quote(), null, null, previous(), quality(false), null);
+        DerivedMetrics m = service.compute(quote(), null, null, previous(), quality(false), null, "REGULAR");
         assertNotNull(m.priceDeltaPct());
         assertEquals(100_000L, m.volumeDelta());
     }
 
     @Test
     void staleQuoteSuppressesDeltasButKeepsWindow() {
-        DerivedMetrics m = service.compute(quote(), null, null, previous(), quality(true), null);
+        DerivedMetrics m = service.compute(quote(), null, null, previous(), quality(true), null, "REGULAR");
         assertNull(m.priceDeltaPct(), "stale quote must not produce a price delta");
         assertNull(m.volumeDelta(), "stale quote must not produce a volume delta");
         assertNotNull(m.minutesSincePrevious(), "the window itself stays reported");
@@ -56,7 +56,7 @@ class DerivedMetricsStaleGateTest {
 
     @Test
     void nullQualityImposesNoGate() {
-        DerivedMetrics m = service.compute(quote(), null, null, previous(), null, null);
+        DerivedMetrics m = service.compute(quote(), null, null, previous(), null, null, "REGULAR");
         assertNotNull(m.priceDeltaPct());
         assertNotNull(m.volumeDelta());
     }

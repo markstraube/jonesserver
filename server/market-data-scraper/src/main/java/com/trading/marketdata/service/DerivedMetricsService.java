@@ -28,7 +28,7 @@ public class DerivedMetricsService {
      *         I/O-owning caller supplies it. */
     public DerivedMetrics compute(QuoteData quote, OptionsData options, ShortData shortData,
                                   SnapshotEntity previous, DataQuality quality,
-                                  Double expectedVolumeShare) {
+                                  Double expectedVolumeShare, String marketState) {
         boolean quoteStale = quality != null && quality.quote() != null && quality.quote().stale();
         boolean scanStale = quality != null && quality.uaScan() != null && quality.uaScan().stale();
         // --- Intraday position ---
@@ -38,17 +38,22 @@ public class DerivedMetricsService {
             if (quote.change() != null) {
                 prevClose = round4(price - quote.change());
             }
-            if (quote.open() != null && quote.open() != 0) {
-                pctFromOpen = round4((price / quote.open() - 1) * 100);
-            }
-            if (quote.high() != null && quote.high() != 0) {
-                pctFromHigh = round4((price / quote.high() - 1) * 100);
-            }
-            if (quote.low() != null && quote.low() != 0) {
-                pctFromLow = round4((price / quote.low() - 1) * 100);
-            }
-            if (quote.high() != null && quote.low() != null && prevClose != null && prevClose != 0) {
-                rangePct = round4((quote.high() - quote.low()) / prevClose * 100);
+            boolean regularSession = "REGULAR".equalsIgnoreCase(marketState);
+            // IBKR's OPEN/HIGH/LOW fields refer to the regular session. During PRE/POST,
+            // comparing an extended-hours last price with those values is semantically wrong.
+            if (regularSession) {
+                if (quote.open() != null && quote.open() != 0) {
+                    pctFromOpen = round4((price / quote.open() - 1) * 100);
+                }
+                if (quote.high() != null && quote.high() != 0) {
+                    pctFromHigh = round4((price / quote.high() - 1) * 100);
+                }
+                if (quote.low() != null && quote.low() != 0) {
+                    pctFromLow = round4((price / quote.low() - 1) * 100);
+                }
+                if (quote.high() != null && quote.low() != null && prevClose != null && prevClose != 0) {
+                    rangePct = round4((quote.high() - quote.low()) / prevClose * 100);
+                }
             }
         }
 
@@ -155,9 +160,9 @@ public class DerivedMetricsService {
             if (!quoteStale && quote != null && quote.volume() != null && previous.getVolume() != null) {
                 volumeDelta = quote.volume() - previous.getVolume();
             }
-            if (!scanStale && oiPcr != null && previous.getOiPutCallRatio() != null) {
-                oiPcrDelta = round4(oiPcr - previous.getOiPutCallRatio());
-            }
+            // Disabled until the persisted snapshot stores and matches a stable options
+            // universe identifier. A moving strike window can change PCR without any OI change.
+            oiPcrDelta = null;
         }
 
         return new DerivedMetrics(

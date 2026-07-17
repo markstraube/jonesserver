@@ -93,14 +93,15 @@ public class SnapshotAssemblyService {
         // Derived features: previous persisted snapshot (if any) supplies the delta reference.
         // findPrevious() is intentionally called BEFORE persisting this snapshot. Stale-flagged
         // fields contribute no deltas (see DerivedMetricsService).
+        String marketState = marketStateService.getMarketState().name();
         DerivedMetrics derived = derivedMetricsService.compute(
                 quote, options, shortData, persistenceService.findPrevious(ticker).orElse(null), quality,
-                intradayVolumeService.expectedShareNow(ticker));
+                intradayVolumeService.expectedShareNow(ticker), marketState);
 
         MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
                 Instant.now(),
-                marketStateService.getMarketState().name(),
+                marketState,
                 quote,
                 options,
                 shortData,

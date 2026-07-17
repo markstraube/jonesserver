@@ -12,6 +12,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -46,6 +48,9 @@ public class IbkrConnectionManager {
 
     @Value("${ibkr.reconnect-interval-ms:30000}")
     private int reconnectIntervalMs;
+
+    @Value("${ibkr.market-data-policy:LIVE_ONLY}")
+    private String marketDataPolicy;
 
     private final IbkrWrapper wrapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -106,6 +111,7 @@ public class IbkrConnectionManager {
         EJavaSignal newSignal = new EJavaSignal();
         EClientSocket newClient = new EClientSocket(wrapper, newSignal);
         wrapper.setClient(newClient);
+        CompletableFuture<Integer> handshake = wrapper.prepareHandshake();
         wrapper.setReqIdSupplier(this::nextReqId); // article fetches need fresh reqIds
 
         log.info("Connecting to IB Gateway at {}:{} (clientId={})", host, port, clientId);
@@ -156,8 +162,16 @@ public class IbkrConnectionManager {
             log.warn("IB Gateway disconnected. Reconnect watchdog will retry within {} ms.", reconnectIntervalMs);
         });
 
+        try {
+            handshake.get(connectTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.error("IB Gateway socket connected but API handshake (nextValidId) did not complete: {}", e.getMessage());
+            try { newClient.eDisconnect(); } catch (Exception ignored) { }
+            return;
+        }
+
         connected.set(true);
-        log.info("IB Gateway connected successfully.");
+        log.info("IB Gateway connected successfully and API handshake completed.");
         // SubscriptionManager re-establishes all Book streams. During the initial
         // @PostConstruct connect listeners may not exist yet — that case is covered by the
         // SubscriptionManager's ApplicationReadyEvent check.
@@ -179,6 +193,14 @@ public class IbkrConnectionManager {
 
     public EClientSocket getClient() {
         return client;
+    }
+
+    /** 1=live only, 3=delayed allowed (IBKR still returns live when entitled). */
+    public void requestConfiguredMarketDataType() {
+        EClientSocket c = client;
+        if (c != null && c.isConnected()) {
+            c.reqMarketDataType("ALLOW_DELAYED".equalsIgnoreCase(marketDataPolicy) ? 3 : 1);
+        }
     }
 
     public boolean isConnected() {

@@ -218,7 +218,7 @@ public class SubscriptionManager {
 
             // 1 = realtime. Delayed/frozen switches (2–4) arrive via the marketDataType
             // callback per subscription and land in the Book's dataQuality state.
-            connectionManager.getClient().reqMarketDataType(1);
+            connectionManager.requestConfiguredMarketDataType();
 
             // Discover the account's news feeds once per (re)connect. The answer arrives
             // async (newsProviders callback) and is purely diagnostic wiring: tick 292

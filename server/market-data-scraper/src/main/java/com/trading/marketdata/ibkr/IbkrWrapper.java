@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntSupplier;
 import java.util.regex.Matcher;
@@ -85,6 +86,14 @@ public class IbkrWrapper extends DefaultEWrapper {
     private final Map<Integer, String>                                     contractActivityRight = new ConcurrentHashMap<>();
 
     public void setClient(EClientSocket client) { this.client = client; }
+    // Connection readiness: IBKR considers the API session usable only after nextValidId.
+    private volatile CompletableFuture<Integer> handshakeFuture = new CompletableFuture<>();
+
+    public synchronized CompletableFuture<Integer> prepareHandshake() {
+        handshakeFuture = new CompletableFuture<>();
+        return handshakeFuture;
+    }
+
 
     // =========================================================================
     // IBKR news (generic tick 292 on the Book lines + reqNewsArticle body fetch)
@@ -699,11 +708,10 @@ public class IbkrWrapper extends DefaultEWrapper {
             return;
         }
         if (errorCode == 10167) {
-            // "Requested market data is not subscribed. Delayed market data is available."
-            // This is informational — IBKR still delivers delayed data via tickPrice callbacks.
-            // Do NOT fail the pending future; let it resolve normally from the delayed ticks.
-            log.info("IBKR delayed data notice [reqId={}, code={}]: {}", id, errorCode, errorMsg);
-            return;
+            // With marketDataType=1 no delayed ticks are guaranteed. Treat this as a real
+            // request failure; ALLOW_DELAYED mode requests type 3 up front and should not
+            // normally reach this branch.
+            log.warn("IBKR market data subscription missing [reqId={}, code={}]: {}", id, errorCode, errorMsg);
         }
         // Gateway↔IB-server connectivity transitions (id = -1). The SOCKET to the Gateway is
         // still up in all three cases — do not confuse these with connectionClosed:
@@ -858,6 +866,9 @@ public class IbkrWrapper extends DefaultEWrapper {
         pendingHistQuotes.clear();
     }
 
-    @Override public void nextValidId(int o) { log.info("IBKR next valid order ID: {}", o); }
+    @Override public void nextValidId(int o) {
+        log.info("IBKR next valid order ID: {}", o);
+        handshakeFuture.complete(o);
+    }
     @Override public void connectAck() { log.info("IBKR connectAck received."); }
 }

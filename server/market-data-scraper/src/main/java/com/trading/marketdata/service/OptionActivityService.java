@@ -491,11 +491,11 @@ public class OptionActivityService {
                     inferenceConfidence = "INSUFFICIENT";
                     inferenceReason = "No prior-session OI in memory for this contract; delta join not possible";
                 } else {
-                    inference = AggressorClassifier.positionInference(
-                            profile.buyVolume(), profile.sellVolume(), oiDelta);
-                    inferenceConfidence = AggressorProfile.QUALITY_HIGH.equals(profile.profileQuality())
-                            ? "HIGH" : "MEDIUM";
-                    inferenceReason = "Prior-session OI delta joined with current-session aggressor dominance; sessions differ";
+                    // Today's flow cannot be joined to an OI delta that represents the prior
+                    // session. Finalize this inference only after tomorrow's OI is available.
+                    inference = "PENDING_NEXT_SESSION_OI";
+                    inferenceConfidence = "NOT_AVAILABLE_INTRADAY";
+                    inferenceReason = "Current-session flow requires next-session published OI; prior-session OI delta is not temporally aligned";
                 }
                 profile = profile.withOiJoin(oiDelta, inference, inferenceConfidence, inferenceReason);
             }

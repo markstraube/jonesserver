@@ -77,7 +77,7 @@ class FetchDayTicksTest {
             @Override public boolean isConnected() { return true; }
             @Override public EClientSocket getClient() { return client; }
         };
-        IbkrMarketDataService service = new IbkrMarketDataService(conn, wrapper);
+        IbkrMarketDataService service = new IbkrMarketDataService(conn, wrapper, new IbkrRequestGovernor());
         service.aggressorRequestTimeoutSeconds = 5;
         return new Fixture(service, client);
     }
