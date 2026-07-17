@@ -22,6 +22,7 @@ public class StoryClusteringService {
     private final NewsStoryTickerRepository storyTickers;
     private final NewsArticleRepository articles;
     private final OpenAiStoryClassifierService classifier;
+    private final NewsTickerNormalizer tickerNormalizer;
 
     @Value("${news.classifier.enabled:false}")
     boolean enabled;
@@ -29,11 +30,13 @@ public class StoryClusteringService {
     public StoryClusteringService(NewsStoryRepository stories,
                                   NewsStoryTickerRepository storyTickers,
                                   NewsArticleRepository articles,
-                                  OpenAiStoryClassifierService classifier) {
+                                  OpenAiStoryClassifierService classifier,
+                                  NewsTickerNormalizer tickerNormalizer) {
         this.stories = stories;
         this.storyTickers = storyTickers;
         this.articles = articles;
         this.classifier = classifier;
+        this.tickerNormalizer = tickerNormalizer;
     }
 
     @Transactional
@@ -100,11 +103,7 @@ public class StoryClusteringService {
 
         addStoryTicker(story.getId(), sourceTicker);
         if (output != null && output.affectedTickers != null) {
-            output.affectedTickers.stream()
-                    .filter(Objects::nonNull)
-                    .map(String::trim)
-                    .filter(s -> !s.isBlank())
-                    .map(s -> s.toUpperCase(Locale.ROOT))
+            tickerNormalizer.normalizeAll(output.affectedTickers)
                     .forEach(t -> addStoryTicker(story.getId(), t));
         }
 
@@ -133,8 +132,8 @@ public class StoryClusteringService {
     }
 
     private void addStoryTicker(Long storyId, String ticker) {
-        if (ticker == null || ticker.isBlank()) return;
-        String normalized = ticker.trim().toUpperCase(Locale.ROOT);
+        String normalized = tickerNormalizer.normalize(ticker);
+        if (normalized == null) return;
         if (storyTickers.findByStoryIdAndTicker(storyId, normalized).isPresent()) return;
         NewsStoryTickerEntity link = new NewsStoryTickerEntity();
         link.setStoryId(storyId);
@@ -147,9 +146,9 @@ public class StoryClusteringService {
     }
 
     private String joinTickers(Long storyId) {
-        return storyTickers.findByStoryId(storyId).stream()
+        return tickerNormalizer.normalizeCsv(storyTickers.findByStoryId(storyId).stream()
                 .map(NewsStoryTickerEntity::getTicker)
-                .distinct().sorted().reduce((a, b) -> a + "," + b).orElse(null);
+                .reduce((a, b) -> a + "," + b).orElse(null));
     }
 
     private static double clamp(double value) {
