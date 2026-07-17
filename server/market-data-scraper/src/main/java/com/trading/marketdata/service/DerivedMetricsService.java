@@ -9,6 +9,11 @@ import com.trading.marketdata.persistence.SnapshotEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -22,6 +27,8 @@ import java.util.List;
  */
 @Service
 public class DerivedMetricsService {
+
+    private static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
 
     /** @param expectedVolumeShare the symbol's expected cumulative volume share at THIS
      *         time of day (IntradayVolumeService), or null — keeps this class pure: the
@@ -61,12 +68,12 @@ public class DerivedMetricsService {
         Double relativeVolume = null;
         Long expectedVolumeUntilNow = null;
         Double relativeVolumeAtTime = null;
-        if (quote != null && quote.volume() != null && quote.volume() > 0
+        boolean regularSession = "REGULAR".equalsIgnoreCase(marketState);
+        if (regularSession && quote != null && quote.volume() != null && quote.volume() > 0
                 && shortData != null && shortData.avgVolume() != null && shortData.avgVolume() > 0) {
             relativeVolume = round4((double) quote.volume() / shortData.avgVolume());
-            // Time-normalized twin: same numerator, but the denominator is what an average
-            // day would have printed BY NOW (own empirical curve). Mid-session the plain
-            // RVOL reads low by construction; this one is comparable at any hour.
+            // Time-normalized twin is valid only while the regular-session cumulative
+            // volume counter and the empirical regular-session curve describe the same tape.
             if (expectedVolumeShare != null && expectedVolumeShare > 0) {
                 expectedVolumeUntilNow = Math.round(shortData.avgVolume() * expectedVolumeShare);
                 if (expectedVolumeUntilNow > 0) {
@@ -153,11 +160,18 @@ public class DerivedMetricsService {
             if (previousAt != null) {
                 minutesSince = Duration.between(previousAt, java.time.Instant.now()).toMinutes();
             }
-            if (!quoteStale && quote != null && quote.price() != null
+            Instant currentAt = quote != null && quote.fetchedAt() != null
+                    ? quote.fetchedAt() : Instant.now();
+            boolean sameSession = sameTradingSession(
+                    marketState, currentAt, previous.getMarketState(), previousAt);
+
+            if (sameSession && !quoteStale && quote != null && quote.price() != null
                     && previous.getPrice() != null && previous.getPrice() != 0) {
                 priceDeltaPct = round4((quote.price() / previous.getPrice() - 1) * 100);
             }
-            if (!quoteStale && quote != null && quote.volume() != null && previous.getVolume() != null) {
+            if (sameSession && !quoteStale && quote != null && quote.volume() != null
+                    && previous.getVolume() != null && quote.volume() >= previous.getVolume()) {
+                // A lower cumulative value is a feed/session reset, never negative volume.
                 volumeDelta = quote.volume() - previous.getVolume();
             }
             // Disabled until the persisted snapshot stores and matches a stable options
@@ -174,6 +188,29 @@ public class DerivedMetricsService {
                         quote != null ? quote.price() : null),
                 uaCallVol, uaPutVol, uaCallNotional, uaPutNotional, uaCallPremium, uaPutPremium,
                 priceDeltaPct, volumeDelta, oiPcrDelta, minutesSince, previousAt);
+    }
+
+    static boolean sameTradingSession(String currentState, Instant currentAt,
+                                      String previousState, Instant previousAt) {
+        if (currentState == null || previousState == null || currentAt == null || previousAt == null) {
+            return false;
+        }
+        if (!currentState.equalsIgnoreCase(previousState)) {
+            return false;
+        }
+        return sessionDate(currentState, currentAt).equals(sessionDate(previousState, previousAt));
+    }
+
+    /** Trading date attributed to a session. Overnight trading after 20:00 ET belongs to
+     * the following US trading date; the 00:00-04:00 leg already has that date. */
+    static LocalDate sessionDate(String state, Instant instant) {
+        ZonedDateTime ny = instant.atZone(NEW_YORK);
+        LocalDate date = ny.toLocalDate();
+        if ("OVERNIGHT".equalsIgnoreCase(state)
+                && !ny.toLocalTime().isBefore(LocalTime.of(20, 0))) {
+            return date.plusDays(1);
+        }
+        return date;
     }
 
     private static Double round4(double v) {

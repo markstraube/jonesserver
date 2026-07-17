@@ -275,9 +275,12 @@ public class OptionActivityService {
         // of pure timeouts). When CLOSED we serve OI from cache without any fetch, fetch OI
         // once for uncached contracts, and skip all volume re-fetches. UNKNOWN deliberately
         // does NOT short-circuit (fail-open, same rule as persistence).
-        boolean marketClosed = marketStateService.getMarketState() == MarketStateService.MarketState.CLOSED;
-        if (marketClosed) {
-            log.info("Options activity scan for {}: market CLOSED, OI-only mode (no volume fetches)", ticker);
+        MarketStateService.MarketState state = marketStateService.getMarketState();
+        boolean optionsMarketClosed = state != MarketStateService.MarketState.REGULAR
+                && state != MarketStateService.MarketState.UNKNOWN;
+        if (optionsMarketClosed) {
+            log.info("Options activity scan for {}: options market not REGULAR ({}), "
+                    + "OI-only mode (no volume fetches)", ticker, state);
         }
 
         String upper = ticker.toUpperCase();
@@ -322,7 +325,7 @@ public class OptionActivityService {
             for (double strike : candidateStrikes) {
                 if (resolvedStrikes >= nearestStrikes) break;
 
-                if (scanStrike(upper, expiry, strike, marketClosed, unusual, oiProfile)) {
+                if (scanStrike(upper, expiry, strike, optionsMarketClosed, unusual, oiProfile)) {
                     covered.add(strike);
                     resolvedStrikes++;
                 } else {
@@ -358,7 +361,7 @@ public class OptionActivityService {
                     log.info("Options activity for {} {}: sticky day-memory strikes outside window: {}",
                             upper, expiry, extras);
                     for (double strike : extras) {
-                        if (scanStrike(upper, expiry, strike, marketClosed, unusual, oiProfile)) {
+                        if (scanStrike(upper, expiry, strike, optionsMarketClosed, unusual, oiProfile)) {
                             covered.add(strike);
                         } else {
                             // Contract no longer resolvable (delisted / negative-cached): drop it
@@ -605,14 +608,14 @@ public class OptionActivityService {
      *
      * @return true when the strike is listed for this expiry (at least one right resolved)
      */
-    private boolean scanStrike(String ticker, String expiry, double strike, boolean marketClosed,
+    private boolean scanStrike(String ticker, String expiry, double strike, boolean optionsMarketClosed,
                                List<OptionsData.UnusualActivity> unusual,
                                List<OptionsData.OiLevel> oiProfile) {
         Long callOI = null, putOI = null;
         Double callGamma = null, putGamma = null;
         boolean anyValid = false;
         for (String right : new String[]{"C", "P"}) {
-            ContractResult result = evaluateContract(ticker, expiry, strike, right, marketClosed);
+            ContractResult result = evaluateContract(ticker, expiry, strike, right, optionsMarketClosed);
             if (result == null) continue; // invalid for this expiry, or fetch failed
             anyValid = true;
             if ("C".equals(right)) { callOI = result.openInterest; callGamma = result.gamma; }
@@ -875,7 +878,7 @@ public class OptionActivityService {
     }
 
     private ContractResult evaluateContract(String ticker, String expiry, double strike, String right,
-                                             boolean marketClosed) {
+                                             boolean optionsMarketClosed) {
         String contractKey = ticker + ":" + expiry + ":" + strike + ":" + right;
 
         Cache invalidCache = cacheManager.getCache("invalidOptionContract");
@@ -894,7 +897,7 @@ public class OptionActivityService {
         Double iv = null, gamma = null;
 
         try {
-            if (cachedOI != null && marketClosed) {
+            if (cachedOI != null && optionsMarketClosed) {
                 // Closed market: cached OI is the complete answer, a volume fetch can only time out.
                 return new ContractResult(null, cachedOI, null, null, null, null, null, null, null, null, null);
             } else if (cachedOI != null) {
@@ -943,7 +946,7 @@ public class OptionActivityService {
         // One targeted volume-only re-read against the now-warm market data line closes the gap
         // at a bounded cost of a single extra request (deliberately no retry — worst case is one
         // timeout, not two).
-        if (volume == null && !marketClosed) {
+        if (volume == null && !optionsMarketClosed) {
             try {
                 IbkrOptionContractActivity refetch =
                         ibkrService.fetchContractActivity(ticker, expiry, strike, right, false);

@@ -28,6 +28,7 @@ class DerivedMetricsStaleGateTest {
         SnapshotEntity e = new SnapshotEntity();
         e.setSnapshotTs(Instant.now().minusSeconds(600));
         e.setPrice(930.0);
+        e.setMarketState("REGULAR");
         e.setVolume(900_000L);
         return e;
     }

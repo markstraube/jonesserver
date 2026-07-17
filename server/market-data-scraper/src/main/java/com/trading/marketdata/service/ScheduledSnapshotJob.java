@@ -61,7 +61,8 @@ public class ScheduledSnapshotJob {
     public void persistWatchlist() {
         if (!enabled || watchlist.isEmpty()) return;
         MarketStateService.MarketState state = marketStateService.getMarketState();
-        if (state != MarketStateService.MarketState.PRE
+        if (state != MarketStateService.MarketState.OVERNIGHT
+                && state != MarketStateService.MarketState.PRE
                 && state != MarketStateService.MarketState.REGULAR
                 && state != MarketStateService.MarketState.POST) {
             return;

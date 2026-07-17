@@ -9,9 +9,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 /**
- * Determines the current US equity market state (PRE / REGULAR / POST / CLOSED / UNKNOWN)
+ * Determines the current US equity market state (OVERNIGHT / PRE / REGULAR / POST / CLOSED / UNKNOWN)
  * via the crumb-free Yahoo v8 chart endpoint, using SPY as the market proxy so the answer
  * is independent of any individual ticker's quirks.
  *
@@ -31,8 +35,9 @@ public class MarketStateService {
     private static final String CHART_URL =
             "https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1d&includePrePost=true";
     private static final Duration CACHE_TTL = Duration.ofSeconds(60);
+    private static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
 
-    public enum MarketState { PRE, REGULAR, POST, CLOSED, UNKNOWN }
+    public enum MarketState { OVERNIGHT, PRE, REGULAR, POST, CLOSED, UNKNOWN }
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -74,10 +79,17 @@ public class MarketStateService {
             // "CLOSED", "PREPRE", "POSTPOST"). Prefixes map onto our coarser enum.
             String yahooState = meta.path("marketState").asText(null);
             if (yahooState != null) {
+                if (yahooState.equals("PREPRE") || yahooState.equals("POSTPOST")) {
+                    return MarketState.OVERNIGHT;
+                }
                 if (yahooState.startsWith("PRE")) return MarketState.PRE;
                 if (yahooState.equals("REGULAR")) return MarketState.REGULAR;
                 if (yahooState.startsWith("POST")) return MarketState.POST;
-                if (yahooState.equals("CLOSED")) return MarketState.CLOSED;
+                // Yahoo/SPY can report CLOSED while IBKR still supplies overnight trading
+                // for eligible US equities. Resolve that scheduled session explicitly.
+                if (yahooState.equals("CLOSED")) {
+                    return isOvernightWindow(now) ? MarketState.OVERNIGHT : MarketState.CLOSED;
+                }
             }
 
             // Fallback: compute from the most recent session's trading windows.
@@ -86,12 +98,39 @@ public class MarketStateService {
             if (inWindow(period.path("regular"), epoch)) return MarketState.REGULAR;
             if (inWindow(period.path("pre"), epoch)) return MarketState.PRE;
             if (inWindow(period.path("post"), epoch)) return MarketState.POST;
-            if (!period.isMissingNode()) return MarketState.CLOSED;
+            if (!period.isMissingNode()) {
+                return isOvernightWindow(now) ? MarketState.OVERNIGHT : MarketState.CLOSED;
+            }
             return MarketState.UNKNOWN;
         } catch (Exception e) {
             log.warn("Market state lookup failed ({}), treating as UNKNOWN", e.getMessage());
             return MarketState.UNKNOWN;
         }
+    }
+
+    /**
+     * IBKR overnight session for eligible US equities: approximately 20:00-04:00 ET,
+     * Sunday evening through Friday morning. This identifies the active trading session;
+     * it does not claim that the primary exchange itself is open.
+     */
+    static boolean isOvernightWindow(Instant instant) {
+        ZonedDateTime ny = instant.atZone(NEW_YORK);
+        DayOfWeek day = ny.getDayOfWeek();
+        LocalTime time = ny.toLocalTime();
+        boolean evening = !time.isBefore(LocalTime.of(20, 0));
+        boolean earlyMorning = time.isBefore(LocalTime.of(4, 0));
+
+        if (evening) {
+            return day == DayOfWeek.SUNDAY || day == DayOfWeek.MONDAY
+                    || day == DayOfWeek.TUESDAY || day == DayOfWeek.WEDNESDAY
+                    || day == DayOfWeek.THURSDAY;
+        }
+        if (earlyMorning) {
+            return day == DayOfWeek.MONDAY || day == DayOfWeek.TUESDAY
+                    || day == DayOfWeek.WEDNESDAY || day == DayOfWeek.THURSDAY
+                    || day == DayOfWeek.FRIDAY;
+        }
+        return false;
     }
 
     private boolean inWindow(JsonNode window, long epoch) {
