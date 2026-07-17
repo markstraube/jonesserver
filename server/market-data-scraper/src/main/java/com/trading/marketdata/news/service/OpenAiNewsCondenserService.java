@@ -55,19 +55,22 @@ public class OpenAiNewsCondenserService {
     private final ObjectProvider<OpenAIClient> clients;
     private final PromptResourceLoader prompts;
     private final ObjectMapper mapper;
+    private final NewsTickerNormalizer tickerNormalizer;
 
     @Value("${news.condensation.model:gpt-5.4-mini}")
     String model;
 
-    @Value("${news.condensation.prompt-version:market-news-condenser-v1}")
+    @Value("${news.condensation.prompt-version:market-news-condenser-v2}")
     String promptVersion;
 
     public OpenAiNewsCondenserService(ObjectProvider<OpenAIClient> clients,
                                       PromptResourceLoader prompts,
-                                      ObjectMapper mapper) {
+                                      ObjectMapper mapper,
+                                      NewsTickerNormalizer tickerNormalizer) {
         this.clients = clients;
         this.prompts = prompts;
         this.mapper = mapper;
+        this.tickerNormalizer = tickerNormalizer;
     }
 
     public String condense(List<NewsStoryEntity> stories) {
@@ -102,7 +105,7 @@ public class OpenAiNewsCondenserService {
     private String storyLine(NewsStoryEntity story) {
         return "ID=" + story.getId()
                 + " | headline=" + story.getRepresentativeHeadline()
-                + " | tickers=" + story.getAffectedTickers()
+                + " | tickers=" + tickerNormalizer.normalizeCsv(story.getAffectedTickers())
                 + " | direction=" + story.getDirection()
                 + " | eventType=" + story.getEventType()
                 + " | materiality=" + story.getMateriality()
@@ -110,7 +113,7 @@ public class OpenAiNewsCondenserService {
                 + " | articles=" + story.getArticleCount();
     }
 
-    static void normalize(Output output) {
+    void normalize(Output output) {
         if (output.marketSentiment != null) {
             String normalized = output.marketSentiment.trim().toUpperCase();
             output.marketSentiment = switch (normalized) {
@@ -128,10 +131,7 @@ public class OpenAiNewsCondenserService {
         output.bearishFactors = safe(output.bearishFactors);
         output.materialEvents = safe(output.materialEvents);
         output.watchItems = safe(output.watchItems);
-        output.materialTickers = safe(output.materialTickers).stream()
-                .map(String::toUpperCase)
-                .distinct()
-                .toList();
+        output.materialTickers = tickerNormalizer.normalizeAll(safe(output.materialTickers));
     }
 
     private static List<String> safe(List<String> values) {
