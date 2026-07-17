@@ -13,87 +13,51 @@ import java.util.List;
 
 @Service
 public class OpenAiNewsCondenserService {
-
-    /**
-     * Structured market state persisted in condensed_news_state.summary_json.
-     * Existing fields are retained for backwards compatibility while the additional
-     * fields provide a machine-readable assessment for downstream agents.
-     */
     public static final class Output {
-        @JsonPropertyDescription("Compact factual overview of the supplied stories")
-        public String overview;
-
-        @JsonPropertyDescription("Dominant current market narrative in one concise sentence")
-        public String dominantTheme;
-
-        @JsonPropertyDescription("Overall news sentiment: BULLISH, BEARISH, MIXED, or NEUTRAL")
-        public String marketSentiment;
-
-        @JsonPropertyDescription("Confidence in the overall market assessment from 0.0 to 1.0")
-        public Double confidence;
-
+        @JsonPropertyDescription("Compact factual overview of the supplied stories") public String overview;
+        @JsonPropertyDescription("Dominant current market narrative in one concise sentence") public String dominantTheme;
+        @JsonPropertyDescription("Overall news sentiment: BULLISH, BEARISH, MIXED, or NEUTRAL") public String marketSentiment;
+        @JsonPropertyDescription("Confidence in the overall market assessment from 0.0 to 1.0") public Double confidence;
         public List<String> activeNarratives;
         public List<String> contradictions;
         public List<String> newlyMaterialFacts;
-
-        @JsonPropertyDescription("Evidence-based factors supportive of the covered market or sector")
-        public List<String> bullishFactors;
-
-        @JsonPropertyDescription("Evidence-based factors negative for the covered market or sector")
-        public List<String> bearishFactors;
-
-        @JsonPropertyDescription("Events or facts likely to matter materially to prices or fundamentals")
-        public List<String> materialEvents;
-
-        @JsonPropertyDescription("Unresolved developments, scheduled catalysts, or conditions to monitor")
-        public List<String> watchItems;
-
-        @JsonPropertyDescription("Canonical exchange tickers materially involved in the condensed state")
-        public List<String> materialTickers;
+        @JsonPropertyDescription("Evidence-based factors supportive of the covered market or sector") public List<String> bullishFactors;
+        @JsonPropertyDescription("Evidence-based factors negative for the covered market or sector") public List<String> bearishFactors;
+        @JsonPropertyDescription("Events or facts likely to matter materially to prices or fundamentals") public List<String> materialEvents;
+        @JsonPropertyDescription("Unresolved developments, scheduled catalysts, or conditions to monitor") public List<String> watchItems;
+        @JsonPropertyDescription("Canonical exchange tickers materially involved in the condensed state") public List<String> materialTickers;
     }
 
     private final ObjectProvider<OpenAIClient> clients;
     private final PromptResourceLoader prompts;
     private final ObjectMapper mapper;
-    private final NewsTickerNormalizer tickerNormalizer;
 
-    @Value("${news.condensation.model:gpt-5.4-mini}")
-    String model;
-
-    @Value("${news.condensation.prompt-version:market-news-condenser-v2}")
-    String promptVersion;
+    @Value("${news.condensation.model:gpt-5.4-mini}") String model;
+    @Value("${news.condensation.prompt-version:market-news-condenser-v2}") String promptVersion;
 
     public OpenAiNewsCondenserService(ObjectProvider<OpenAIClient> clients,
                                       PromptResourceLoader prompts,
                                       ObjectMapper mapper,
-                                      NewsTickerNormalizer tickerNormalizer) {
+                                      NewsTickerNormalizer ignored) {
         this.clients = clients;
         this.prompts = prompts;
         this.mapper = mapper;
-        this.tickerNormalizer = tickerNormalizer;
     }
 
     public String condense(List<NewsStoryEntity> stories) {
         OpenAIClient client = clients.getIfAvailable();
         if (client == null) throw new IllegalStateException("OpenAI disabled");
-
-        String data = stories.stream()
-                .map(this::storyLine)
-                .reduce("", (left, right) -> left + "\n" + right);
-
+        String data = stories.stream().map(this::storyLine).reduce("", (left, right) -> left + "\n" + right);
         ResponseCreateParams params = ResponseCreateParams.builder()
                 .model(model)
                 .input(prompts.load(promptVersion) + "\nStories:" + data)
                 .text(Output.class)
                 .build();
-
         Output output = client.responses().create(params).output().stream()
                 .flatMap(item -> item.message().stream())
                 .flatMap(message -> message.content().stream())
                 .flatMap(content -> content.outputText().stream())
-                .findFirst()
-                .orElseThrow();
-
+                .findFirst().orElseThrow();
         normalize(output);
         try {
             return mapper.writeValueAsString(output);
@@ -105,7 +69,7 @@ public class OpenAiNewsCondenserService {
     private String storyLine(NewsStoryEntity story) {
         return "ID=" + story.getId()
                 + " | headline=" + story.getRepresentativeHeadline()
-                + " | tickers=" + tickerNormalizer.normalizeCsv(story.getAffectedTickers())
+                + " | tickers=" + NewsTickerNormalizer.normalizeCsv(story.getAffectedTickers())
                 + " | direction=" + story.getDirection()
                 + " | eventType=" + story.getEventType()
                 + " | materiality=" + story.getMateriality()
@@ -113,7 +77,7 @@ public class OpenAiNewsCondenserService {
                 + " | articles=" + story.getArticleCount();
     }
 
-    void normalize(Output output) {
+    static void normalize(Output output) {
         if (output.marketSentiment != null) {
             String normalized = output.marketSentiment.trim().toUpperCase();
             output.marketSentiment = switch (normalized) {
@@ -121,9 +85,7 @@ public class OpenAiNewsCondenserService {
                 default -> "MIXED";
             };
         }
-        if (output.confidence != null) {
-            output.confidence = Math.max(0.0, Math.min(1.0, output.confidence));
-        }
+        if (output.confidence != null) output.confidence = Math.max(0.0, Math.min(1.0, output.confidence));
         output.activeNarratives = safe(output.activeNarratives);
         output.contradictions = safe(output.contradictions);
         output.newlyMaterialFacts = safe(output.newlyMaterialFacts);
@@ -131,23 +93,15 @@ public class OpenAiNewsCondenserService {
         output.bearishFactors = safe(output.bearishFactors);
         output.materialEvents = safe(output.materialEvents);
         output.watchItems = safe(output.watchItems);
-        output.materialTickers = tickerNormalizer.normalizeAll(safe(output.materialTickers));
+        output.materialTickers = NewsTickerNormalizer.normalizeAll(safe(output.materialTickers));
     }
 
     private static List<String> safe(List<String> values) {
         if (values == null) return List.of();
-        return values.stream()
-                .filter(value -> value != null && !value.isBlank())
-                .map(String::trim)
-                .distinct()
-                .toList();
+        return values.stream().filter(value -> value != null && !value.isBlank())
+                .map(String::trim).distinct().toList();
     }
 
-    public String model() {
-        return model;
-    }
-
-    public String promptVersion() {
-        return promptVersion;
-    }
+    public String model(){ return model; }
+    public String promptVersion(){ return promptVersion; }
 }
