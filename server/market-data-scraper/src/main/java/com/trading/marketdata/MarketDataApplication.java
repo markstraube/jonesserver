@@ -8,16 +8,23 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableAsync
 @EnableScheduling
-public class MarketDataApplication {
+public class MarketDataApplication extends SpringBootServletInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataApplication.class);
+
+    @Override
+    protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+        return application.sources(MarketDataApplication.class);
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(MarketDataApplication.class, args);
@@ -25,7 +32,7 @@ public class MarketDataApplication {
 
     @Bean
     CommandLineRunner startupValidation(QuoteService quoteService,
-                                        @Value("${server.port:8080}") String serverPort) {
+                                         @Value("${server.port:8080}") String serverPort) {
         return args -> {
             log.info("=== Market Data Scraper startup validation ===");
             log.info("Performing test scrape for AAPL...");
@@ -40,7 +47,7 @@ public class MarketDataApplication {
             } catch (Exception e) {
                 log.warn("Startup validation failed (non-fatal): {}", e.getMessage());
             }
-            log.info("=== Swagger UI: http://localhost:{}/swagger-ui.html ===", serverPort);
+            log.info("=== Swagger UI: http://localhost:{}/scraper/swagger-ui.html ===", serverPort);
         };
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.models.responses.ResponseCreateParams;
+import com.openai.models.responses.StructuredResponseCreateParams;
 import com.trading.marketdata.news.persistence.NewsStoryEntity;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,17 +49,24 @@ public class OpenAiNewsCondenserService {
     public String condense(List<NewsStoryEntity> stories) {
         OpenAIClient client = clients.getIfAvailable();
         if (client == null) throw new IllegalStateException("OpenAI disabled");
-        String data = stories.stream().map(this::storyLine).reduce("", (left, right) -> left + "\n" + right);
-        ResponseCreateParams params = ResponseCreateParams.builder()
+
+        String data = stories.stream()
+                .map(this::storyLine)
+                .reduce("", (left, right) -> left + "\n" + right);
+
+        StructuredResponseCreateParams<Output> params = ResponseCreateParams.builder()
                 .model(model)
                 .input(prompts.load(PROMPT_VERSION) + "\nStories:" + data)
                 .text(Output.class)
                 .build();
+
         Output output = client.responses().create(params).output().stream()
                 .flatMap(item -> item.message().stream())
                 .flatMap(message -> message.content().stream())
                 .flatMap(content -> content.outputText().stream())
-                .findFirst().orElseThrow();
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("OpenAI returned no structured condensed output"));
+
         normalize(output);
         try {
             return mapper.writeValueAsString(output);
