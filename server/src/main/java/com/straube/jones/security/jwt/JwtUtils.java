@@ -22,7 +22,7 @@ public class JwtUtils
 {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
-    @Value("${jones.app.jwtSecret:T2hTeW1fc2VjcmV0X2tleV9mb3JfSldVX3Rva2VuX2dlbmVyYXRpb25fMTIzNDU2Nzg=}")
+    @Value("${jones.app.jwtSecret}")
     private String jwtSecret;
 
     @Value("${jones.app.jwtExpirationMs:86400000}")
