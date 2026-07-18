@@ -15,7 +15,7 @@ import java.util.List;
 @Component
 public class JwtTokenService {
 
-    @Value("${jones.app.jwtSecret}")
+    @Value("${JONES_JWT_SECRET}")
     private String jwtSecret;
 
     public Claims parseAndValidate(String token) {
