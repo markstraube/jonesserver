@@ -99,7 +99,11 @@
             <version>2.2.0</version>
         </dependency>
 
-        <!-- IBKR TWS API is kept project-local because it is not resolved from Maven Central. -->
+        <!--
+            IBKR does not publish the TWS API to Maven Central. Keep the project-local JAR
+            as a system dependency for compilation. The maven-war-plugin below copies the
+            same JAR explicitly into WEB-INF/lib so an external Tomcat can load com.ib.*.
+        -->
         <dependency>
             <groupId>com.interactivebrokers</groupId>
             <artifactId>tws-api</artifactId>
