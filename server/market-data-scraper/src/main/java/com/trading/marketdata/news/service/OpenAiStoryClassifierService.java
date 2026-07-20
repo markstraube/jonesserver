@@ -39,7 +39,7 @@ public class OpenAiStoryClassifierService {
     @Value("${news.classifier.model:gpt-5.4-mini}")
     String model;
     @Value("${news.classifier.prompt-version:market-news-classifier-v1}")
-    String promptVersion;
+    String configuredPromptVersion;
 
     public OpenAiStoryClassifierService(ObjectProvider<OpenAIClient> clients, PromptResourceLoader prompts) {
         this.clients = clients;
@@ -53,10 +53,10 @@ public class OpenAiStoryClassifierService {
         String body = article.getFullText() == null ? "" : article.getFullText();
         if (body.length() > 10_000) body = body.substring(0, 10_000);
         String existing = candidates.stream()
-                .map(s -> "ID=" + s.getId() + " | " + s.getRepresentativeHeadline())
+                .map(this::candidateDescription)
                 .reduce("", (a, b) -> a + "\n" + b);
 
-        String input = prompts.load(promptVersion)
+        String input = prompts.load(effectivePromptVersion())
                 + "\nSource ticker: " + sourceTicker
                 + "\nHeadline: " + article.getHeadline()
                 + "\nArticle: " + body
@@ -76,6 +76,28 @@ public class OpenAiStoryClassifierService {
                 .orElseThrow();
     }
 
+    private String candidateDescription(NewsStoryEntity story) {
+        return "ID=" + story.getId()
+                + " | headline=" + nullSafe(story.getRepresentativeHeadline())
+                + " | eventType=" + nullSafe(story.getEventType())
+                + " | direction=" + nullSafe(story.getDirection())
+                + " | materiality=" + nullSafe(story.getMateriality())
+                + " | articleCount=" + story.getArticleCount()
+                + " | affectedTickers=" + nullSafe(story.getAffectedTickers());
+    }
+
+    private String effectivePromptVersion() {
+        // Existing deployments explicitly configured v1. Upgrade that legacy value to the
+        // stricter v2 semantics while keeping custom future prompt versions configurable.
+        return "market-news-classifier-v1".equals(configuredPromptVersion)
+                ? "market-news-classifier-v2"
+                : configuredPromptVersion;
+    }
+
+    private static String nullSafe(Object value) {
+        return value == null ? "" : value.toString();
+    }
+
     public String model() { return model; }
-    public String promptVersion() { return promptVersion; }
+    public String promptVersion() { return effectivePromptVersion(); }
 }
