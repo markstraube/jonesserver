@@ -27,6 +27,7 @@ public class NewsHistoryService {
     private final NewsStoryTickerRepository storyTickers;
     private final StoryClusteringService clustering;
     private final NewsCondensationService condensation;
+    private final MarketContextNewsService marketContextNews;
     private final ObjectMapper mapper;
 
     @Value("${news.history.enabled:true}")
@@ -42,6 +43,7 @@ public class NewsHistoryService {
                               NewsStoryTickerRepository storyTickers,
                               StoryClusteringService clustering,
                               NewsCondensationService condensation,
+                              MarketContextNewsService marketContextNews,
                               ObjectMapper mapper) {
         this.articles = articles;
         this.articleTickers = articleTickers;
@@ -49,6 +51,7 @@ public class NewsHistoryService {
         this.storyTickers = storyTickers;
         this.clustering = clustering;
         this.condensation = condensation;
+        this.marketContextNews = marketContextNews;
         this.mapper = mapper;
     }
 
@@ -56,6 +59,9 @@ public class NewsHistoryService {
         if (!enabled) return null;
         String normalizedTicker = ticker.toUpperCase(Locale.ROOT);
         try {
+            // Macro/market events are deliberately collected independently of ticker tagging.
+            // Canonical-key dedupe makes this idempotent even though every ticker snapshot reaches here.
+            ingest(MarketContextNewsService.MACRO_SCOPE, marketContextNews.getNews());
             ingest(normalizedTicker, incoming == null ? List.of() : incoming);
             return buildContext(normalizedTicker);
         } catch (Exception e) {
@@ -130,7 +136,12 @@ public class NewsHistoryService {
         CondensedNewsStateEntity state = condensation.latest().orElse(null);
         Instant since = now.minus(Duration.ofHours(hours));
         Instant deltaSince = state == null ? since : state.getGeneratedAt();
+
         Set<Long> permittedStoryIds = new HashSet<>(storyTickers.findStoryIdsByTicker(ticker));
+        // Macro stories are intentionally visible to every ticker context so sector-level causes
+        // such as wars, oil shocks, rates and export controls cannot disappear merely because the
+        // source article lacked a stock ticker tag.
+        permittedStoryIds.addAll(storyTickers.findStoryIdsByTicker(MarketContextNewsService.MACRO_SCOPE));
 
         List<NewsStoryEntity> delta = stories
                 .findByLastUpdatedAtGreaterThanEqualOrderByLastUpdatedAtDesc(since)

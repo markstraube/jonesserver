@@ -143,9 +143,13 @@ public class StoryClusteringService {
         article.setStoryId(story.getId());
         articles.save(article);
 
+        // Keep the synthetic MACRO scope as a relation for context lookup, but never expose it as
+        // a publicly traded ticker in affectedTickers.
         addStoryTicker(story.getId(), sourceTicker);
         if (output != null && output.affectedTickers != null) {
             tickerNormalizer.normalizeAll(output.affectedTickers)
+                    .stream()
+                    .filter(t -> !MarketContextNewsService.MACRO_SCOPE.equals(t))
                     .forEach(t -> addStoryTicker(story.getId(), t));
         }
 
@@ -188,9 +192,15 @@ public class StoryClusteringService {
     }
 
     private String joinTickers(Long storyId) {
-        return tickerNormalizer.normalizeCsv(storyTickers.findByStoryId(storyId).stream()
+        List<String> tickers = storyTickers.findByStoryId(storyId).stream()
                 .map(NewsStoryTickerEntity::getTicker)
-                .reduce((a, b) -> a + "," + b).orElse(null));
+                .map(NewsTickerNormalizer::normalize)
+                .filter(Objects::nonNull)
+                .filter(t -> !MarketContextNewsService.MACRO_SCOPE.equals(t))
+                .distinct()
+                .sorted()
+                .toList();
+        return tickers.isEmpty() ? null : String.join(",", tickers);
     }
 
     private static double clamp(double value) {

@@ -19,7 +19,9 @@ public class OpenAiStoryClassifierService {
     public enum EventType {
         EARNINGS, GUIDANCE, ANALYST_RATING, INSIDER_BUY, INSIDER_SELL,
         PRICE_MOVEMENT, SECTOR_MOVEMENT, MEMORY_PRICING, SUPPLY_DEMAND,
-        REGULATION, CAPITAL_MARKETS, PRODUCT, GENERAL_COMMENTARY, OTHER
+        REGULATION, CAPITAL_MARKETS, PRODUCT,
+        GEOPOLITICAL, ENERGY_SHOCK, MACRO_RATES, TRADE_EXPORT_CONTROLS,
+        GENERAL_COMMENTARY, OTHER
     }
 
     public static final class Output {
@@ -57,7 +59,7 @@ public class OpenAiStoryClassifierService {
                 .reduce("", (a, b) -> a + "\n" + b);
 
         String input = prompts.load(effectivePromptVersion())
-                + "\nSource ticker: " + sourceTicker
+                + "\nSource ticker/scope: " + sourceTicker
                 + "\nHeadline: " + article.getHeadline()
                 + "\nArticle: " + body
                 + "\nCandidate stories:" + existing;
