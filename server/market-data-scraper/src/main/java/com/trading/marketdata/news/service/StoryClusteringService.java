@@ -194,7 +194,7 @@ public class StoryClusteringService {
     private String joinTickers(Long storyId) {
         List<String> tickers = storyTickers.findByStoryId(storyId).stream()
                 .map(NewsStoryTickerEntity::getTicker)
-                .map(tickerNormalizer::normalize)
+                .map(NewsTickerNormalizer::normalize)
                 .filter(Objects::nonNull)
                 .filter(t -> !MarketContextNewsService.MACRO_SCOPE.equals(t))
                 .distinct()
