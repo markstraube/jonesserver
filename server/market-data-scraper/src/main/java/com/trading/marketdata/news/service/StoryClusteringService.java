@@ -79,18 +79,19 @@ public class StoryClusteringService {
         NewsStoryEntity story = null;
         boolean newStory = false;
         if (output != null && output.matchingStoryId != null) {
+            Long matchingStoryId = output.matchingStoryId;
             if (output.confidence >= minMatchConfidence) {
                 story = candidates.stream()
-                        .filter(candidate -> Objects.equals(candidate.getId(), output.matchingStoryId))
+                        .filter(candidate -> Objects.equals(candidate.getId(), matchingStoryId))
                         .findFirst()
                         .orElse(null);
                 if (story == null) {
                     log.info("NEWS_CLASSIFIER_MATCH_REJECTED articleId={} storyId={} reason=NOT_ELIGIBLE_CANDIDATE confidence={}",
-                            article.getId(), output.matchingStoryId, output.confidence);
+                            article.getId(), matchingStoryId, output.confidence);
                 }
             } else {
                 log.info("NEWS_CLASSIFIER_MATCH_REJECTED articleId={} storyId={} reason=LOW_CONFIDENCE confidence={} threshold={}",
-                        article.getId(), output.matchingStoryId, output.confidence, minMatchConfidence);
+                        article.getId(), matchingStoryId, output.confidence, minMatchConfidence);
             }
         }
         if (story == null) {
