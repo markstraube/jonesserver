@@ -26,6 +26,12 @@ public class StoryClusteringService {
 
     @Value("${news.classifier.enabled:false}")
     boolean enabled;
+    @Value("${news.classifier.min-match-confidence:0.85}")
+    double minMatchConfidence;
+    @Value("${news.classifier.max-candidate-article-count:20}")
+    int maxCandidateArticleCount;
+    @Value("${news.classifier.max-candidate-tickers:12}")
+    int maxCandidateTickers;
 
     public StoryClusteringService(NewsStoryRepository stories,
                                   NewsStoryTickerRepository storyTickers,
@@ -55,7 +61,10 @@ public class StoryClusteringService {
 
         List<NewsStoryEntity> candidates = stories
                 .findByLastUpdatedAtGreaterThanEqualOrderByLastUpdatedAtDesc(Instant.now().minus(Duration.ofHours(72)))
-                .stream().limit(12).toList();
+                .stream()
+                .filter(this::eligibleCandidate)
+                .limit(12)
+                .toList();
 
         OpenAiStoryClassifierService.Output output = null;
         if (enabled) {
@@ -70,7 +79,20 @@ public class StoryClusteringService {
         NewsStoryEntity story = null;
         boolean newStory = false;
         if (output != null && output.matchingStoryId != null) {
-            story = stories.findById(output.matchingStoryId).orElse(null);
+            Long matchingStoryId = output.matchingStoryId;
+            if (output.confidence >= minMatchConfidence) {
+                story = candidates.stream()
+                        .filter(candidate -> Objects.equals(candidate.getId(), matchingStoryId))
+                        .findFirst()
+                        .orElse(null);
+                if (story == null) {
+                    log.info("NEWS_CLASSIFIER_MATCH_REJECTED articleId={} storyId={} reason=NOT_ELIGIBLE_CANDIDATE confidence={}",
+                            article.getId(), matchingStoryId, output.confidence);
+                }
+            } else {
+                log.info("NEWS_CLASSIFIER_MATCH_REJECTED articleId={} storyId={} reason=LOW_CONFIDENCE confidence={} threshold={}",
+                        article.getId(), matchingStoryId, output.confidence, minMatchConfidence);
+            }
         }
         if (story == null) {
             story = createStoryAtomically(deterministicKey, article);
@@ -81,6 +103,26 @@ public class StoryClusteringService {
         log.info("NEWS_CLASSIFIER_RESULT articleId={} storyId={} newStory={} confidence={}",
                 article.getId(), story.getId(), newStory, output == null ? null : output.confidence);
         return story;
+    }
+
+    private boolean eligibleCandidate(NewsStoryEntity story) {
+        int articleCount = Math.max(0, story.getArticleCount());
+        int tickerCount = tickerCount(story.getAffectedTickers());
+        boolean eligible = articleCount <= maxCandidateArticleCount && tickerCount <= maxCandidateTickers;
+        if (!eligible) {
+            log.debug("NEWS_CLASSIFIER_CANDIDATE_SKIPPED storyId={} articleCount={} tickerCount={} reason=TOO_BROAD",
+                    story.getId(), articleCount, tickerCount);
+        }
+        return eligible;
+    }
+
+    private static int tickerCount(String affectedTickers) {
+        if (affectedTickers == null || affectedTickers.isBlank()) return 0;
+        return (int) Arrays.stream(affectedTickers.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .count();
     }
 
     private NewsStoryEntity createStoryAtomically(String storyKey, NewsArticleEntity article) {
