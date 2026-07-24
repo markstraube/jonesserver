@@ -116,6 +116,22 @@ class AggressorEscalationTest {
         assertEquals(10, out.get(2).aggressorProfile().buyVolume());
     }
 
+
+    @Test
+    void importanceScorePromotesNearSpotUrgentHighOiContract() {
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("America/New_York"))
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        OptionsData.UnusualActivity near = new OptionsData.UnusualActivity(today, 1000.0, "CALL",
+                5000L, 12000L, 1.2, 20.0, 20.5, 20.25, 10_125_000.0, null, null, "MID", 1L);
+        OptionsData.UnusualActivity far = new OptionsData.UnusualActivity(FAR_EXPIRY, 1300.0, "CALL",
+                5000L, 100L, 10.0, 40.0, 41.0, 40.5, 20_250_000.0, null, null, "MID", 1L);
+
+        double nearScore = OptionActivityService.aggressorImportanceScore(near, 1000.0);
+        double farScore = OptionActivityService.aggressorImportanceScore(far, 1000.0);
+
+        assertTrue(nearScore > farScore, "ATM/0DTE/high-OI should outrank a farther long-dated print despite lower premium");
+    }
+
     @Test
     void exhaustedBudgetMarksRemainingCandidatesSkipped() {
         Fixture fx = fixture();

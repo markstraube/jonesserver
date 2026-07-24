@@ -42,6 +42,15 @@ public class OptionsService {
     }
 
     public OptionsData getOptions(String ticker) {
+        return getOptions(ticker, false);
+    }
+
+    /**
+     * @param forceRefresh when true, bypasses the watchlist Book-only path and performs a
+     * fresh option scan with its own stage-2 historical request budget. This is intended
+     * for explicit diagnostic/deep-flow requests, not high-frequency polling.
+     */
+    public OptionsData getOptions(String ticker, boolean forceRefresh) {
         String upper = ticker.toUpperCase();
 
         Double putCallRatio  = null;
@@ -73,9 +82,12 @@ public class OptionsService {
         try {
             boolean watchlistTicker = subscriptionManager.isBookSymbol(upper);
             Long scanAge = tb != null ? tb.oiProfile().get().ageSeconds(Instant.now()) : null;
-            if (!watchlistTicker && (scanAge == null || scanAge > scanRefreshSeconds)) {
+            if (forceRefresh || (!watchlistTicker && (scanAge == null || scanAge > scanRefreshSeconds))) {
+                // computeActivity(ticker) creates a fresh per-request stage-2 budget instead
+                // of inheriting the shared scheduled-watchlist budget that may already be
+                // exhausted by earlier symbols in the sweep.
                 optionActivityService.computeActivity(upper);
-                tb = book.find(upper); // scan writes create the entry for new tickers
+                tb = book.find(upper); // scan writes create/update the entry
             }
             if (tb != null) {
                 TimestampedField.Stamped<List<OptionsData.UnusualActivity>> ua = tb.unusualActivity().get();

@@ -411,9 +411,19 @@ public class OptionActivityService {
             return flagged;
         }
 
+        // Rank expensive stage-2 requests by market relevance, not by one raw field.
+        // Premium remains the strongest component, but near-spot, near-expiry and high-OI
+        // contracts are deliberately promoted because they have the greatest chance of
+        // producing actionable dealer-hedging flow. This fixes the live failure mode where
+        // a large but farther-away premium print consumed the scarce historical-tick slot
+        // while the ATM gamma strike was skipped.
+        Double spot = null;
+        TickerBook tickerBook = book.find(ticker);
+        if (tickerBook != null) spot = tickerBook.last().value();
+        final Double rankingSpot = spot;
         List<OptionsData.UnusualActivity> candidates = flagged.stream()
-                .sorted(Comparator.comparing(OptionsData.UnusualActivity::premiumNotionalUsd,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .sorted(Comparator.comparingDouble((OptionsData.UnusualActivity ua) ->
+                        aggressorImportanceScore(ua, rankingSpot)).reversed())
                 .limit(Math.max(aggressorMaxCandidates, 0))
                 .collect(Collectors.toList());
 
@@ -522,6 +532,38 @@ public class OptionActivityService {
         return flagged.stream()
                 .map(ua -> profiles.containsKey(ua) ? ua.withAggressorProfile(profiles.get(ua)) : ua)
                 .collect(Collectors.toList());
+    }
+
+
+    /**
+     * Bounded, dimensionless priority score for scarce historical-tick requests.
+     * The weights intentionally favour actual premium dollars and spot proximity while
+     * still giving expiry urgency, OI and unusual-volume ratio meaningful influence.
+     * Missing fields contribute zero; no field can dominate without bound.
+     */
+    static double aggressorImportanceScore(OptionsData.UnusualActivity ua, Double spot) {
+        double premium = ua.premiumNotionalUsd() == null ? 0.0
+                : Math.min(1.0, Math.log1p(Math.max(0.0, ua.premiumNotionalUsd())) / Math.log1p(25_000_000.0));
+        double proximity = 0.0;
+        if (spot != null && spot > 0 && ua.strike() != null) {
+            double distancePct = Math.abs(ua.strike() - spot) / spot * 100.0;
+            proximity = 1.0 / (1.0 + distancePct);
+        }
+        double expiryUrgency = 0.0;
+        if (ua.expiry() != null) {
+            try {
+                LocalDate expiry = LocalDate.parse(ua.expiry(), EXPIRY_FMT);
+                long days = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(US_MARKET_TZ), expiry));
+                expiryUrgency = 1.0 / Math.sqrt(days + 1.0);
+            } catch (Exception ignored) {
+                // malformed/foreign expiry format: neutral contribution, never fail the scan
+            }
+        }
+        double oi = ua.openInterest() == null ? 0.0
+                : Math.min(1.0, Math.log1p(Math.max(0L, ua.openInterest())) / Math.log1p(20_000.0));
+        double ratio = ua.volumeOiRatio() == null ? 0.0
+                : Math.min(1.0, Math.max(0.0, ua.volumeOiRatio()) / 20.0);
+        return 0.45 * premium + 0.25 * proximity + 0.15 * expiryUrgency + 0.10 * oi + 0.05 * ratio;
     }
 
     /** First sessions instrument (see spec): the spread-marker code set is exchange-dependent

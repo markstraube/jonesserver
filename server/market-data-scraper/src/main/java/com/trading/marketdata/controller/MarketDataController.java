@@ -78,8 +78,10 @@ public class MarketDataController {
     @GetMapping("/options/{ticker}")
     @Operation(summary = "Get options data", description = "Fetches Put/Call ratio, IV Rank, Max Pain and unusual activity for the given ticker.")
     public OptionsData getOptions(
-            @Parameter(description = "Ticker symbol, e.g. AAPL") @PathVariable String ticker) {
-        return optionsService.getOptions(ticker.toUpperCase());
+            @Parameter(description = "Ticker symbol, e.g. AAPL") @PathVariable String ticker,
+            @Parameter(description = "Force a fresh options scan with a dedicated stage-2 historical-tick budget")
+            @RequestParam(defaultValue = "false") boolean refresh) {
+        return optionsService.getOptions(ticker.toUpperCase(), refresh);
     }
 
     @GetMapping("/short/{ticker}")
