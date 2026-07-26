@@ -12,6 +12,10 @@ import com.trading.marketdata.ibkr.IbkrOptionContractActivity;
 import com.trading.marketdata.ibkr.IbkrOptionsChainResult;
 import com.trading.marketdata.model.OptionsData;
 import com.trading.marketdata.model.QuoteData;
+import com.trading.marketdata.options.OptionCandidateSelector;
+import com.trading.marketdata.options.OptionChainDiscoveryCollector;
+import com.trading.marketdata.options.OptionChainSnapshot;
+import com.trading.marketdata.options.OptionHistoricalFlowCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -143,6 +147,10 @@ public class OptionActivityService {
     @Value("${ua.aggressor.quality-min-directional-volume:200}")
     long aggressorQualityMinDirectionalVolume = 200;
 
+    /** Max age of the prevailing historical NBBO used to classify a trade. */
+    @Value("${ua.aggressor.max-quote-age-seconds:-1}")
+    long aggressorMaxQuoteAgeSeconds = 5;
+
     // Session start (ET) for the historical tick window. Options print 09:30–16:15 ET;
     // useRth=0 in the fetch keeps anything outside that window if it exists.
     @Value("${ua.aggressor.session-start:09:30}")
@@ -154,6 +162,9 @@ public class OptionActivityService {
     private final MarketStateService marketStateService;
     private final MarketDataBook book;
     private final SubscriptionManager subscriptionManager;
+    private final OptionChainDiscoveryCollector chainDiscoveryCollector;
+    private final OptionCandidateSelector candidateSelector;
+    private final OptionHistoricalFlowCollector historicalFlowCollector;
 
     /** Serializes scans per ticker: the Book's scan fields expect a single writer, and a
      *  concurrent duplicate scan of the same ticker would only double the IBKR request load. */
@@ -161,13 +172,19 @@ public class OptionActivityService {
 
     public OptionActivityService(IbkrMarketDataService ibkrService, QuoteService quoteService,
                                   CacheManager cacheManager, MarketStateService marketStateService,
-                                  MarketDataBook book, SubscriptionManager subscriptionManager) {
+                                  MarketDataBook book, SubscriptionManager subscriptionManager,
+                                  OptionChainDiscoveryCollector chainDiscoveryCollector,
+                                  OptionCandidateSelector candidateSelector,
+                                  OptionHistoricalFlowCollector historicalFlowCollector) {
         this.ibkrService = ibkrService;
         this.quoteService = quoteService;
         this.cacheManager = cacheManager;
         this.marketStateService = marketStateService;
         this.book = book;
         this.subscriptionManager = subscriptionManager;
+        this.chainDiscoveryCollector = chainDiscoveryCollector;
+        this.candidateSelector = candidateSelector;
+        this.historicalFlowCollector = historicalFlowCollector;
     }
 
     /**
@@ -285,14 +302,7 @@ public class OptionActivityService {
 
         String upper = ticker.toUpperCase();
 
-        Integer conId = getOrFetch("ibkrConId", upper, Integer.class, () -> ibkrService.fetchConId(upper));
-        if (conId == null) {
-            log.debug("Options activity for {}: no conId (IBKR not connected or lookup failed)", upper);
-            return OptionActivityResult.empty();
-        }
-
-        IbkrOptionsChainResult chain = getOrFetch("optionChain", upper, IbkrOptionsChainResult.class,
-                () -> ibkrService.fetchOptionsChain(upper, conId));
+        OptionChainSnapshot chain = chainDiscoveryCollector.getOrRefresh(upper);
         if (chain == null || chain.strikes().isEmpty() || chain.expirations().isEmpty()) {
             log.debug("Options activity for {}: no option chain available", upper);
             return OptionActivityResult.empty();
@@ -307,10 +317,8 @@ public class OptionActivityService {
 
         List<String> expiries = selectExpiries(chain.expirations());
 
-        List<Double> candidateStrikes = chain.strikes().stream()
-                .sorted(Comparator.comparingDouble(s -> Math.abs(s - price)))
-                .limit((long) nearestStrikes * strikeOversampleFactor)
-                .collect(Collectors.toList());
+        List<Double> candidateStrikes = candidateSelector.nearestStrikes(
+                chain.strikes(), price, nearestStrikes * strikeOversampleFactor);
 
         log.info("Options activity scan for {}: price={}, expiries={}, candidateStrikes={}",
                 upper, price, expiries, candidateStrikes);
@@ -429,7 +437,7 @@ public class OptionActivityService {
 
         AggressorClassifier.Config cfg = new AggressorClassifier.Config(
                 aggressorSweepWindowMs, aggressorBlockMinContracts, aggressorSpreadMarkers,
-                aggressorQualityMinDirectionalVolume);
+                aggressorQualityMinDirectionalVolume, aggressorMaxQuoteAgeSeconds);
         ZonedDateTime sessionStart = ZonedDateTime.of(
                 LocalDate.now(US_MARKET_TZ),
                 java.time.LocalTime.parse(aggressorSessionStart),
@@ -461,7 +469,7 @@ public class OptionActivityService {
                 continue;
             }
 
-            IbkrDayTicks ticks = ibkrService.fetchDayTicks(ticker, ua.expiry(), ua.strike(), right,
+            IbkrDayTicks ticks = historicalFlowCollector.collect(ticker, ua.expiry(), ua.strike(), right,
                     sessionStart, budget.slice(share));
             if (ticks == null) {
                 log.info("UA_AGGRESSOR ticker={} contract={} no tick data (IBKR not connected)",

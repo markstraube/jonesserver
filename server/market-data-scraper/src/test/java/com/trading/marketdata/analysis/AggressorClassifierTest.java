@@ -420,6 +420,9 @@ class AggressorClassifierTest {
         assertEquals(20, p.unknownVolume());
         assertEquals("QUOTES", p.partialDetail());
         assertEquals(40.0 / 60.0, p.classifiedShare(), 1e-9);
+        assertEquals(40.0 / 60.0, p.quoteRequestCoverage(), 1e-9);
+        assertEquals(40.0 / 60.0, p.quoteMatchCoverage(), 1e-9);
+        assertEquals(40.0 / 60.0, p.directionalClassifiedShare(), 1e-9);
     }
 
     @Test
@@ -436,7 +439,10 @@ class AggressorClassifierTest {
         AggressorProfile p = AggressorClassifier.classify(trades, quotes, CFG, null, false, coverage);
         assertEquals(0, p.buyVolume());
         assertEquals(10, p.unknownVolume());
-        assertEquals(1.0, p.classifiedShare(), 1e-9); // covered, the island just had no quote yet
+        assertEquals(0.0, p.classifiedShare(), 1e-9); // no usable prior quote in island 2
+        assertEquals(1.0, p.quoteRequestCoverage(), 1e-9); // request/island did cover the trade
+        assertEquals(0.0, p.quoteMatchCoverage(), 1e-9);
+        assertEquals(0.0, p.directionalClassifiedShare(), 1e-9);
     }
 
     @Test

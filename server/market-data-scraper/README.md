@@ -142,3 +142,12 @@ For a development/test installation:
 3. Restart the scraper.
 
 This reset affects only derived news history, story, annotation and condensation data. It does not delete market snapshots.
+
+### Options aggressor coverage metrics (v2.5)
+Aggressor profiles now expose quote coverage explicitly:
+- `tickCoverage`: historical TRADE volume fetched vs stage-1 day volume.
+- `quoteRequestCoverage`: non-excluded trade volume falling inside actually fetched quote islands.
+- `quoteMatchCoverage`: non-excluded trade volume with a usable prevailing BID/ASK from the same island.
+- `directionalClassifiedShare`: non-excluded trade volume classified BUY/SELL.
+- `classifiedShare`: backwards-compatible alias of `quoteMatchCoverage` from v2.5 onward.
+This prevents a requested quote window from being mistaken for an actual NBBO match and prevents quotes from bridging gaps between sampled islands.

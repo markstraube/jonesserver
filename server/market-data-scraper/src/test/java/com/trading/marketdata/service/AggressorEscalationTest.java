@@ -8,6 +8,12 @@ import com.trading.marketdata.ibkr.IbkrDayTicks;
 import com.trading.marketdata.ibkr.IbkrMarketDataService;
 import com.trading.marketdata.ibkr.IbkrRequestGovernor;
 import com.trading.marketdata.model.OptionsData;
+import com.trading.marketdata.options.OptionCandidateSelector;
+import com.trading.marketdata.options.OptionChainDiscoveryCollector;
+import com.trading.marketdata.options.OptionContractCatalog;
+import com.trading.marketdata.options.OptionHistoricalFlowCollector;
+import com.trading.marketdata.options.OptionHistoricalQuoteCollector;
+import com.trading.marketdata.options.OptionHistoricalTradeCollector;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 
@@ -68,8 +74,18 @@ class AggressorEscalationTest {
     private static Fixture fixture() {
         StubIbkr ibkr = new StubIbkr();
         ConcurrentMapCacheManager caches = new ConcurrentMapCacheManager("oiContractDayMemory");
+        OptionHistoricalFlowCollector flow = new OptionHistoricalFlowCollector(
+                new OptionHistoricalTradeCollector(ibkr), new OptionHistoricalQuoteCollector(ibkr)) {
+            @Override
+            public IbkrDayTicks collect(String ticker, String expiry, double strike, String right,
+                                        ZonedDateTime sessionStart, HistoricalRequestBudget budget) {
+                return ibkr.fetchDayTicks(ticker, expiry, strike, right, sessionStart, budget);
+            }
+        };
         OptionActivityService service = new OptionActivityService(
-                ibkr, null, caches, null, new MarketDataBook(), null);
+                ibkr, null, caches, null, new MarketDataBook(), null,
+                new OptionChainDiscoveryCollector(ibkr, new OptionContractCatalog()),
+                new OptionCandidateSelector(), flow);
         service.aggressorEnabled = true;
         service.aggressorMaxCandidates = 4;
         service.aggressorMaxRequests = 20;

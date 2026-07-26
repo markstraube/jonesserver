@@ -227,6 +227,16 @@ public class IbkrMarketDataService {
     @Value("${ua.aggressor.quote-windows-max:4}")
     int aggressorQuoteWindowsMax = 4;
 
+    /** Fetch NBBO a few seconds BEFORE each trade anchor so the first trade in an island
+     *  can join to the prevailing quote rather than only seeing quote updates after it. */
+    @Value("${ua.aggressor.quote-preroll-seconds:5}")
+    int aggressorQuotePrerollSeconds = 5;
+
+    /** Minimum share of a per-contract request slice reserved for BID_ASK equivalents.
+     *  Historical trades without quotes are nearly useless for aggressor classification. */
+    @Value("${ua.aggressor.quote-budget-share:0.50}")
+    double aggressorQuoteBudgetShare = 0.50;
+
     /**
      * Fetches one option contract's trade prints and NBBO updates from the session start
      * forward (UA stage 2 raw material), paginated per §"verified API facts":
@@ -243,41 +253,61 @@ public class IbkrMarketDataService {
      */
     public IbkrDayTicks fetchDayTicks(String ticker, String expiry, double strike, String right,
                                       ZonedDateTime sessionStartEt, HistoricalRequestBudget budget) {
+        if (budget == null) return null;
+        int available = budget.remaining();
+        int desiredQuoteReserve = (int) Math.ceil(available * Math.max(0.0, Math.min(1.0, aggressorQuoteBudgetShare)));
+        int quoteReserve = available >= 3 ? Math.max(2, desiredQuoteReserve - (desiredQuoteReserve % 2)) : 0;
+        quoteReserve = Math.min(quoteReserve, Math.max(0, available - 1));
+        IbkrTradeHistory trades = fetchDayTrades(ticker, expiry, strike, right, sessionStartEt,
+                budget.slice(Math.max(0, available - quoteReserve)));
+        if (trades == null) return null;
+        IbkrQuoteHistory quotes = fetchDayQuotes(ticker, expiry, strike, right, sessionStartEt, budget, trades);
+        if (quotes == null) return null;
+        IbkrDayTicks result = new IbkrDayTicks(trades.trades(), quotes.quotes(), trades.partial(),
+                quotes.coverage(), trades.requestEquivalentsUsed() + quotes.requestEquivalentsUsed());
+        log.info("IBKR day ticks {} {} {} {}: trades={} quotes={} requestEquivalents={} tradesPartial={} quoteIslands={}",
+                ticker, expiry, strike, right, result.trades().size(), result.quotes().size(),
+                result.requestEquivalentsUsed(), result.tradesPartial(),
+                quotes.coverage() == null ? "complete" : quotes.coverage().size());
+        return result;
+    }
+
+    /** Independent historical trade collector entry point. */
+    public IbkrTradeHistory fetchDayTrades(String ticker, String expiry, double strike, String right,
+                                            ZonedDateTime sessionStartEt, HistoricalRequestBudget budget) {
         if (!connectionManager.isConnected()) {
-            log.debug("IBKR not connected — skipping day ticks for {} {} {} {}", ticker, expiry, strike, right);
+            log.debug("IBKR not connected — skipping day trades for {} {} {} {}", ticker, expiry, strike, right);
             return null;
         }
         Contract contract = optionContract(ticker, expiry, strike, right);
         String label = ticker + " " + expiry + " " + strike + " " + right;
-        Channel<HistoricalTickBidAsk> bidAskChannel = new Channel<>() {
-            public CompletableFuture<List<HistoricalTickBidAsk>> register(int reqId) { return wrapper.registerHistoricalBidAskRequest(reqId); }
-            public void discard(int reqId) { wrapper.discardHistoricalBidAskRequest(reqId); }
-            public long timeOf(HistoricalTickBidAsk t) { return t.time(); }
-        };
-
-        // Trades first, but with a reserve of one BID_ASK page (2 equivalents) held back —
-        // trades without a single quote island are unclassifiable, and unclassifiable
-        // trades are exactly the degenerate all-UNKNOWN profile observed live. The reserve
-        // is skipped when the whole budget is below one viable pair anyway.
-        int quoteReserve = budget.remaining() >= 3 ? 2 : 0;
-        Page<HistoricalTickLast> trades = fetchTickPages(contract, label, "TRADES", 1, sessionStartEt,
-                budget.slice(budget.remaining() - quoteReserve),
+        Page<HistoricalTickLast> page = fetchTickPages(contract, label, "TRADES", 1, sessionStartEt, budget,
                 new Channel<>() {
                     public CompletableFuture<List<HistoricalTickLast>> register(int reqId) { return wrapper.registerHistoricalTradesRequest(reqId); }
                     public void discard(int reqId) { wrapper.discardHistoricalTradesRequest(reqId); }
                     public long timeOf(HistoricalTickLast t) { return t.time(); }
                 });
+        return new IbkrTradeHistory(toTrades(page.ticks), page.partial, page.used);
+    }
 
-        QuoteSample quotes = fetchStratifiedQuotes(contract, label, sessionStartEt, budget, bidAskChannel,
-                trades.ticks.stream().map(HistoricalTickLast::time).toList());
-
-        IbkrDayTicks result = new IbkrDayTicks(toTrades(trades.ticks), toQuotes(quotes.ticks),
-                trades.partial, quotes.coverage, trades.used + quotes.used);
-        log.info("IBKR day ticks {}: trades={} quotes={} requestEquivalents={} tradesPartial={} quoteIslands={}",
-                label, result.trades().size(), result.quotes().size(),
-                result.requestEquivalentsUsed(), result.tradesPartial(),
-                quotes.coverage == null ? "complete" : quotes.coverage.size());
-        return result;
+    /** Independent historical quote collector entry point. */
+    public IbkrQuoteHistory fetchDayQuotes(String ticker, String expiry, double strike, String right,
+                                            ZonedDateTime sessionStartEt, HistoricalRequestBudget budget,
+                                            IbkrTradeHistory trades) {
+        if (!connectionManager.isConnected()) {
+            log.debug("IBKR not connected — skipping day quotes for {} {} {} {}", ticker, expiry, strike, right);
+            return null;
+        }
+        Contract contract = optionContract(ticker, expiry, strike, right);
+        String label = ticker + " " + expiry + " " + strike + " " + right;
+        Channel<HistoricalTickBidAsk> channel = new Channel<>() {
+            public CompletableFuture<List<HistoricalTickBidAsk>> register(int reqId) { return wrapper.registerHistoricalBidAskRequest(reqId); }
+            public void discard(int reqId) { wrapper.discardHistoricalBidAskRequest(reqId); }
+            public long timeOf(HistoricalTickBidAsk t) { return t.time(); }
+        };
+        QuoteSample sample = fetchStratifiedQuotes(contract, label, sessionStartEt, budget, channel,
+                trades == null ? List.of() : trades.trades());
+        return new IbkrQuoteHistory(toQuotes(sample.ticks), sample.coverage, sample.used);
     }
 
     /** Quote ticks + the coverage intervals they establish (null = the whole session is
@@ -306,48 +336,33 @@ public class IbkrMarketDataService {
     private QuoteSample fetchStratifiedQuotes(Contract contract, String label,
                                               ZonedDateTime sessionStartEt, HistoricalRequestBudget budget,
                                               Channel<HistoricalTickBidAsk> channel,
-                                              List<Long> tradeEpochs) {
+                                              List<AggressorClassifier.Trade> trades) {
         List<HistoricalTickBidAsk> all = new ArrayList<>();
         List<AggressorClassifier.Interval> coverage = new ArrayList<>();
         int used = 0;
 
         long sessionStart = sessionStartEt.toEpochSecond();
         long now = Instant.now().getEpochSecond();
-        long span = Math.max(now - sessionStart, 0);
         int windows = Math.max(Math.min(budget.remaining() / 2, aggressorQuoteWindowsMax), 0);
         if (windows == 0) {
-            return new QuoteSample(all, coverage, 0); // empty coverage: nothing classifiable
+            return new QuoteSample(all, coverage, 0);
         }
 
-        // TRADE-ANCHORED starts: the trades are already fully fetched, so we KNOW where the
-        // flow was — islands go to the quantiles of the trade-time distribution instead of a
-        // uniform time grid. Same budget, several times the classified volume: uniform
-        // windows on a hyperactive 0DTE landed in random quiet seconds (observed live:
-        // classifiedShare 0.00018 — 2 of 12,691 contracts), while the volume sat in a
-        // morning wave and an afternoon push the quantiles hit by construction. Uniform
-        // spread remains the fallback without trades.
-        List<Long> starts = new ArrayList<>(windows);
-        if (tradeEpochs == null || tradeEpochs.isEmpty()) {
-            for (int i = 0; i < windows; i++) {
-                starts.add(sessionStart + (span * i) / windows);
-            }
-        } else {
-            List<Long> sorted = new ArrayList<>(tradeEpochs);
-            java.util.Collections.sort(sorted);
-            for (int i = 0; i < windows; i++) {
-                starts.add(sorted.get((int) ((long) sorted.size() * i / windows)));
-            }
-        }
-
+        // Trade-centred sampling: use VOLUME-weighted quantiles, not plain trade-count
+        // quantiles. A 300-contract block should pull a quote window toward itself much
+        // more strongly than 300 one-lot prints spread over the day. Each BID_ASK request
+        // still returns at most 1000 raw updates, so in a hyperactive option an island may
+        // span only seconds. The coverage interval below is therefore derived from the
+        // ACTUAL first/last returned quote, never from the requested start.
+        List<Long> starts = quoteWindowStarts(trades, sessionStart, now, windows);
         long lastCovered = Long.MIN_VALUE;
-        for (int i = 0; i < windows; i++) {
+        long earliestTrade = trades == null || trades.isEmpty() ? Long.MAX_VALUE
+                : trades.stream().mapToLong(AggressorClassifier.Trade::epochSeconds).min().orElse(Long.MAX_VALUE);
+
+        for (int i = 0; i < starts.size(); i++) {
             long windowStart = starts.get(i);
-            if (windowStart <= lastCovered) {
-                continue; // a previous island already reached into this window
-            }
-            if (!budget.tryConsume(2)) {
-                break; // remaining islands stay uncovered — visible via classifiedShare
-            }
+            if (windowStart <= lastCovered) continue;
+            if (!budget.tryConsume(2)) break;
             used += 2;
 
             int reqId = connectionManager.nextReqId();
@@ -359,37 +374,136 @@ public class IbkrMarketDataService {
             connectionManager.getClient().reqHistoricalTicks(reqId, contract,
                     HIST_TICK_START_FMT.format(Instant.ofEpochSecond(windowStart).atZone(US_EASTERN))
                             + " US/Eastern", "",
-                    MAX_TICKS_PER_REQUEST, "BID_ASK", 0, false, null);
+                    MAX_TICKS_PER_REQUEST, "BID_ASK", 0, true, null);
 
             List<HistoricalTickBidAsk> batch;
             try {
                 batch = future.get(aggressorRequestTimeoutSeconds, TimeUnit.SECONDS);
             } catch (Exception e) {
-                log.warn("IBKR stratified quotes failed {} window={} (reqId={}): {} — island uncovered",
-                        label, i, reqId, e.getMessage());
+                log.warn("IBKR trade-centred quotes failed {} window={} start={} (reqId={}): {} — island uncovered",
+                        label, i, windowStart, reqId, e.getMessage());
                 channel.discard(reqId);
-                continue; // this island stays dark; later ones may still succeed
+                continue;
+            }
+            if (batch == null || batch.isEmpty()) {
+                log.info("IBKR trade-centred quotes {} window={} start={} raw=0 — no later quote updates",
+                        label, i, windowStart);
+                // A forward historical-tick request returning zero means there are no quote
+                // updates from this start through now. Later anchors cannot add information.
+                break;
             }
 
-            all.addAll(batch);
-            if (batch.size() < MAX_TICKS_PER_REQUEST) {
-                // No further NBBO updates exist between this island's start and NOW.
-                coverage.add(new AggressorClassifier.Interval(windowStart, now));
-                // Completeness collapse: the FIRST island under-ran the page cap, so no NBBO
-                // update between its start and NOW went unseen. With anchored starts the
-                // first island begins at the first trade — quotes before it are irrelevant
-                // for classification (no trade can join against them), so the sample IS
-                // complete for every classifiable purpose.
-                if (i == 0) {
+            long firstTick = channel.timeOf(batch.get(0));
+            long lastTick = channel.timeOf(batch.get(batch.size() - 1));
+            List<HistoricalTickBidAsk> compressed = compressBidAskPriceStates(batch);
+            all.addAll(compressed);
+
+            boolean capped = batch.size() >= MAX_TICKS_PER_REQUEST;
+            // A full 1000-tick page can cut in the MIDDLE of its terminal second. IBKR's
+            // historical tick timestamps are only second-resolution, so that final second
+            // is not safely complete. Only seconds STRICTLY before it are honest coverage.
+            long coveredTo = capped ? lastTick - 1 : now;
+            // We do NOT claim coverage back to windowStart: reqHistoricalTicks returns quote
+            // CHANGES, not a snapshot of the NBBO prevailing at the requested start. Until
+            // the first returned quote arrives the prior state is unknown.
+            if (coveredTo >= firstTick) {
+                coverage.add(new AggressorClassifier.Interval(firstTick, coveredTo));
+                lastCovered = Math.max(lastCovered, coveredTo);
+            }
+
+            log.info("IBKR quote island {} window={} requestedStart={} raw={} priceStates={} first={} last={} capped={} safeCoverage={}..{}",
+                    label, i, windowStart, batch.size(), compressed.size(), firstTick, lastTick, capped,
+                    coveredTo >= firstTick ? firstTick : null, coveredTo >= firstTick ? coveredTo : null);
+
+            if (!capped) {
+                // From firstTick onward every quote change through NOW is present. If this
+                // first island also begins before the first trade, the quote stream is
+                // complete for every trade we fetched and we can use the simpler complete
+                // semantics (null coverage). Otherwise keep explicit coverage so a quote
+                // can never bridge the unseen prefix/gaps.
+                if (i == 0 && firstTick <= earliestTrade) {
                     return new QuoteSample(all, null, used);
                 }
-                break; // later islands are redundant
+                break;
             }
-            long lastTick = channel.timeOf(batch.get(batch.size() - 1));
-            coverage.add(new AggressorClassifier.Interval(windowStart, lastTick));
-            lastCovered = lastTick;
         }
-        return new QuoteSample(all, coverage, used);
+        return new QuoteSample(all, mergeCoverage(coverage), used);
+    }
+
+    /** Build volume-weighted trade anchors and pre-roll each one. */
+    private List<Long> quoteWindowStarts(List<AggressorClassifier.Trade> trades, long sessionStart, long now, int windows) {
+        if (windows <= 0) return List.of();
+        if (trades == null || trades.isEmpty()) {
+            long span = Math.max(now - sessionStart, 0);
+            List<Long> fallback = new ArrayList<>(windows);
+            for (int i = 0; i < windows; i++) fallback.add(sessionStart + (span * i) / windows);
+            return fallback;
+        }
+
+        // Aggregate contract volume by epoch second. IBKR timestamps are second-resolution;
+        // this also prevents hundreds of prints in one second from creating duplicate windows.
+        java.util.TreeMap<Long, Long> volumeBySecond = new java.util.TreeMap<>();
+        for (AggressorClassifier.Trade t : trades) {
+            long size = t.size();
+            if (size <= 0 || size >= Integer.MAX_VALUE) continue;
+            volumeBySecond.merge(t.epochSeconds(), size, Long::sum);
+        }
+        if (volumeBySecond.isEmpty()) return List.of(sessionStart);
+
+        long total = volumeBySecond.values().stream().mapToLong(Long::longValue).sum();
+        List<Long> starts = new ArrayList<>(windows);
+        long cumulative = 0;
+        int targetIndex = 0;
+        for (var e : volumeBySecond.entrySet()) {
+            cumulative += e.getValue();
+            while (targetIndex < windows) {
+                // Midpoint of each equal-volume bucket avoids over-weighting the open edge.
+                double target = total * ((targetIndex + 0.5) / windows);
+                if (cumulative < target) break;
+                long start = Math.max(sessionStart, e.getKey() - Math.max(0, aggressorQuotePrerollSeconds));
+                if (starts.isEmpty() || start > starts.get(starts.size() - 1)) starts.add(start);
+                targetIndex++;
+            }
+        }
+        if (starts.isEmpty()) starts.add(Math.max(sessionStart, volumeBySecond.firstKey() - Math.max(0, aggressorQuotePrerollSeconds)));
+        return starts;
+    }
+
+    /** Keep only the first state and subsequent BID/ASK PRICE changes. Size-only churn is
+     * irrelevant to quote-rule aggressor classification and can be hundreds of ticks/sec. */
+    static List<HistoricalTickBidAsk> compressBidAskPriceStates(List<HistoricalTickBidAsk> raw) {
+        if (raw == null || raw.isEmpty()) return List.of();
+        List<HistoricalTickBidAsk> out = new ArrayList<>();
+        HistoricalTickBidAsk prev = null;
+        for (HistoricalTickBidAsk q : raw) {
+            if (prev == null || Double.compare(prev.priceBid(), q.priceBid()) != 0
+                    || Double.compare(prev.priceAsk(), q.priceAsk()) != 0) {
+                out.add(q);
+            }
+            prev = q;
+        }
+        return out;
+    }
+
+    private static List<AggressorClassifier.Interval> mergeCoverage(List<AggressorClassifier.Interval> raw) {
+        if (raw == null || raw.isEmpty()) return raw == null ? List.of() : raw;
+        List<AggressorClassifier.Interval> sorted = new ArrayList<>(raw);
+        sorted.sort(java.util.Comparator.comparingLong(AggressorClassifier.Interval::fromEpoch));
+        List<AggressorClassifier.Interval> out = new ArrayList<>();
+        long from = sorted.get(0).fromEpoch();
+        long to = sorted.get(0).toEpoch();
+        for (int i = 1; i < sorted.size(); i++) {
+            AggressorClassifier.Interval n = sorted.get(i);
+            if (n.fromEpoch() <= to + 1) {
+                to = Math.max(to, n.toEpoch());
+            } else {
+                out.add(new AggressorClassifier.Interval(from, to));
+                from = n.fromEpoch();
+                to = n.toEpoch();
+            }
+        }
+        out.add(new AggressorClassifier.Interval(from, to));
+        return out;
     }
 
     private interface Channel<T> {
@@ -418,14 +532,14 @@ public class IbkrMarketDataService {
             int reqId = connectionManager.nextReqId();
             CompletableFuture<List<T>> future = channel.register(reqId);
             // Timezone suffix explicit per API contract; useRth=0 (pre/post prints belong to
-            // the day's flow), ignoreSize=false.
+            // the day's flow). BID_ASK uses ignoreSize=true so size-only churn does not exhaust the 1000-tick page.
             String pacingScope = contract.symbol() + "|" + contract.lastTradeDateOrContractMonth() + "|"
                     + contract.strike() + "|" + contract.right() + "|" + whatToShow;
             String identicalRequest = pacingScope + "|" + start.toEpochSecond();
             requestGovernor.acquireHistorical(pacingScope, identicalRequest, costPerRequest);
             connectionManager.getClient().reqHistoricalTicks(reqId, contract,
                     HIST_TICK_START_FMT.format(start) + " US/Eastern", "",
-                    MAX_TICKS_PER_REQUEST, whatToShow, 0, false, null);
+                    MAX_TICKS_PER_REQUEST, whatToShow, 0, "BID_ASK".equals(whatToShow), null);
 
             List<T> batch;
             try {

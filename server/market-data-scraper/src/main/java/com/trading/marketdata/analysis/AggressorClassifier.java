@@ -52,7 +52,13 @@ public final class AggressorClassifier {
      * across days.
      */
     public record Config(long sweepWindowMs, long blockMinContracts, List<String> spreadMarkers,
-                         long qualityMinDirectionalVolume) {}
+                         long qualityMinDirectionalVolume, long maxQuoteAgeSeconds) {
+        /** Backward-compatible constructor used by existing tests/callers. */
+        public Config(long sweepWindowMs, long blockMinContracts, List<String> spreadMarkers,
+                      long qualityMinDirectionalVolume) {
+            this(sweepWindowMs, blockMinContracts, spreadMarkers, qualityMinDirectionalVolume, -1);
+        }
+    }
 
     // Spread position thresholds (fixed by spec): >= BUY_LEAN_MIN of the spread → buyer-
     // leaning, <= SELL_LEAN_MAX → seller-leaning, between → midpoint zone = UNKNOWN.
@@ -115,6 +121,8 @@ public final class AggressorClassifier {
      *                      SAMPLED/partial: a trade is classifiable only inside an interval,
      *                      and only against a quote from that same interval; everything else
      *                      is UNKNOWN. An empty list means no usable quote coverage at all.
+     *                      The output separates requested-island coverage from actual quote
+     *                      matches; merely falling inside an interval never counts as a match.
      */
     public static AggressorProfile classify(List<Trade> trades, List<Quote> quotes, Config cfg,
                                             Long contractDayVolume,
@@ -133,7 +141,7 @@ public final class AggressorClassifier {
         List<Side> sides = new ArrayList<>(byTime.size()); // parallel to byTime; null = excluded
         long firstTrade = Long.MAX_VALUE, lastTrade = Long.MIN_VALUE;
 
-        long coveredVolume = 0, nonExcludedVolume = 0; // for classifiedShare
+        long requestedCoveredVolume = 0, quoteMatchedVolume = 0, nonExcludedVolume = 0;
         java.util.Set<Interval> islandsHit = new java.util.HashSet<>(); // for profileQuality
 
         for (Trade t : byTime) {
@@ -155,15 +163,28 @@ public final class AggressorClassifier {
 
             nonExcludedVolume += t.size();
             Interval island = coveringInterval(quoteCoverage, t.epochSeconds());
+            if (quoteCoverage == null || island != null) requestedCoveredVolume += t.size();
             Side side;
+            Quote q = null;
             if (quoteCoverage != null && island == null) {
                 side = Side.UNKNOWN; // outside every quote island — NBBO unknowable, not stale-joined
             } else {
-                Quote q = prevailingQuote(quotesByTime, t.epochSeconds(),
+                q = prevailingQuote(quotesByTime, t.epochSeconds(),
                         island == null ? Long.MIN_VALUE : island.fromEpoch());
+                // Historical BID_ASK ticks are quote CHANGES, not periodic snapshots. Therefore
+                // an old quote can remain the valid prevailing NBBO until the next update. The
+                // quote-island boundary is the authoritative guard against crossing an unseen
+                // data gap. maxQuoteAgeSeconds is only an optional extra safety cap; production
+                // defaults it to -1 (disabled) so valid unchanged NBBOs are not discarded.
+                if (quoteCoverage != null && q != null && cfg.maxQuoteAgeSeconds() >= 0
+                        && t.epochSeconds() - q.epochSeconds() > cfg.maxQuoteAgeSeconds()) {
+                    q = null;
+                }
+                if (q != null) {
+                    quoteMatchedVolume += t.size();
+                    if (island != null) islandsHit.add(island);
+                }
                 side = classifyTrade(t, q);
-                coveredVolume += t.size(); // classifiable in principle (may still be mid-zone UNKNOWN)
-                if (island != null) islandsHit.add(island);
             }
             sides.add(side);
 
@@ -209,16 +230,18 @@ public final class AggressorClassifier {
         String partialDetail = !partial ? null
                 : (tradesPartial && quotesSampled) ? "TRADES+QUOTES"
                 : tradesPartial ? "TRADES" : "QUOTES";
-        // Share of the non-excluded volume that fell inside quote coverage, i.e. was
-        // classifiable IN PRINCIPLE (mid-zone UNKNOWNs count as covered — they had a valid
-        // NBBO and the zone rule said no). 1.0 with a complete stream; the honesty metric
-        // of stratified sampling: a 0.35 says "the buy/sell split estimates 35% of the
-        // day's flow, uniformly sampled".
-        Double classifiedShare = nonExcludedVolume <= 0 ? null
-                : (double) coveredVolume / nonExcludedVolume;
+        Double quoteRequestCoverage = nonExcludedVolume <= 0 ? null
+                : (double) requestedCoveredVolume / nonExcludedVolume;
+        Double quoteMatchCoverage = nonExcludedVolume <= 0 ? null
+                : (double) quoteMatchedVolume / nonExcludedVolume;
+        Double directionalClassifiedShare = nonExcludedVolume <= 0 ? null
+                : (double) (buy + sell) / nonExcludedVolume;
+        // Backwards-compatible field: from v2.5 onward this is the honest "had an actual
+        // usable prevailing quote" metric, not merely "fell inside a requested island".
+        Double classifiedShare = quoteMatchCoverage;
 
         String profileQuality = profileQuality(cfg, buy + sell, quoteCoverage, islandsHit.size(),
-                classifiedShare);
+                quoteMatchCoverage);
 
         return new AggressorProfile(
                 partial ? AggressorProfile.STATUS_PARTIAL : AggressorProfile.STATUS_OK,
@@ -234,6 +257,9 @@ public final class AggressorClassifier {
                 (int) blockCount, blockVolume, largestBlock,
                 coverage,
                 classifiedShare,
+                quoteRequestCoverage,
+                quoteMatchCoverage,
+                directionalClassifiedShare,
                 profileQuality,
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(firstTrade),
                 byTime.isEmpty() ? null : Instant.ofEpochSecond(lastTrade),

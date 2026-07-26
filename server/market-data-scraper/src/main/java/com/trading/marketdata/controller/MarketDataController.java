@@ -18,6 +18,10 @@ import com.trading.marketdata.service.SnapshotAssemblyService;
 import com.trading.marketdata.service.OptionsService;
 import com.trading.marketdata.service.QuoteService;
 import com.trading.marketdata.service.ShortInterestService;
+import com.trading.marketdata.options.OptionChainDiscoveryCollector;
+import com.trading.marketdata.options.OptionContractCatalog;
+import com.trading.marketdata.options.OptionChainSnapshot;
+import com.trading.marketdata.options.OptionChainChange;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,6 +54,8 @@ public class MarketDataController {
     private final ShortInterestService shortInterestService;
     private final NewsService newsService;
     private final AuctionService auctionService;
+    private final OptionChainDiscoveryCollector optionChainDiscoveryCollector;
+    private final OptionContractCatalog optionContractCatalog;
 
     // Virtual thread executor for parallel scraping
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -59,13 +65,17 @@ public class MarketDataController {
                                 OptionsService optionsService,
                                 ShortInterestService shortInterestService,
                                 NewsService newsService,
-                                AuctionService auctionService) {
+                                AuctionService auctionService,
+                                OptionChainDiscoveryCollector optionChainDiscoveryCollector,
+                                OptionContractCatalog optionContractCatalog) {
         this.snapshotAssemblyService = snapshotAssemblyService;
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
         this.newsService = newsService;
         this.auctionService = auctionService;
+        this.optionChainDiscoveryCollector = optionChainDiscoveryCollector;
+        this.optionContractCatalog = optionContractCatalog;
     }
 
     @GetMapping("/quote/{ticker}")
@@ -82,6 +92,21 @@ public class MarketDataController {
             @Parameter(description = "Force a fresh options scan with a dedicated stage-2 historical-tick budget")
             @RequestParam(defaultValue = "false") boolean refresh) {
         return optionsService.getOptions(ticker.toUpperCase(), refresh);
+    }
+
+
+    @GetMapping("/options/{ticker}/chain")
+    @Operation(summary = "Get discovered option chain", description = "Returns the latest IBKR-reported expiries and strikes. Use refresh=true to force rediscovery.")
+    public OptionChainSnapshot getOptionChain(@PathVariable String ticker,
+                                               @RequestParam(defaultValue = "false") boolean refresh) {
+        return refresh ? optionChainDiscoveryCollector.refresh(ticker.toUpperCase())
+                : optionChainDiscoveryCollector.getOrRefresh(ticker.toUpperCase());
+    }
+
+    @GetMapping("/options/{ticker}/chain/changes")
+    @Operation(summary = "Get option chain changes", description = "Returns detected additions/removals of expiries and strikes since process start.")
+    public List<OptionChainChange> getOptionChainChanges(@PathVariable String ticker) {
+        return optionContractCatalog.recentChanges(ticker.toUpperCase());
     }
 
     @GetMapping("/short/{ticker}")

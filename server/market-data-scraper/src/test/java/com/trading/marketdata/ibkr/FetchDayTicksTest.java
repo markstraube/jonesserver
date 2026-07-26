@@ -44,6 +44,7 @@ class FetchDayTicksTest {
     /** Answers each reqHistoricalTicks synchronously with the next prepared batch (done=true). */
     private static final class StubClient extends EClientSocket {
         final List<String> requests = new ArrayList<>(); // "<whatToShow>|<startDateTime>"
+        final List<Boolean> ignoreSizeFlags = new ArrayList<>();
         final Deque<List<HistoricalTickLast>> tradeBatches = new ArrayDeque<>();
         final Deque<List<HistoricalTickBidAsk>> quoteBatches = new ArrayDeque<>();
         private final IbkrWrapper wrapper;
@@ -58,6 +59,7 @@ class FetchDayTicksTest {
                 String endDateTime, int numberOfTicks, String whatToShow, int useRth,
                 boolean ignoreSize, List<TagValue> miscOptions) {
             requests.add(whatToShow + "|" + startDateTime);
+            ignoreSizeFlags.add(ignoreSize);
             if ("TRADES".equals(whatToShow)) {
                 wrapper.historicalTicksLast(reqId,
                         tradeBatches.isEmpty() ? List.of() : tradeBatches.poll(), true);
@@ -105,13 +107,15 @@ class FetchDayTicksTest {
         assertEquals("cond", result.trades().get(1).specialConditions());
         assertEquals(1, result.quotes().size());
         assertEquals(T0 + 1, result.quotes().get(0).epochSeconds());
-        // TRADES starts at the session start; BID_ASK is TRADE-ANCHORED — its first window
-        // begins at the first trade's time (09:30:05), not at the session open: quotes
-        // before the first trade cannot classify anything, so the budget is not spent on
-        // them. Both carry ET with explicit timezone.
+        // TRADES starts at the session start. BID_ASK is trade-anchored with the configured
+        // 5-second pre-roll, so a first trade at 09:30:05 requests from 09:30:00. This
+        // deliberately captures the prevailing quote immediately before the first trade.
+        // Both carry ET with explicit timezone.
         assertEquals(List.of("TRADES|20260710 09:30:00 US/Eastern",
-                             "BID_ASK|20260710 09:30:05 US/Eastern"),
+                             "BID_ASK|20260710 09:30:00 US/Eastern"),
                 fx.client().requests);
+        assertEquals(List.of(false, true), fx.client().ignoreSizeFlags,
+                "TRADES must keep sizes; BID_ASK must suppress size-only churn at IBKR");
     }
 
     @Test
@@ -128,7 +132,9 @@ class FetchDayTicksTest {
         IbkrDayTicks result = fx.service().fetchDayTicks("MU", "20260710", 100, "C",
                 SESSION_START, new HistoricalRequestBudget(20));
 
-        assertFalse(result.partial());
+        // No quote ticks were returned, so quote coverage is honestly partial/empty even
+        // though the trade pagination itself completed.
+        assertTrue(result.partial());
         assertEquals(1001, result.trades().size());
         assertEquals(4, result.requestEquivalentsUsed()); // 2 TRADES pages + 1 BID_ASK page
         // Second TRADES page starts one second PAST the last received tick (T0+999 → +1000s after 09:30)
@@ -180,4 +186,47 @@ class FetchDayTicksTest {
         wrapper.historicalTicksLast(44, List.of(trade(T0, 5.0, 1)), true);
         assertFalse(future.isDone()); // late done must not complete a discarded request
     }
+    @Test
+    void cappedQuotePageUsesActualReturnedRangeAsCoverage() {
+        Fixture fx = fixture();
+        fx.client().tradeBatches.add(List.of(
+                trade(T0 + 5, 5.0, 100),
+                trade(T0 + 30, 5.0, 100)));
+        List<HistoricalTickBidAsk> full = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            // Raw size churn can fill the whole IBKR page inside a tiny time slice.
+            full.add(quote(T0 + 2 + (i / 500), 4.0, 6.0));
+        }
+        fx.client().quoteBatches.add(full);
+
+        IbkrDayTicks result = fx.service().fetchDayTicks("MU", "20260710", 100, "C",
+                SESSION_START, new HistoricalRequestBudget(3));
+
+        assertNotNull(result.quoteCoverage());
+        assertEquals(1, result.quoteCoverage().size());
+        assertEquals(T0 + 2, result.quoteCoverage().get(0).fromEpoch());
+        // The terminal second of a capped page is unsafe: the 1000-tick cap may have cut
+        // mid-second, so coverage ends one second earlier.
+        assertEquals(T0 + 2, result.quoteCoverage().get(0).toEpoch());
+        // 1000 size-only raw updates collapse to one price state for the classifier.
+        assertEquals(1, result.quotes().size());
+    }
+
+    @Test
+    void quoteCompressionKeepsOnlyBidAskPriceChanges() {
+        List<HistoricalTickBidAsk> raw = List.of(
+                quote(T0, 6.70, 7.00),
+                quote(T0, 6.70, 7.00),
+                quote(T0 + 1, 6.70, 7.00),
+                quote(T0 + 1, 6.70, 7.05),
+                quote(T0 + 1, 6.70, 7.05),
+                quote(T0 + 2, 6.75, 7.05));
+
+        List<HistoricalTickBidAsk> compressed = IbkrMarketDataService.compressBidAskPriceStates(raw);
+        assertEquals(3, compressed.size());
+        assertEquals(7.00, compressed.get(0).priceAsk());
+        assertEquals(7.05, compressed.get(1).priceAsk());
+        assertEquals(6.75, compressed.get(2).priceBid());
+    }
+
 }

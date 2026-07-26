@@ -19,12 +19,17 @@ import java.time.Instant;
  *   silently dropped. Invariant: buy + sell + unknown + excluded == analyzed volume.
  *
  * tickCoverage: analyzed trade volume (including excluded) ÷ the contract's day volume from
- * the stage-1 scan — the trade-side honesty metric. classifiedShare: the QUOTE-side one —
- * share of non-excluded volume that fell inside quote coverage and was classifiable in
- * principle (stratified sampling spreads the quote budget as islands across the session;
- * see AggressorClassifier.Interval). Pagination caps and timeouts mean the window may
- * not contain every trade; a coverage of 0.6 says "this distribution describes 60% of the
- * day", and downstream analysis must weigh it accordingly.
+ * the stage-1 scan — the trade-side honesty metric. Quote-side coverage is deliberately
+ * split into three metrics so an explicitly requested/sampled interval is never confused
+ * with a trade that actually had a usable prevailing NBBO:
+ *   quoteRequestCoverage       = non-excluded volume inside fetched quote islands.
+ *   quoteMatchCoverage         = non-excluded volume with an actual prior/same-second quote
+ *                                from the SAME island.
+ *   directionalClassifiedShare = non-excluded volume classified BUY/SELL (MID/locked/no-quote
+ *                                remain non-directional).
+ * classifiedShare is retained as a backwards-compatible alias of quoteMatchCoverage.
+ * Pagination caps and timeouts are therefore visible instead of being hidden behind a
+ * misleading "covered" flag.
  *
  * status: OK (complete fetch), PARTIAL (timeout/pagination stall/budget cap — profile
  * describes what arrived), SKIPPED_BUDGET (stage-2 pacing budget exhausted before this
@@ -71,6 +76,9 @@ public record AggressorProfile(
         Long largestBlockVolume,
         Double tickCoverage,
         Double classifiedShare,
+        Double quoteRequestCoverage,
+        Double quoteMatchCoverage,
+        Double directionalClassifiedShare,
         String profileQuality,
         Instant firstTradeAt,
         Instant lastTradeAt,
@@ -101,7 +109,7 @@ public record AggressorProfile(
         return new AggressorProfile(STATUS_SKIPPED_BUDGET, null,
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, QUALITY_INSUFFICIENT, null, null, null, null, null, null);
+                null, null, null, null, null, QUALITY_INSUFFICIENT, null, null, null, null, null, null);
     }
 
     /** Same profile with the OI-delta join attached (records are immutable). */
@@ -115,7 +123,8 @@ public record AggressorProfile(
                 buyNotionalUsd, sellNotionalUsd, vwapBuy, vwapSell,
                 sweepCount, sweepVolume, largestSweepVolume,
                 blockCount, blockVolume, largestBlockVolume,
-                tickCoverage, classifiedShare, profileQuality, firstTradeAt, lastTradeAt,
+                tickCoverage, classifiedShare, quoteRequestCoverage, quoteMatchCoverage,
+                directionalClassifiedShare, profileQuality, firstTradeAt, lastTradeAt,
                 oiDelta, positionInference, positionInferenceConfidence, positionInferenceReason);
     }
 }
