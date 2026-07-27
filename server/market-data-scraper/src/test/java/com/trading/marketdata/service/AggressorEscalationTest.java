@@ -74,8 +74,10 @@ class AggressorEscalationTest {
     private static Fixture fixture() {
         StubIbkr ibkr = new StubIbkr();
         ConcurrentMapCacheManager caches = new ConcurrentMapCacheManager("oiContractDayMemory");
+        CollectorStatusRegistry collectorStatus = new CollectorStatusRegistry();
         OptionHistoricalFlowCollector flow = new OptionHistoricalFlowCollector(
-                new OptionHistoricalTradeCollector(ibkr), new OptionHistoricalQuoteCollector(ibkr)) {
+                new OptionHistoricalTradeCollector(ibkr, collectorStatus),
+                new OptionHistoricalQuoteCollector(ibkr, collectorStatus)) {
             @Override
             public IbkrDayTicks collect(String ticker, String expiry, double strike, String right,
                                         ZonedDateTime sessionStart, HistoricalRequestBudget budget) {
@@ -84,7 +86,7 @@ class AggressorEscalationTest {
         };
         OptionActivityService service = new OptionActivityService(
                 ibkr, null, caches, null, new MarketDataBook(), null,
-                new OptionChainDiscoveryCollector(ibkr, new OptionContractCatalog()),
+                new OptionChainDiscoveryCollector(ibkr, new OptionContractCatalog(), collectorStatus),
                 new OptionCandidateSelector(), flow);
         service.aggressorEnabled = true;
         service.aggressorMaxCandidates = 4;

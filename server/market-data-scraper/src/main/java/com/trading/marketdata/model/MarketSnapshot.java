@@ -18,5 +18,6 @@ public record MarketSnapshot(
         NewsContext newsContext,
         DerivedMetrics derived,
         AuctionData auction,
-        DataQuality dataQuality // additive; only present for Book symbols
+        DataQuality dataQuality, // additive; only present for Book symbols
+        CollectorStatus collectorStatus // process-local operational health; never persisted
 ) {}

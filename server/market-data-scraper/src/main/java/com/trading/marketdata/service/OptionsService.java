@@ -24,6 +24,7 @@ public class OptionsService {
     private final SubscriptionManager subscriptionManager;
     private final OptionActivityService optionActivityService;
     private final BarchartScraper barchartScraper;
+    private final CollectorStatusRegistry collectorStatus;
 
     /** Non-watchlist tickers only: minimum age of the Book's scan result before an
      *  on-demand rescan. Watchlist tickers never rescan inline — the scheduled scanner
@@ -34,11 +35,13 @@ public class OptionsService {
     public OptionsService(MarketDataBook book,
                           SubscriptionManager subscriptionManager,
                           OptionActivityService optionActivityService,
-                          BarchartScraper barchartScraper) {
+                          BarchartScraper barchartScraper,
+                          CollectorStatusRegistry collectorStatus) {
         this.book = book;
         this.subscriptionManager = subscriptionManager;
         this.optionActivityService = optionActivityService;
         this.barchartScraper = barchartScraper;
+        this.collectorStatus = collectorStatus;
     }
 
     public OptionsData getOptions(String ticker) {
@@ -52,6 +55,7 @@ public class OptionsService {
      */
     public OptionsData getOptions(String ticker, boolean forceRefresh) {
         String upper = ticker.toUpperCase();
+        CollectorStatusRegistry.Run snapshotRun = collectorStatus.start(upper, "marketSnapshot");
 
         Double putCallRatio  = null;
         Double ivRank        = null;
@@ -135,6 +139,25 @@ public class OptionsService {
         // deliberately separate from the full-chain maxPain a fallback source may provide;
         // see MaxPain's scope note.
         Double todayMaxPain = com.trading.marketdata.analysis.MaxPain.nearestExpiry(oiProfile);
+
+        java.util.Map<String, Object> snapshotMetrics = java.util.Map.of(
+                "oiLevels", oiProfile.size(),
+                "unusualContracts", unusualActivity.size(),
+                "source", source,
+                "forceRefresh", forceRefresh
+        );
+        if (oiProfile.isEmpty()) snapshotRun.partial(snapshotMetrics, "no OI profile available");
+        else snapshotRun.ok(snapshotMetrics);
+
+        CollectorStatusRegistry.Run oiRun = collectorStatus.start(upper, "openInterest");
+        long oiContracts = oiProfile.size() * 2L;
+        java.util.Map<String, Object> oiMetrics = java.util.Map.of(
+                "levels", oiProfile.size(),
+                "contractsRepresented", oiContracts,
+                "source", source
+        );
+        if (oiProfile.isEmpty()) oiRun.partial(oiMetrics, "no open-interest levels available");
+        else oiRun.ok(oiMetrics);
 
         return new OptionsData(
                 upper,

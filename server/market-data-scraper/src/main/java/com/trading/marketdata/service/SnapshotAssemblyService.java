@@ -2,6 +2,7 @@ package com.trading.marketdata.service;
 
 import com.trading.marketdata.model.AuctionData;
 import com.trading.marketdata.model.DataQuality;
+import com.trading.marketdata.model.CollectorStatus;
 import com.trading.marketdata.model.DerivedMetrics;
 import com.trading.marketdata.model.MarketSnapshot;
 import com.trading.marketdata.model.NewsItem;
@@ -42,6 +43,7 @@ public class SnapshotAssemblyService {
     private final SnapshotPersistenceService persistenceService;
     private final MarketStateService marketStateService;
     private final NewsHistoryService newsHistoryService;
+    private final CollectorStatusRegistry collectorStatusRegistry;
 
     // Virtual thread executor for parallel scraping (moved with the method)
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -56,7 +58,8 @@ public class SnapshotAssemblyService {
                                    IntradayVolumeService intradayVolumeService,
                                    SnapshotPersistenceService persistenceService,
                                    MarketStateService marketStateService,
-                                   NewsHistoryService newsHistoryService) {
+                                   NewsHistoryService newsHistoryService,
+                                   CollectorStatusRegistry collectorStatusRegistry) {
         this.quoteService = quoteService;
         this.optionsService = optionsService;
         this.shortInterestService = shortInterestService;
@@ -68,9 +71,11 @@ public class SnapshotAssemblyService {
         this.persistenceService = persistenceService;
         this.marketStateService = marketStateService;
         this.newsHistoryService = newsHistoryService;
+        this.collectorStatusRegistry = collectorStatusRegistry;
     }
 
     public MarketSnapshot build(String ticker) {
+        CollectorStatusRegistry.Run assemblyRun = collectorStatusRegistry.start(ticker, "snapshotAssembly");
         // Book symbols resolve quote/options/auction synchronously from the in-memory Book
         // (no IBKR request on the read path); the futures still parallelize the scraper-based
         // sources (shorts, news) and the fallback paths of non-Book tickers.
@@ -106,6 +111,14 @@ public class SnapshotAssemblyService {
         List<NewsItem> currentNews = newsFuture.join();
         NewsContext newsContext = newsHistoryService.ingestAndBuild(ticker, currentNews);
 
+        assemblyRun.ok(java.util.Map.of(
+                "newsItems", currentNews.size(),
+                "hasQuote", quote != null,
+                "hasOptions", options != null,
+                "hasShortData", shortData != null
+        ));
+        CollectorStatus collectorStatus = collectorStatusRegistry.snapshot(ticker);
+
         MarketSnapshot snapshot = new MarketSnapshot(
                 ticker,
                 Instant.now(),
@@ -117,7 +130,8 @@ public class SnapshotAssemblyService {
                 newsContext,
                 derived,
                 auctionFuture.join(),
-                quality
+                quality,
+                collectorStatus
         );
 
         persistenceService.persist(snapshot); // @Async, never blocks or fails the caller
