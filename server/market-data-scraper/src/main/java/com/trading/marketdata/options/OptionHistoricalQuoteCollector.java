@@ -21,7 +21,7 @@ public class OptionHistoricalQuoteCollector {
     public IbkrQuoteHistory collect(String ticker, String expiry, double strike, String right,
                                     ZonedDateTime sessionStart, HistoricalRequestBudget budget,
                                     IbkrTradeHistory trades) {
-        CollectorStatusRegistry.Run run = collectorStatus.start(ticker, "quoteHistory");
+        CollectorStatusRegistry.Run run = collectorStatus.start(ticker, "quoteHistory", java.util.List.of("ibkrConnection", "tradeHistory"));
         try {
             IbkrQuoteHistory result = ibkr.fetchDayQuotes(ticker, expiry, strike, right, sessionStart, budget, trades);
             if (result == null) {
@@ -34,7 +34,11 @@ public class OptionHistoricalQuoteCollector {
                     "quotes", result.quotes().size(),
                     "quoteIslands", result.coverage() == null ? 0 : result.coverage().size(),
                     "requestsUsed", result.requestEquivalentsUsed(),
-                    "sampled", sampled
+                    "sampled", sampled,
+                    "itemsRequested", 1,
+                    "itemsProcessed", 1,
+                    "itemsSucceeded", result.quotes().isEmpty() ? 0 : 1,
+                    "itemsFailed", result.quotes().isEmpty() ? 1 : 0
             );
             if (sampled) run.partial(metrics, "quote history sampled in coverage islands");
             else run.ok(metrics);

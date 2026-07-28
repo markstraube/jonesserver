@@ -75,7 +75,7 @@ public class SnapshotAssemblyService {
     }
 
     public MarketSnapshot build(String ticker) {
-        CollectorStatusRegistry.Run assemblyRun = collectorStatusRegistry.start(ticker, "snapshotAssembly");
+        CollectorStatusRegistry.Run assemblyRun = collectorStatusRegistry.start(ticker, "snapshotAssembly", java.util.List.of("marketSnapshot", "news", "shortData"));
         // Book symbols resolve quote/options/auction synchronously from the in-memory Book
         // (no IBKR request on the read path); the futures still parallelize the scraper-based
         // sources (shorts, news) and the fallback paths of non-Book tickers.

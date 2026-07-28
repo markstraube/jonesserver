@@ -37,12 +37,12 @@ public class OptionChainDiscoveryCollector {
 
     public OptionChainSnapshot refresh(String ticker) {
         String symbol = ticker.toUpperCase();
-        CollectorStatusRegistry.Run run = collectorStatus.start(symbol, "chainDiscovery");
+        CollectorStatusRegistry.Run run = collectorStatus.start(symbol, "chainDiscovery", java.util.List.of("ibkrConnection", "underlyingLookup"));
         int changesBefore = catalog.recentChanges(symbol).size();
         try {
             Integer conId = ibkr.fetchConId(symbol);
             if (conId == null) {
-                run.partial(Map.of("contracts", 0), "underlying conId unavailable");
+                run.skipped(Map.of("contracts", 0), "underlying conId unavailable");
                 return catalog.current(symbol);
             }
             IbkrOptionsChainResult chain = ibkr.fetchOptionsChain(symbol, conId);

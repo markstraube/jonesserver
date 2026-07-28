@@ -1,4 +1,4 @@
-# Options collectors v2.7
+# Options collectors v2.8
 
 Adds a process-local `collectorStatus` block to every market snapshot.
 
@@ -14,4 +14,4 @@ Tracked collectors:
 Each entry contains `status`, `lastRun`, `durationMs`, optional `metrics`, and an optional
 message. `systemHealth` summarizes warnings and errors. The status is deliberately not
 persisted in `market_snapshot`: it describes the current process, not historical market data,
-so no database migration is required for v2.7.
+so no database migration is required for v2.8.

@@ -19,7 +19,7 @@ public class OptionHistoricalTradeCollector {
     }
     public IbkrTradeHistory collect(String ticker, String expiry, double strike, String right,
                                     ZonedDateTime sessionStart, HistoricalRequestBudget budget) {
-        CollectorStatusRegistry.Run run = collectorStatus.start(ticker, "tradeHistory");
+        CollectorStatusRegistry.Run run = collectorStatus.start(ticker, "tradeHistory", java.util.List.of("ibkrConnection", "contractCatalog"));
         try {
             IbkrTradeHistory result = ibkr.fetchDayTrades(ticker, expiry, strike, right, sessionStart, budget);
             if (result == null) {
@@ -30,7 +30,11 @@ public class OptionHistoricalTradeCollector {
                     "contract", expiry + " " + strike + " " + right,
                     "trades", result.trades().size(),
                     "requestsUsed", result.requestEquivalentsUsed(),
-                    "partial", result.partial()
+                    "partial", result.partial(),
+                    "itemsRequested", 1,
+                    "itemsProcessed", 1,
+                    "itemsSucceeded", result.trades().isEmpty() ? 0 : 1,
+                    "itemsFailed", result.trades().isEmpty() ? 1 : 0
             );
             if (result.partial()) run.partial(metrics, "trade history did not cover the full session");
             else run.ok(metrics);

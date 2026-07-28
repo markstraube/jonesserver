@@ -55,7 +55,7 @@ public class OptionsService {
      */
     public OptionsData getOptions(String ticker, boolean forceRefresh) {
         String upper = ticker.toUpperCase();
-        CollectorStatusRegistry.Run snapshotRun = collectorStatus.start(upper, "marketSnapshot");
+        CollectorStatusRegistry.Run snapshotRun = collectorStatus.start(upper, "marketSnapshot", java.util.List.of("ibkrConnection", "openInterest"));
 
         Double putCallRatio  = null;
         Double ivRank        = null;
@@ -144,17 +144,25 @@ public class OptionsService {
                 "oiLevels", oiProfile.size(),
                 "unusualContracts", unusualActivity.size(),
                 "source", source,
-                "forceRefresh", forceRefresh
+                "forceRefresh", forceRefresh,
+                "itemsRequested", 1,
+                "itemsProcessed", 1,
+                "itemsSucceeded", oiProfile.isEmpty() ? 0 : 1,
+                "itemsFailed", oiProfile.isEmpty() ? 1 : 0
         );
         if (oiProfile.isEmpty()) snapshotRun.partial(snapshotMetrics, "no OI profile available");
         else snapshotRun.ok(snapshotMetrics);
 
-        CollectorStatusRegistry.Run oiRun = collectorStatus.start(upper, "openInterest");
+        CollectorStatusRegistry.Run oiRun = collectorStatus.start(upper, "openInterest", java.util.List.of("ibkrConnection", "contractCatalog"));
         long oiContracts = oiProfile.size() * 2L;
         java.util.Map<String, Object> oiMetrics = java.util.Map.of(
                 "levels", oiProfile.size(),
                 "contractsRepresented", oiContracts,
-                "source", source
+                "source", source,
+                "itemsRequested", oiContracts,
+                "itemsProcessed", oiContracts,
+                "itemsSucceeded", oiContracts,
+                "itemsFailed", 0
         );
         if (oiProfile.isEmpty()) oiRun.partial(oiMetrics, "no open-interest levels available");
         else oiRun.ok(oiMetrics);

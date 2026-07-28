@@ -206,4 +206,8 @@ public class IbkrConnectionManager {
     public boolean isConnected() {
         return client != null && client.isConnected() && connected.get();
     }
+
+    public String getHost() { return host; }
+    public int getPort() { return port; }
+    public int getClientId() { return clientId; }
 }
