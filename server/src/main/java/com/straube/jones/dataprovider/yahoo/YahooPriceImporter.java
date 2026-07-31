@@ -242,6 +242,24 @@ public class YahooPriceImporter
                     if (dateStr == null || dateStr.isEmpty())
                         continue;
 
+                    if (isMissing(record.path("close")) || isMissing(record.path("open"))
+                                    || isMissing(record.path("high"))
+                                    || isMissing(record.path("low")))
+                    {
+                        // Yahoo liefert für diesen Tag keinen vollständigen OHLC-Datensatz
+                        // (häufig bei Nicht-US-Börsen). Datensatz überspringen statt mit 0.0
+                        // zu überschreiben - ein evtl. bereits vorhandener valider Datensatz
+                        // bleibt dadurch erhalten und der Tag wird beim nächsten Lauf erneut
+                        // (Overlap-Fenster) versucht.
+                        System.err.println("Skipping incomplete OHLC record for symbol " + symbol
+                                        + ", ISIN "
+                                        + isin
+                                        + ", date "
+                                        + dateStr
+                                        + " (missing open/high/low/close)");
+                        continue;
+                    }
+
                     LocalDate date = LocalDate.parse(dateStr, DATE_FORMATTER);
                     long dayCounter = DayCounter.get(date);
 
@@ -257,7 +275,9 @@ public class YahooPriceImporter
                     psInsert.setTimestamp(4, Timestamp.valueOf(date.atStartOfDay()));
                     psInsert.setDouble(5, record.path("open").asDouble());
                     psInsert.setDouble(6, record.path("close").asDouble());
-                    psInsert.setDouble(7, record.path("adjClose").asDouble());
+                    double adjCloseArrayValue = isMissing(record.path("adjClose")) ? record.path("close").asDouble()
+                                    : record.path("adjClose").asDouble();
+                    psInsert.setDouble(7, adjCloseArrayValue);
                     psInsert.setDouble(8, record.path("high").asDouble());
                     psInsert.setDouble(9, record.path("low").asDouble());
                     psInsert.setLong(10, record.path("volume").asLong());
@@ -308,6 +328,24 @@ public class YahooPriceImporter
                         LocalDate date = Instant.ofEpochSecond(ts).atZone(zoneId).toLocalDate();
                         long dayCounter = DayCounter.get(date);
 
+                        if (isMissing(openArr, i) || isMissing(closeArr, i) || isMissing(highArr, i)
+                                        || isMissing(lowArr, i))
+                        {
+                            // Yahoo liefert für diesen Tag keinen vollständigen OHLC-Datensatz
+                            // (häufig bei Nicht-US-Börsen, z.B. fehlender Close-Kurs). Der Tag wird
+                            // übersprungen statt mit 0.0 überschrieben zu werden - ein evtl. bereits
+                            // vorhandener valider Datensatz bleibt dadurch erhalten. Der Overlap
+                            // (siehe MarketDataService.getMaxDayCounterPerSymbol) sorgt dafür, dass
+                            // der Tag bei einem der nächsten Läufe erneut versucht wird.
+                            System.err.println("Skipping incomplete OHLC record for symbol " + symbol
+                                            + ", ISIN "
+                                            + isin
+                                            + ", date "
+                                            + date
+                                            + " (missing open/high/low/close)");
+                            continue;
+                        }
+
                         // Idempotency: Delete existing
                         psDelete.setString(1, symbol);
                         psDelete.setLong(2, dayCounter);
@@ -322,7 +360,8 @@ public class YahooPriceImporter
                         psInsert.setDouble(5, getValue(openArr, i));
                         psInsert.setDouble(6, getValue(closeArr, i));
 
-                        double adjClose = (adjCloseArr != null) ? getValue(adjCloseArr, i)
+                        double adjClose = (adjCloseArr != null && !isMissing(adjCloseArr, i)) ? getValue(adjCloseArr,
+                                                                                                          i)
                                         : getValue(closeArr, i);
                         psInsert.setDouble(7, adjClose);
 
@@ -355,6 +394,27 @@ public class YahooPriceImporter
         if (arr == null || !arr.has(index) || arr.get(index).isNull())
             return 0L;
         return arr.get(index).asLong();
+    }
+
+
+    /**
+     * Prüft, ob ein Werte-Array an der gegebenen Position keinen nutzbaren Wert enthält
+     * (Array fehlt, Index nicht vorhanden oder Wert ist JSON-null). Wird u.a. verwendet,
+     * um Tage mit fehlendem Close-Kurs (typischerweise bei Nicht-US-Börsen) zu erkennen,
+     * damit sie nicht fälschlich mit 0.0 in der Datenbank landen.
+     */
+    private static boolean isMissing(JsonNode arr, int index)
+    {
+        return arr == null || !arr.has(index) || arr.get(index).isNull();
+    }
+
+
+    /**
+     * Prüft, ob ein einzelnes JSON-Feld (alte Array-Struktur) keinen nutzbaren Wert enthält.
+     */
+    private static boolean isMissing(JsonNode node)
+    {
+        return node == null || node.isMissingNode() || node.isNull();
     }
 
 
